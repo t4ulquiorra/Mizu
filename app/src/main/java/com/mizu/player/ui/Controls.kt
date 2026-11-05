@@ -57,8 +57,8 @@ fun VideoControls(
     onTogglePlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
     onSeekPreview: (Boolean) -> Unit,
-    onReplay10: () -> Unit,
-    onForward10: () -> Unit,
+    onPreviousVideo: () -> Unit,
+    onNextVideo: () -> Unit,
     onVolumeChange: (Float) -> Unit,
     onVolumeDrag: (Boolean) -> Unit,
     onClose: () -> Unit,
@@ -200,7 +200,7 @@ fun VideoControls(
             }
         }
 
-        // Center row: replay 10, play/pause (larger), forward 10
+        // Center row: previous video, play/pause (larger), next video
         if (effectiveControlsAlpha > 0f) {
             Row(
                 modifier = Modifier
@@ -209,10 +209,10 @@ fun VideoControls(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(36.dp)
             ) {
-                IconButton(onClick = onReplay10, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onPreviousVideo, modifier = Modifier.size(48.dp)) {
                     Icon(
-                        AppIcons.Replay10,
-                        contentDescription = "Back 10s",
+                        AppIcons.Previous,
+                        contentDescription = "Previous video",
                         tint = Color.White,
                         modifier = Modifier.size(36.dp)
                     )
@@ -225,10 +225,10 @@ fun VideoControls(
                         modifier = Modifier.size(56.dp)
                     )
                 }
-                IconButton(onClick = onForward10, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onNextVideo, modifier = Modifier.size(48.dp)) {
                     Icon(
-                        AppIcons.Forward10,
-                        contentDescription = "Forward 10s",
+                        AppIcons.Next,
+                        contentDescription = "Next video",
                         tint = Color.White,
                         modifier = Modifier.size(36.dp)
                     )
@@ -278,7 +278,7 @@ fun VideoControls(
                     }
                 }
 
-                // Seek bar with smoothly animated thickness (4dp to 12dp) and moving labels
+                // Seek bar with smoothly animated thickness (8dp to 12dp) and moving labels
                 if (seekSectionAlpha > 0f) {
                     Layout(
                         content = {

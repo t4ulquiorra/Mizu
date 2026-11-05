@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 object AppIcons {
     private inline fun icon(
         name: String,
+        viewportWidth: Float = 24f,
+        viewportHeight: Float = 24f,
         fillType: PathFillType = PathFillType.NonZero,
         block: PathBuilder.() -> Unit
     ): ImageVector {
@@ -22,8 +24,8 @@ object AppIcons {
             name = name,
             defaultWidth = 24.dp,
             defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f
+            viewportWidth = viewportWidth,
+            viewportHeight = viewportHeight
         ).apply {
             path(
                 fill = SolidColor(Color.White),
@@ -99,14 +101,12 @@ object AppIcons {
     }
 
     val Brightness: ImageVector = icon("Brightness") {
-        // Sun center circle
         moveTo(12f, 7.5f)
         curveTo(9.51f, 7.5f, 7.5f, 9.51f, 7.5f, 12f)
         curveTo(7.5f, 14.49f, 9.51f, 16.5f, 12f, 16.5f)
         curveTo(14.49f, 16.5f, 16.5f, 14.49f, 16.5f, 12f)
         curveTo(16.5f, 9.51f, 14.49f, 7.5f, 12f, 7.5f)
         close()
-        // Cardinal rays
         moveTo(11f, 1f)
         horizontalLineTo(13f)
         verticalLineTo(4.5f)
@@ -127,7 +127,6 @@ object AppIcons {
         horizontalLineTo(23f)
         verticalLineTo(11f)
         close()
-        // Diagonal rays
         moveTo(4.45f, 3.05f)
         lineTo(3.05f, 4.45f)
         lineTo(5.52f, 6.92f)
@@ -150,99 +149,85 @@ object AppIcons {
         close()
     }
 
-    val Replay10: ImageVector = icon("Replay10") {
-        moveTo(12f, 5f)
-        verticalLineTo(1f)
-        lineTo(7f, 6f)
-        lineToRelative(5f, 5f)
-        verticalLineTo(7f)
-        curveToRelative(3.31f, 0f, 6f, 2.69f, 6f, 6f)
-        reflectiveCurveToRelative(-2.69f, 6f, -6f, 6f)
-        reflectiveCurveToRelative(-6f, -2.69f, -6f, -6f)
-        horizontalLineTo(4f)
-        curveToRelative(0f, 4.42f, 3.58f, 8f, 8f, 8f)
-        reflectiveCurveToRelative(8f, -3.58f, 8f, -8f)
-        reflectiveCurveToRelative(-3.58f, -8f, -8f, -8f)
-        close()
-        moveTo(10.25f, 10.5f)
-        verticalLineToRelative(5f)
-        horizontalLineToRelative(1f)
-        verticalLineToRelative(-5f)
-        close()
-        moveTo(13.75f, 10.5f)
-        curveToRelative(-0.7f, 0f, -1.25f, 0.5f, -1.25f, 1.25f)
-        verticalLineToRelative(2.5f)
-        curveToRelative(0f, 0.75f, 0.55f, 1.25f, 1.25f, 1.25f)
-        reflectiveCurveToRelative(1.25f, -0.5f, 1.25f, -1.25f)
-        verticalLineToRelative(-2.5f)
-        curveToRelative(0f, -0.75f, -0.55f, -1.25f, -1.25f, -1.25f)
-        close()
-        moveTo(14.1f, 14.25f)
-        curveToRelative(0f, 0.25f, -0.15f, 0.45f, -0.35f, 0.45f)
-        reflectiveCurveToRelative(-0.35f, -0.2f, -0.35f, -0.45f)
-        verticalLineToRelative(-2.5f)
-        curveToRelative(0f, -0.25f, 0.15f, -0.45f, 0.35f, -0.45f)
-        reflectiveCurveToRelative(0.35f, 0.2f, 0.35f, 0.45f)
-        verticalLineToRelative(2.5f)
+    val Play: ImageVector = icon("Play", viewportWidth = 84.69f, viewportHeight = 85.42f) {
+        moveTo(79.87f, 50.56f)
+        arcTo(8.79f, 8.79f, 0.0f, false, false, 79.87f, 34.87f)
+        lineTo(12.75f, 0.94f)
+        arcTo(8.79f, 8.79f, 0.0f, false, false, 0.0f, 8.79f)
+        lineTo(0.0f, 76.64f)
+        arcTo(8.79f, 8.79f, 0.0f, false, false, 12.75f, 84.48f)
         close()
     }
 
-    val Forward10: ImageVector = icon("Forward10") {
-        moveTo(12f, 5f)
-        verticalLineTo(1f)
-        lineToRelative(5f, 5f)
-        lineToRelative(-5f, 5f)
-        verticalLineTo(7f)
-        curveToRelative(-3.31f, 0f, -6f, 2.69f, -6f, 6f)
-        reflectiveCurveToRelative(2.69f, 6f, 6f, 6f)
-        reflectiveCurveToRelative(6f, -2.69f, 6f, -6f)
-        horizontalLineToRelative(2f)
-        curveToRelative(0f, 4.42f, -3.58f, 8f, -8f, 8f)
-        reflectiveCurveToRelative(-8f, -3.58f, -8f, -8f)
-        reflectiveCurveToRelative(3.58f, -8f, 8f, -8f)
+    val Pause: ImageVector = icon("Pause", viewportWidth = 70.05f, viewportHeight = 84.84f) {
+        moveTo(8.24f, 0.00f)
+        lineTo(20.87f, 0.00f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 29.11f, 8.24f)
+        lineTo(29.11f, 76.60f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 20.87f, 84.84f)
+        lineTo(8.24f, 84.84f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 0.00f, 76.60f)
+        lineTo(0.00f, 8.24f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 8.24f, 0.00f)
         close()
-        moveTo(10.25f, 10.5f)
-        verticalLineToRelative(5f)
-        horizontalLineToRelative(1f)
-        verticalLineToRelative(-5f)
-        close()
-        moveTo(13.75f, 10.5f)
-        curveToRelative(-0.7f, 0f, -1.25f, 0.5f, -1.25f, 1.25f)
-        verticalLineToRelative(2.5f)
-        curveToRelative(0f, 0.75f, 0.55f, 1.25f, 1.25f, 1.25f)
-        reflectiveCurveToRelative(1.25f, -0.5f, 1.25f, -1.25f)
-        verticalLineToRelative(-2.5f)
-        curveToRelative(0f, -0.75f, -0.55f, -1.25f, -1.25f, -1.25f)
-        close()
-        moveTo(14.1f, 14.25f)
-        curveToRelative(0f, 0.25f, -0.15f, 0.45f, -0.35f, 0.45f)
-        reflectiveCurveToRelative(-0.35f, -0.2f, -0.35f, -0.45f)
-        verticalLineToRelative(-2.5f)
-        curveToRelative(0f, -0.25f, 0.15f, -0.45f, 0.35f, -0.45f)
-        reflectiveCurveToRelative(0.35f, 0.2f, 0.35f, 0.45f)
-        verticalLineToRelative(2.5f)
+        moveTo(49.17f, 0.00f)
+        lineTo(61.80f, 0.00f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 70.04f, 8.24f)
+        lineTo(70.04f, 76.60f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 61.80f, 84.84f)
+        lineTo(49.17f, 84.84f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 40.93f, 76.60f)
+        lineTo(40.93f, 8.24f)
+        arcTo(8.24f, 8.24f, 0.0f, false, true, 49.17f, 0.00f)
         close()
     }
 
-    val Play: ImageVector = icon("Play") {
-        moveTo(8f, 5f)
-        verticalLineToRelative(14f)
-        lineToRelative(11f, -7f)
+    val Previous: ImageVector = icon("Previous", viewportWidth = 97.61f, viewportHeight = 55.25f) {
+        moveTo(2.48f, 31.94f)
+        arcTo(4.99f, 4.99f, 0.0f, false, true, 2.48f, 23.31f)
+        lineTo(41.42f, 0.67f)
+        arcTo(4.99f, 4.99f, 0.0f, false, true, 48.92f, 4.99f)
+        lineTo(48.92f, 50.26f)
+        arcTo(4.99f, 4.99f, 0.0f, false, true, 41.42f, 54.57f)
+        close()
+        moveTo(51.17f, 31.94f)
+        arcTo(4.99f, 4.99f, 0.0f, false, true, 51.17f, 23.31f)
+        lineTo(90.11f, 0.67f)
+        arcTo(4.99f, 4.99f, 0.0f, false, true, 97.61f, 4.99f)
+        lineTo(97.61f, 50.26f)
+        arcTo(4.99f, 4.99f, 0.0f, false, true, 90.11f, 54.57f)
         close()
     }
 
-    val Pause: ImageVector = icon("Pause") {
-        moveTo(6f, 19f)
-        horizontalLineToRelative(4f)
-        verticalLineTo(5f)
-        horizontalLineTo(6f)
-        verticalLineToRelative(14f)
+    val Next: ImageVector = icon("Next", viewportWidth = 97.47f, viewportHeight = 55.30f) {
+        moveTo(95.01f, 31.94f)
+        arcTo(4.97f, 4.97f, 0.0f, false, false, 95.01f, 23.36f)
+        lineTo(56.1f, 0.68f)
+        arcTo(4.97f, 4.97f, 0.0f, false, false, 48.63f, 4.97f)
+        lineTo(48.63f, 50.33f)
+        arcTo(4.97f, 4.97f, 0.0f, false, false, 56.1f, 54.62f)
         close()
-        moveTo(14f, 5f)
-        verticalLineToRelative(14f)
-        horizontalLineToRelative(4f)
-        verticalLineTo(5f)
-        horizontalLineToRelative(-4f)
+        moveTo(46.37f, 31.94f)
+        arcTo(4.97f, 4.97f, 0.0f, false, false, 46.37f, 23.36f)
+        lineTo(7.47f, 0.68f)
+        arcTo(4.97f, 4.97f, 0.0f, false, false, 0.0f, 4.97f)
+        lineTo(0.0f, 50.33f)
+        arcTo(4.97f, 4.97f, 0.0f, false, false, 7.47f, 54.62f)
+        close()
+    }
+
+    val More: ImageVector = icon("More", viewportWidth = 10.05f, viewportHeight = 40.07f) {
+        moveTo(5.02f, 0.00f)
+        arcTo(5.02f, 5.02f, 0.0f, true, true, 5.02f, 10.04f)
+        arcTo(5.02f, 5.02f, 0.0f, true, true, 5.02f, 0.00f)
+        close()
+        moveTo(5.02f, 15.01f)
+        arcTo(5.02f, 5.02f, 0.0f, true, true, 5.02f, 25.05f)
+        arcTo(5.02f, 5.02f, 0.0f, true, true, 5.02f, 15.01f)
+        close()
+        moveTo(5.02f, 30.03f)
+        arcTo(5.02f, 5.02f, 0.0f, true, true, 5.02f, 40.07f)
+        arcTo(5.02f, 5.02f, 0.0f, true, true, 5.02f, 30.03f)
         close()
     }
 
@@ -287,7 +272,6 @@ object AppIcons {
 
     // AudioTrack: vertical waveform
     val AudioTrack: ImageVector = icon("AudioTrack") {
-        // Bar 1
         moveTo(5f, 9f)
         curveTo(5.55f, 9f, 6f, 9.45f, 6f, 10f)
         verticalLineTo(14f)
@@ -296,7 +280,6 @@ object AppIcons {
         verticalLineTo(10f)
         curveTo(4f, 9.45f, 4.45f, 9f, 5f, 9f)
         close()
-        // Bar 2
         moveTo(9f, 5f)
         curveTo(9.55f, 5f, 10f, 5.45f, 10f, 6f)
         verticalLineTo(18f)
@@ -305,7 +288,6 @@ object AppIcons {
         verticalLineTo(6f)
         curveTo(8f, 5.45f, 8.45f, 5f, 9f, 5f)
         close()
-        // Bar 3
         moveTo(13f, 3f)
         curveTo(13.55f, 3f, 14f, 3.45f, 14f, 4f)
         verticalLineTo(20f)
@@ -314,7 +296,6 @@ object AppIcons {
         verticalLineTo(4f)
         curveTo(12f, 3.45f, 12.45f, 3f, 13f, 3f)
         close()
-        // Bar 4
         moveTo(17f, 6f)
         curveTo(17.55f, 6f, 18f, 6.45f, 18f, 7f)
         verticalLineTo(17f)
@@ -323,7 +304,6 @@ object AppIcons {
         verticalLineTo(7f)
         curveTo(16f, 6.45f, 16.45f, 6f, 17f, 6f)
         close()
-        // Bar 5
         moveTo(21f, 9f)
         curveTo(21.55f, 9f, 22f, 9.45f, 22f, 10f)
         verticalLineTo(14f)

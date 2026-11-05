@@ -80,13 +80,17 @@ fun PlayerScreen(
     var isDraggingVolume by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
-    // Swipe gesture states
+    // Swipe and double-tap gesture states
     var isSwipingVolume by remember { mutableStateOf(false) }
     var isSwipingBrightness by remember { mutableStateOf(false) }
     var showVolumeGesture by remember { mutableStateOf(false) }
     var showBrightnessGesture by remember { mutableStateOf(false) }
     var volumeGestureJob by remember { mutableStateOf<Job?>(null) }
     var brightnessGestureJob by remember { mutableStateOf<Job?>(null) }
+
+    var lastTapTime by remember { mutableLongStateOf(0L) }
+    var lastTapIsLeft by remember { mutableStateOf(false) }
+    var singleTapJob by remember { mutableStateOf<Job?>(null) }
 
     val videoTitle = remember(videoUri) { getVideoTitle(context, videoUri) }
 
@@ -211,8 +215,18 @@ fun PlayerScreen(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val startX = down.position.x
                     val startY = down.position.y
-                    val isRightHalf = startX >= size.width / 2f
+                    val screenWidth = size.width.toFloat()
                     val screenHeight = size.height.toFloat()
+
+                    // Safe zones: exclude top 15% (notifications) and bottom 20% (nav bar & seek bar)
+                    val topSafeBound = 0.15f * screenHeight
+                    val bottomSafeBound = 0.80f * screenHeight
+                    val isInVerticalSafeZone = startY in topSafeBound..bottomSafeBound
+
+                    // Horizontal zones: left 35% (brightness / rewind), right 35% (volume / forward), center 30% dead zone
+                    val isLeftZone = startX < 0.35f * screenWidth
+                    val isRightZone = startX > 0.65f * screenWidth
+                    val isSwipeAllowed = isInVerticalSafeZone && (isLeftZone || isRightZone)
 
                     var hasMovedPastSlop = false
                     val touchSlop = viewConfiguration.touchSlop
@@ -240,36 +254,42 @@ fun PlayerScreen(
                                 }
                                 if (absDy > touchSlop && absDy > absDx) {
                                     hasMovedPastSlop = true
-                                    change.consume()
-                                    initialVolumeFraction = volumeFraction
-                                    initialBrightnessFraction = brightnessFraction
-                                    if (isRightHalf) {
-                                        volumeGestureJob?.cancel()
-                                        isSwipingVolume = true
-                                        showVolumeGesture = true
-                                    } else {
-                                        brightnessGestureJob?.cancel()
-                                        isSwipingBrightness = true
-                                        showBrightnessGesture = true
+                                    if (isSwipeAllowed) {
+                                        change.consume()
+                                        singleTapJob?.cancel()
+                                        lastTapTime = 0L
+                                        initialVolumeFraction = volumeFraction
+                                        initialBrightnessFraction = brightnessFraction
+                                        if (isRightZone) {
+                                            volumeGestureJob?.cancel()
+                                            isSwipingVolume = true
+                                            showVolumeGesture = true
+                                        } else if (isLeftZone) {
+                                            brightnessGestureJob?.cancel()
+                                            isSwipingBrightness = true
+                                            showBrightnessGesture = true
+                                        }
                                     }
                                 }
                             } else {
-                                change.consume()
-                                val deltaFraction = -dy / screenHeight
-                                if (isRightHalf) {
-                                    val newVol = (initialVolumeFraction + deltaFraction).coerceIn(0f, 1f)
-                                    volumeFraction = newVol
-                                    if (maxVolume > 0) {
-                                        val streamVol = (newVol * maxVolume).roundToInt()
-                                        audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, streamVol, 0)
-                                    }
-                                } else {
-                                    val newBright = (initialBrightnessFraction + deltaFraction).coerceIn(0.01f, 1f)
-                                    brightnessFraction = newBright
-                                    activity?.window?.let { win ->
-                                        val lp = win.attributes
-                                        lp.screenBrightness = newBright
-                                        win.attributes = lp
+                                if (isSwipeAllowed) {
+                                    change.consume()
+                                    val deltaFraction = -dy / screenHeight
+                                    if (isRightZone) {
+                                        val newVol = (initialVolumeFraction + deltaFraction).coerceIn(0f, 1f)
+                                        volumeFraction = newVol
+                                        if (maxVolume > 0) {
+                                            val streamVol = (newVol * maxVolume).roundToInt()
+                                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, streamVol, 0)
+                                        }
+                                    } else if (isLeftZone) {
+                                        val newBright = (initialBrightnessFraction + deltaFraction).coerceIn(0.01f, 1f)
+                                        brightnessFraction = newBright
+                                        activity?.window?.let { win ->
+                                            val lp = win.attributes
+                                            lp.screenBrightness = newBright
+                                            win.attributes = lp
+                                        }
                                     }
                                 }
                             }
@@ -277,29 +297,60 @@ fun PlayerScreen(
                             // Pointer up
                             if (!hasMovedPastSlop) {
                                 if (!isDraggingSeek && !isDraggingVolume && !change.isConsumed) {
-                                    // Tap toggles controls
-                                    areControlsVisible = !areControlsVisible
-                                    lastInteractionTime = System.currentTimeMillis()
+                                    val isDoubleTapZone = isInVerticalSafeZone && (isLeftZone || isRightZone)
+                                    val now = System.currentTimeMillis()
+
+                                    if (isDoubleTapZone && (now - lastTapTime < 350L) && (lastTapIsLeft == isLeftZone)) {
+                                        // Double-tap in safe side zones: skip 10s without toggling controls
+                                        singleTapJob?.cancel()
+                                        lastTapTime = now
+                                        lastInteractionTime = now
+                                        if (isLeftZone) {
+                                            val target = (exoPlayer.currentPosition - 10_000L).coerceAtLeast(0L)
+                                            exoPlayer.seekTo(target)
+                                        } else {
+                                            val target = (exoPlayer.currentPosition + 10_000L).coerceAtMost(durationMs.coerceAtLeast(0L))
+                                            exoPlayer.seekTo(target)
+                                        }
+                                    } else if (isDoubleTapZone) {
+                                        // First tap in safe side zones: wait briefly for potential second tap
+                                        lastTapTime = now
+                                        lastTapIsLeft = isLeftZone
+                                        singleTapJob?.cancel()
+                                        singleTapJob = coroutineScope.launch {
+                                            delay(250)
+                                            areControlsVisible = !areControlsVisible
+                                            lastInteractionTime = System.currentTimeMillis()
+                                        }
+                                    } else {
+                                        // Tap in dead zone / margins: toggle immediately
+                                        singleTapJob?.cancel()
+                                        lastTapTime = 0L
+                                        areControlsVisible = !areControlsVisible
+                                        lastInteractionTime = now
+                                    }
                                 }
                             } else {
-                                change.consume()
-                                if (isRightHalf) {
-                                    isSwipingVolume = false
-                                    volumeGestureJob?.cancel()
-                                    volumeGestureJob = coroutineScope.launch {
-                                        delay(400)
-                                        showVolumeGesture = false
+                                if (isSwipeAllowed) {
+                                    change.consume()
+                                    if (isRightZone) {
+                                        isSwipingVolume = false
+                                        volumeGestureJob?.cancel()
+                                        volumeGestureJob = coroutineScope.launch {
+                                            delay(400)
+                                            showVolumeGesture = false
+                                        }
+                                    } else if (isLeftZone) {
+                                        isSwipingBrightness = false
+                                        brightnessGestureJob?.cancel()
+                                        brightnessGestureJob = coroutineScope.launch {
+                                            delay(400)
+                                            showBrightnessGesture = false
+                                        }
                                     }
-                                } else {
-                                    isSwipingBrightness = false
-                                    brightnessGestureJob?.cancel()
-                                    brightnessGestureJob = coroutineScope.launch {
-                                        delay(400)
-                                        showBrightnessGesture = false
+                                    if (areControlsVisible) {
+                                        lastInteractionTime = System.currentTimeMillis()
                                     }
-                                }
-                                if (areControlsVisible) {
-                                    lastInteractionTime = System.currentTimeMillis()
                                 }
                             }
                             break
@@ -358,15 +409,13 @@ fun PlayerScreen(
                     isDraggingSeek = dragging
                     if (!dragging) lastInteractionTime = System.currentTimeMillis()
                 },
-                onReplay10 = {
+                onPreviousVideo = {
                     lastInteractionTime = System.currentTimeMillis()
-                    val target = (exoPlayer.currentPosition - 10_000L).coerceAtLeast(0L)
-                    exoPlayer.seekTo(target)
+                    exoPlayer.seekTo(0L)
                 },
-                onForward10 = {
+                onNextVideo = {
                     lastInteractionTime = System.currentTimeMillis()
-                    val target = (exoPlayer.currentPosition + 10_000L).coerceAtMost(durationMs.coerceAtLeast(0L))
-                    exoPlayer.seekTo(target)
+                    exoPlayer.seekTo(0L)
                 },
                 onVolumeChange = { fraction ->
                     volumeFraction = fraction.coerceIn(0f, 1f)
