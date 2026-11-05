@@ -12,10 +12,8 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -165,6 +163,12 @@ fun PlayerScreen(
         onClose()
     }
 
+    val controlsAlpha by animateFloatAsState(
+        targetValue = if (areControlsVisible) 1f else 0f,
+        animationSpec = tween(200),
+        label = "controlsAlpha"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -192,13 +196,19 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Custom Compose overlay controls
-        AnimatedVisibility(
-            visible = areControlsVisible,
-            enter = fadeIn(animationSpec = tween(200)),
-            exit = fadeOut(animationSpec = tween(200))
-        ) {
+        // Dim layer tied directly to controlsAlpha (40% black at alpha 1)
+        if (controlsAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f * controlsAlpha))
+            )
+        }
+
+        // Custom Compose overlay controls driven by controlsAlpha
+        if (controlsAlpha > 0f) {
             VideoControls(
+                controlsAlpha = controlsAlpha,
                 title = videoTitle,
                 isPlaying = isPlaying,
                 currentPositionMs = currentPositionMs,

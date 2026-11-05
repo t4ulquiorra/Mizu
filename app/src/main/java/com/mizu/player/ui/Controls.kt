@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +51,8 @@ fun VideoControls(
     onVolumeDrag: (Boolean) -> Unit,
     onClose: () -> Unit,
     onPip: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    controlsAlpha: Float = 1f
 ) {
     var draggingSeekFraction by remember { mutableStateOf<Float?>(null) }
     var isDraggingVolume by remember { mutableStateOf(false) }
@@ -74,7 +76,8 @@ fun VideoControls(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.TopCenter),
+                .align(Alignment.TopCenter)
+                .graphicsLayer { alpha = controlsAlpha },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -124,7 +127,9 @@ fun VideoControls(
 
         // Center row: replay 10, play/pause (larger), forward 10
         Row(
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .graphicsLayer { alpha = controlsAlpha },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(36.dp)
         ) {
@@ -161,7 +166,9 @@ fun VideoControls(
                 .align(Alignment.BottomCenter)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { alpha = controlsAlpha },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
