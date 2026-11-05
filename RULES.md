@@ -15,3 +15,4 @@
 8. Keep the code small and readable. No dead code.
 9. Every reply is under 10 lines unless I ask for more.
 10. After every successful CI build, download the APK artifact to `/data/data/com.termux/files/home/storage/shared/Mizu/` (using `TMPDIR=/tmp gh run download`) so the user can install it directly.
+11. Professional quality standard: You are the senior developer and designer. The user must never have to micromanage basic visual polish. Every element must be properly proportioned, centered, undistorted (true aspect ratios), smooth in motion (gentle easing, zero jarring snaps), and feel premium by default.
