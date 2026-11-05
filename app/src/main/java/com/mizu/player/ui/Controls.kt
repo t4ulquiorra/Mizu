@@ -1,6 +1,7 @@
 package com.mizu.player.ui
 
 import android.os.Build
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -66,34 +67,49 @@ fun VideoControls(
     modifier: Modifier = Modifier
 ) {
     var draggingSeekFraction by remember { mutableStateOf<Float?>(null) }
+    var lastReleasedSeekFraction by remember { mutableStateOf<Float?>(null) }
     var isDraggingVolume by remember { mutableStateOf(false) }
 
     val isSeeking = draggingSeekFraction != null
+    // Gentle 350ms smooth transition for seeking expand/collapse
     val seekTransition by animateFloatAsState(
         targetValue = if (isSeeking) 1f else 0f,
-        animationSpec = tween(200),
-        label = "seekTransition"
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "seekTransition",
+        finishedListener = {
+            if (!isSeeking) {
+                lastReleasedSeekFraction = null
+            }
+        }
     )
 
     val isSwiping = isSwipingVolume || isSwipingBrightness
     val effectiveControlsAlpha = if (isSwiping) 0f else controlsAlpha
 
-    // Brightness slider alpha: fades in with gesture, fades out 400ms after lift
+    // Brightness slider alpha: gentle fade in (250ms), gentle fade out (450ms)
     val brightnessSliderAlpha by animateFloatAsState(
         targetValue = if (showBrightnessGesture) 1f else 0f,
-        animationSpec = tween(if (showBrightnessGesture) 150 else 400),
+        animationSpec = tween(
+            durationMillis = if (showBrightnessGesture) 250 else 450,
+            easing = FastOutSlowInEasing
+        ),
         label = "brightAlpha"
     )
 
-    // Volume slider alpha: visible if controls are visible (and not swiping brightness) or during volume swipe
+    // Volume slider alpha: visible if controls are visible or during volume swipe
     val targetVolumeAlpha = if (showVolumeGesture || (controlsAlpha > 0f && !isSwipingBrightness)) 1f else 0f
     val volumeSliderAlpha by animateFloatAsState(
         targetValue = targetVolumeAlpha,
-        animationSpec = tween(if (showVolumeGesture || controlsAlpha > 0f) 150 else 400),
+        animationSpec = tween(
+            durationMillis = if (showVolumeGesture || controlsAlpha > 0f) 250 else 450,
+            easing = FastOutSlowInEasing
+        ),
         label = "volAlpha"
     )
 
-    val effectivePositionMs = draggingSeekFraction?.let { (it * durationMs).toLong() } ?: currentPositionMs
+    // Keep position stable during the glide back so there's no visual stutter
+    val activeFraction = draggingSeekFraction ?: if (seekTransition > 0f) lastReleasedSeekFraction else null
+    val effectivePositionMs = activeFraction?.let { (it * durationMs).toLong() } ?: currentPositionMs
     val showHours = durationMs >= 3600_000L
     val elapsedText = TimeFormatter.formatElapsed(effectivePositionMs, showHours)
     val remainingText = TimeFormatter.formatRemaining(effectivePositionMs, durationMs, showHours)
@@ -201,6 +217,7 @@ fun VideoControls(
         }
 
         // Center row: previous video, play/pause (larger), next video
+        // Properly spaced with unconstrained sizing and no distorted scaling
         if (effectiveControlsAlpha > 0f) {
             Row(
                 modifier = Modifier
@@ -217,7 +234,7 @@ fun VideoControls(
                         modifier = Modifier.size(36.dp)
                     )
                 }
-                IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(56.dp)) {
+                IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(64.dp)) {
                     Icon(
                         if (isPlaying) AppIcons.Pause else AppIcons.Play,
                         contentDescription = if (isPlaying) "Pause" else "Play",
@@ -237,7 +254,8 @@ fun VideoControls(
         }
 
         // Bottom section: title & extra buttons row, then seek bar
-        val seekSectionAlpha = if (isSeeking) 1f else if (isSwiping) 0f else controlsAlpha
+        // seekSectionAlpha stays smoothly visible during seeking and the entire glide back
+        val seekSectionAlpha = if (isSeeking || seekTransition > 0f) 1f else if (isSwiping) 0f else controlsAlpha
         if (effectiveControlsAlpha > 0f || seekSectionAlpha > 0f) {
             Column(
                 modifier = Modifier
@@ -294,13 +312,17 @@ fun VideoControls(
                                         onSeekPreview(true)
                                     }
                                     draggingSeekFraction = fraction
+                                    lastReleasedSeekFraction = fraction
                                 },
                                 onValueChangeStarted = {
                                     onSeekPreview(true)
                                     draggingSeekFraction = sliderProgress
+                                    lastReleasedSeekFraction = sliderProgress
                                 },
                                 onValueChangeFinished = {
-                                    val targetMs = ((draggingSeekFraction ?: sliderProgress) * durationMs).toLong()
+                                    val finalFraction = draggingSeekFraction ?: sliderProgress
+                                    lastReleasedSeekFraction = finalFraction
+                                    val targetMs = (finalFraction * durationMs).toLong()
                                     onSeek(targetMs)
                                     draggingSeekFraction = null
                                     onSeekPreview(false)

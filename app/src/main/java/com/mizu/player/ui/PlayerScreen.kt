@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -202,7 +203,7 @@ fun PlayerScreen(
     val targetControlsAlpha = if (areControlsVisible && !isDraggingSeek && !isSwiping) 1f else 0f
     val controlsAlpha by animateFloatAsState(
         targetValue = targetControlsAlpha,
-        animationSpec = tween(200),
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "controlsAlpha"
     )
 
