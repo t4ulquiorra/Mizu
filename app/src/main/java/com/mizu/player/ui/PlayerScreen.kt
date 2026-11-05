@@ -15,8 +15,8 @@ import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -27,9 +27,11 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -43,8 +45,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @OptIn(UnstableApi::class)
@@ -56,6 +60,7 @@ fun PlayerScreen(
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
 
     // Set up ExoPlayer
     val exoPlayer = remember(videoUri) {
@@ -75,6 +80,14 @@ fun PlayerScreen(
     var isDraggingVolume by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
+    // Swipe gesture states
+    var isSwipingVolume by remember { mutableStateOf(false) }
+    var isSwipingBrightness by remember { mutableStateOf(false) }
+    var showVolumeGesture by remember { mutableStateOf(false) }
+    var showBrightnessGesture by remember { mutableStateOf(false) }
+    var volumeGestureJob by remember { mutableStateOf<Job?>(null) }
+    var brightnessGestureJob by remember { mutableStateOf<Job?>(null) }
+
     val videoTitle = remember(videoUri) { getVideoTitle(context, videoUri) }
 
     // Audio volume management
@@ -83,6 +96,24 @@ fun PlayerScreen(
     var volumeFraction by remember {
         val current = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 1
         mutableFloatStateOf(if (maxVolume > 0) current.toFloat() / maxVolume.toFloat() else 1f)
+    }
+
+    // App window brightness management (defaults to current or 0.5f)
+    var brightnessFraction by remember {
+        val winBright = activity?.window?.attributes?.screenBrightness ?: -1f
+        mutableFloatStateOf(
+            if (winBright in 0.01f..1.0f) winBright
+            else {
+                try {
+                    android.provider.Settings.System.getInt(
+                        context.contentResolver,
+                        android.provider.Settings.System.SCREEN_BRIGHTNESS
+                    ) / 255f
+                } catch (_: Exception) {
+                    0.5f
+                }
+            }
+        )
     }
 
     // Lock orientation, hide system bars, keep screen on while player is active
@@ -163,7 +194,8 @@ fun PlayerScreen(
         onClose()
     }
 
-    val targetControlsAlpha = if (areControlsVisible && !isDraggingSeek) 1f else 0f
+    val isSwiping = isSwipingVolume || isSwipingBrightness
+    val targetControlsAlpha = if (areControlsVisible && !isDraggingSeek && !isSwiping) 1f else 0f
     val controlsAlpha by animateFloatAsState(
         targetValue = targetControlsAlpha,
         animationSpec = tween(200),
@@ -174,12 +206,93 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                areControlsVisible = !areControlsVisible
-                lastInteractionTime = System.currentTimeMillis()
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val startX = down.position.x
+                    val startY = down.position.y
+                    val isRightHalf = startX >= size.width / 2f
+                    val screenHeight = size.height.toFloat()
+
+                    var hasMovedPastSlop = false
+                    val touchSlop = viewConfiguration.touchSlop
+
+                    var initialVolumeFraction = volumeFraction
+                    var initialBrightnessFraction = brightnessFraction
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+
+                        if (change.pressed) {
+                            val dy = change.position.y - startY
+                            if (!hasMovedPastSlop) {
+                                if (kotlin.math.abs(dy) > touchSlop) {
+                                    hasMovedPastSlop = true
+                                    change.consume()
+                                    initialVolumeFraction = volumeFraction
+                                    initialBrightnessFraction = brightnessFraction
+                                    if (isRightHalf) {
+                                        volumeGestureJob?.cancel()
+                                        isSwipingVolume = true
+                                        showVolumeGesture = true
+                                    } else {
+                                        brightnessGestureJob?.cancel()
+                                        isSwipingBrightness = true
+                                        showBrightnessGesture = true
+                                    }
+                                }
+                            } else {
+                                change.consume()
+                                val deltaFraction = -dy / screenHeight
+                                if (isRightHalf) {
+                                    val newVol = (initialVolumeFraction + deltaFraction).coerceIn(0f, 1f)
+                                    volumeFraction = newVol
+                                    if (maxVolume > 0) {
+                                        val streamVol = (newVol * maxVolume).roundToInt()
+                                        audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, streamVol, 0)
+                                    }
+                                } else {
+                                    val newBright = (initialBrightnessFraction + deltaFraction).coerceIn(0.01f, 1f)
+                                    brightnessFraction = newBright
+                                    activity?.window?.let { win ->
+                                        val lp = win.attributes
+                                        lp.screenBrightness = newBright
+                                        win.attributes = lp
+                                    }
+                                }
+                            }
+                        } else {
+                            // Pointer up
+                            if (!hasMovedPastSlop) {
+                                // Tap toggles controls
+                                areControlsVisible = !areControlsVisible
+                                lastInteractionTime = System.currentTimeMillis()
+                            } else {
+                                change.consume()
+                                if (isRightHalf) {
+                                    isSwipingVolume = false
+                                    volumeGestureJob?.cancel()
+                                    volumeGestureJob = coroutineScope.launch {
+                                        delay(400)
+                                        showVolumeGesture = false
+                                    }
+                                } else {
+                                    isSwipingBrightness = false
+                                    brightnessGestureJob?.cancel()
+                                    brightnessGestureJob = coroutineScope.launch {
+                                        delay(400)
+                                        showBrightnessGesture = false
+                                    }
+                                }
+                                if (areControlsVisible) {
+                                    lastInteractionTime = System.currentTimeMillis()
+                                }
+                            }
+                            break
+                        }
+                    }
+                }
             }
     ) {
         // PlayerView used strictly as video surface with built-in controls disabled
@@ -197,8 +310,8 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Dim layer tied directly to controlsAlpha (40% black at alpha 1)
-        if (controlsAlpha > 0f) {
+        // Dim layer tied directly to controlsAlpha (40% black at alpha 1, no dim during swipe gestures)
+        if (controlsAlpha > 0f && !isSwiping) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -206,15 +319,20 @@ fun PlayerScreen(
             )
         }
 
-        // Custom Compose overlay controls driven by controlsAlpha
-        if (controlsAlpha > 0f || isDraggingSeek) {
+        // Custom Compose overlay controls driven by controlsAlpha and gesture states
+        if (controlsAlpha > 0f || isDraggingSeek || showVolumeGesture || showBrightnessGesture) {
             VideoControls(
-                controlsAlpha = controlsAlpha,
                 title = videoTitle,
                 isPlaying = isPlaying,
                 currentPositionMs = currentPositionMs,
                 durationMs = durationMs,
                 volumeFraction = volumeFraction,
+                brightnessFraction = brightnessFraction,
+                isSwipingVolume = isSwipingVolume,
+                isSwipingBrightness = isSwipingBrightness,
+                showVolumeGesture = showVolumeGesture,
+                showBrightnessGesture = showBrightnessGesture,
+                controlsAlpha = controlsAlpha,
                 onTogglePlayPause = {
                     lastInteractionTime = System.currentTimeMillis()
                     if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()

@@ -48,6 +48,12 @@ fun VideoControls(
     currentPositionMs: Long,
     durationMs: Long,
     volumeFraction: Float,
+    brightnessFraction: Float,
+    isSwipingVolume: Boolean,
+    isSwipingBrightness: Boolean,
+    showVolumeGesture: Boolean,
+    showBrightnessGesture: Boolean,
+    controlsAlpha: Float,
     onTogglePlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
     onSeekPreview: (Boolean) -> Unit,
@@ -57,8 +63,7 @@ fun VideoControls(
     onVolumeDrag: (Boolean) -> Unit,
     onClose: () -> Unit,
     onPip: () -> Unit,
-    modifier: Modifier = Modifier,
-    controlsAlpha: Float = 1f
+    modifier: Modifier = Modifier
 ) {
     var draggingSeekFraction by remember { mutableStateOf<Float?>(null) }
     var isDraggingVolume by remember { mutableStateOf(false) }
@@ -68,6 +73,24 @@ fun VideoControls(
         targetValue = if (isSeeking) 1f else 0f,
         animationSpec = tween(200),
         label = "seekTransition"
+    )
+
+    val isSwiping = isSwipingVolume || isSwipingBrightness
+    val effectiveControlsAlpha = if (isSwiping) 0f else controlsAlpha
+
+    // Brightness slider alpha: fades in with gesture, fades out 400ms after lift
+    val brightnessSliderAlpha by animateFloatAsState(
+        targetValue = if (showBrightnessGesture) 1f else 0f,
+        animationSpec = tween(if (showBrightnessGesture) 150 else 400),
+        label = "brightAlpha"
+    )
+
+    // Volume slider alpha: visible if controls are visible (and not swiping brightness) or during volume swipe
+    val targetVolumeAlpha = if (showVolumeGesture || (controlsAlpha > 0f && !isSwipingBrightness)) 1f else 0f
+    val volumeSliderAlpha by animateFloatAsState(
+        targetValue = targetVolumeAlpha,
+        animationSpec = tween(if (showVolumeGesture || controlsAlpha > 0f) 150 else 400),
+        label = "volAlpha"
     )
 
     val effectivePositionMs = draggingSeekFraction?.let { (it * durationMs).toLong() } ?: currentPositionMs
@@ -85,206 +108,255 @@ fun VideoControls(
             .safeDrawingPadding()
             .padding(16.dp)
     ) {
-        // Top row: close, pip (left) and volume slider (right)
+        // Top row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .graphicsLayer { alpha = controlsAlpha },
+                .align(Alignment.TopCenter),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
-                    Icon(AppIcons.Close, contentDescription = "Close", tint = Color.White)
+            // Top-left: Brightness slider (only during left swipe) OR Close & PiP
+            Box(contentAlignment = Alignment.CenterStart) {
+                // Brightness slider (sun icon + matching horizontal slider in same style)
+                if (brightnessSliderAlpha > 0f) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .graphicsLayer { alpha = brightnessSliderAlpha }
+                    ) {
+                        Icon(
+                            AppIcons.Brightness,
+                            contentDescription = "Brightness",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        MizuSlider(
+                            value = brightnessFraction,
+                            onValueChange = {},
+                            enabled = false,
+                            trackHeight = 4.dp,
+                            thumbRadius = 5.dp,
+                            modifier = Modifier
+                                .width(110.dp)
+                                .height(48.dp)
+                        )
+                    }
                 }
-                // PiP is available on Android 8+ (API 26+)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    IconButton(onClick = onPip, modifier = Modifier.size(48.dp)) {
-                        Icon(AppIcons.Pip, contentDescription = "Picture in Picture", tint = Color.White)
+
+                // Close and PiP buttons (hidden during brightness swipe or swipe gestures)
+                if (effectiveControlsAlpha > 0f && !showBrightnessGesture) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.graphicsLayer { alpha = effectiveControlsAlpha }
+                    ) {
+                        IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
+                            Icon(AppIcons.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            IconButton(onClick = onPip, modifier = Modifier.size(48.dp)) {
+                                Icon(AppIcons.Pip, contentDescription = "Picture in Picture", tint = Color.White)
+                            }
+                        }
                     }
                 }
             }
 
-            // Volume control
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Icon(
-                    AppIcons.Volume,
-                    contentDescription = "Volume",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                MizuSlider(
-                    value = volumeFraction,
-                    onValueChange = onVolumeChange,
-                    onValueChangeStarted = {
-                        isDraggingVolume = true
-                        onVolumeDrag(true)
-                    },
-                    onValueChangeFinished = {
-                        isDraggingVolume = false
-                        onVolumeDrag(false)
-                    },
-                    trackHeight = 4.dp,
-                    thumbRadius = 5.dp,
+            // Top-right: Volume slider
+            if (volumeSliderAlpha > 0f) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .width(110.dp)
-                        .height(48.dp)
-                )
+                        .padding(end = 8.dp)
+                        .graphicsLayer { alpha = volumeSliderAlpha }
+                ) {
+                    Icon(
+                        AppIcons.Volume,
+                        contentDescription = "Volume",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    MizuSlider(
+                        value = volumeFraction,
+                        onValueChange = onVolumeChange,
+                        onValueChangeStarted = {
+                            isDraggingVolume = true
+                            onVolumeDrag(true)
+                        },
+                        onValueChangeFinished = {
+                            isDraggingVolume = false
+                            onVolumeDrag(false)
+                        },
+                        trackHeight = 4.dp,
+                        thumbRadius = 5.dp,
+                        modifier = Modifier
+                            .width(110.dp)
+                            .height(48.dp)
+                    )
+                }
             }
         }
 
         // Center row: replay 10, play/pause (larger), forward 10
-        Row(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .graphicsLayer { alpha = controlsAlpha },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(36.dp)
-        ) {
-            IconButton(onClick = onReplay10, modifier = Modifier.size(48.dp)) {
-                Icon(
-                    AppIcons.Replay10,
-                    contentDescription = "Back 10s",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-            IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(56.dp)) {
-                Icon(
-                    if (isPlaying) AppIcons.Pause else AppIcons.Play,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.White,
-                    modifier = Modifier.size(56.dp)
-                )
-            }
-            IconButton(onClick = onForward10, modifier = Modifier.size(48.dp)) {
-                Icon(
-                    AppIcons.Forward10,
-                    contentDescription = "Forward 10s",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
-                )
+        if (effectiveControlsAlpha > 0f) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .graphicsLayer { alpha = effectiveControlsAlpha },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(36.dp)
+            ) {
+                IconButton(onClick = onReplay10, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        AppIcons.Replay10,
+                        contentDescription = "Back 10s",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+                IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(56.dp)) {
+                    Icon(
+                        if (isPlaying) AppIcons.Pause else AppIcons.Play,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(56.dp)
+                    )
+                }
+                IconButton(onClick = onForward10, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        AppIcons.Forward10,
+                        contentDescription = "Forward 10s",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
         }
 
         // Bottom section: title & extra buttons row, then seek bar
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-        ) {
-            Row(
+        val seekSectionAlpha = if (isSwiping) 0f else if (isSeeking) 1f else controlsAlpha
+        if (effectiveControlsAlpha > 0f || seekSectionAlpha > 0f) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .graphicsLayer { alpha = controlsAlpha },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .align(Alignment.BottomCenter)
             ) {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp, end = 16.dp)
-                )
-                // Visual only buttons for Step 1
-                Row {
-                    IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
-                        Icon(AppIcons.Subtitles, contentDescription = "Subtitles", tint = Color.White)
-                    }
-                    IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
-                        Icon(AppIcons.AudioTrack, contentDescription = "Audio track", tint = Color.White)
-                    }
-                    IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
-                        Icon(AppIcons.Speed, contentDescription = "Playback speed", tint = Color.White)
+                if (effectiveControlsAlpha > 0f) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = effectiveControlsAlpha },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = title,
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp, end = 16.dp)
+                        )
+                        // Visual only buttons for Step 1
+                        Row {
+                            IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
+                                Icon(AppIcons.Subtitles, contentDescription = "Subtitles", tint = Color.White)
+                            }
+                            IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
+                                Icon(AppIcons.AudioTrack, contentDescription = "Audio track", tint = Color.White)
+                            }
+                            IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
+                                Icon(AppIcons.Speed, contentDescription = "Playback speed", tint = Color.White)
+                            }
+                        }
                     }
                 }
-            }
 
-            // Seek bar with smoothly animated thickness (4dp to 12dp) and moving labels
-            Layout(
-                content = {
-                    Text(
-                        text = elapsedText,
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                    MizuSlider(
-                        value = sliderProgress,
-                        onValueChange = { fraction ->
-                            if (draggingSeekFraction == null) {
-                                onSeekPreview(true)
-                            }
-                            draggingSeekFraction = fraction
+                // Seek bar with smoothly animated thickness (4dp to 12dp) and moving labels
+                if (seekSectionAlpha > 0f) {
+                    Layout(
+                        content = {
+                            Text(
+                                text = elapsedText,
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
+                            MizuSlider(
+                                value = sliderProgress,
+                                onValueChange = { fraction ->
+                                    if (draggingSeekFraction == null) {
+                                        onSeekPreview(true)
+                                    }
+                                    draggingSeekFraction = fraction
+                                },
+                                onValueChangeStarted = {
+                                    onSeekPreview(true)
+                                    draggingSeekFraction = sliderProgress
+                                },
+                                onValueChangeFinished = {
+                                    val targetMs = ((draggingSeekFraction ?: sliderProgress) * durationMs).toLong()
+                                    onSeek(targetMs)
+                                    draggingSeekFraction = null
+                                    onSeekPreview(false)
+                                },
+                                enabled = durationMs > 0,
+                                trackHeight = (4f + 8f * seekTransition).dp,
+                                thumbRadius = 6.dp,
+                                modifier = Modifier.height(48.dp)
+                            )
+                            Text(
+                                text = remainingText,
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
                         },
-                        onValueChangeStarted = {
-                            onSeekPreview(true)
-                            draggingSeekFraction = sliderProgress
-                        },
-                        onValueChangeFinished = {
-                            val targetMs = ((draggingSeekFraction ?: sliderProgress) * durationMs).toLong()
-                            onSeek(targetMs)
-                            draggingSeekFraction = null
-                            onSeekPreview(false)
-                        },
-                        enabled = durationMs > 0,
-                        trackHeight = (4f + 8f * seekTransition).dp,
-                        thumbRadius = 6.dp,
-                        modifier = Modifier.height(48.dp)
-                    )
-                    Text(
-                        text = remainingText,
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            ) { measurables, constraints ->
-                val gapPx = 8.dp.roundToPx()
-                val gapBelowPx = 4.dp.roundToPx()
-                val sliderHeightPx = 48.dp.roundToPx()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .graphicsLayer { alpha = seekSectionAlpha }
+                    ) { measurables, constraints ->
+                        val gapPx = 8.dp.roundToPx()
+                        val gapBelowPx = 4.dp.roundToPx()
+                        val sliderHeightPx = 48.dp.roundToPx()
 
-                val elapsedPlaceable = measurables[0].measure(constraints.copy(minWidth = 0, minHeight = 0))
-                val remainingPlaceable = measurables[2].measure(constraints.copy(minWidth = 0, minHeight = 0))
+                        val elapsedPlaceable = measurables[0].measure(constraints.copy(minWidth = 0, minHeight = 0))
+                        val remainingPlaceable = measurables[2].measure(constraints.copy(minWidth = 0, minHeight = 0))
 
-                val fullWidth = constraints.maxWidth
-                val normalSliderWidth = (fullWidth - elapsedPlaceable.width - remainingPlaceable.width - 2 * gapPx).coerceAtLeast(0)
-                val currentSliderWidth = (normalSliderWidth + (fullWidth - normalSliderWidth) * seekTransition).roundToInt()
+                        val fullWidth = constraints.maxWidth
+                        val normalSliderWidth = (fullWidth - elapsedPlaceable.width - remainingPlaceable.width - 2 * gapPx).coerceAtLeast(0)
+                        val currentSliderWidth = (normalSliderWidth + (fullWidth - normalSliderWidth) * seekTransition).roundToInt()
 
-                val sliderPlaceable = measurables[1].measure(
-                    Constraints.fixed(width = currentSliderWidth, height = sliderHeightPx)
-                )
+                        val sliderPlaceable = measurables[1].measure(
+                            Constraints.fixed(width = currentSliderWidth, height = sliderHeightPx)
+                        )
 
-                val labelMaxHeight = maxOf(elapsedPlaceable.height, remainingPlaceable.height)
-                val normalHeight = sliderHeightPx
-                val seekingHeight = sliderHeightPx + gapBelowPx + labelMaxHeight
-                val totalHeight = (normalHeight + (seekingHeight - normalHeight) * seekTransition).roundToInt()
+                        val labelMaxHeight = maxOf(elapsedPlaceable.height, remainingPlaceable.height)
+                        val normalHeight = sliderHeightPx
+                        val seekingHeight = sliderHeightPx + gapBelowPx + labelMaxHeight
+                        val totalHeight = (normalHeight + (seekingHeight - normalHeight) * seekTransition).roundToInt()
 
-                layout(fullWidth, totalHeight) {
-                    val sliderX = ((elapsedPlaceable.width + gapPx) * (1f - seekTransition)).roundToInt()
-                    sliderPlaceable.placeRelative(sliderX, 0)
+                        layout(fullWidth, totalHeight) {
+                            val sliderX = ((elapsedPlaceable.width + gapPx) * (1f - seekTransition)).roundToInt()
+                            sliderPlaceable.placeRelative(sliderX, 0)
 
-                    val normalElapsedY = (sliderHeightPx - elapsedPlaceable.height) / 2
-                    val seekingElapsedY = sliderHeightPx + gapBelowPx
-                    val elapsedY = (normalElapsedY + (seekingElapsedY - normalElapsedY) * seekTransition).roundToInt()
-                    elapsedPlaceable.placeRelative(0, elapsedY)
+                            val normalElapsedY = (sliderHeightPx - elapsedPlaceable.height) / 2
+                            val seekingElapsedY = sliderHeightPx + gapBelowPx
+                            val elapsedY = (normalElapsedY + (seekingElapsedY - normalElapsedY) * seekTransition).roundToInt()
+                            elapsedPlaceable.placeRelative(0, elapsedY)
 
-                    val normalRemainingY = (sliderHeightPx - remainingPlaceable.height) / 2
-                    val seekingRemainingY = sliderHeightPx + gapBelowPx
-                    val remainingY = (normalRemainingY + (seekingRemainingY - normalRemainingY) * seekTransition).roundToInt()
-                    val remainingX = fullWidth - remainingPlaceable.width
-                    remainingPlaceable.placeRelative(remainingX, remainingY)
+                            val normalRemainingY = (sliderHeightPx - remainingPlaceable.height) / 2
+                            val seekingRemainingY = sliderHeightPx + gapBelowPx
+                            val remainingY = (normalRemainingY + (seekingRemainingY - normalRemainingY) * seekTransition).roundToInt()
+                            val remainingX = fullWidth - remainingPlaceable.width
+                            remainingPlaceable.placeRelative(remainingX, remainingY)
+                        }
+                    }
                 }
             }
         }
