@@ -14,3 +14,4 @@
 7. Keep all icons in AppIcons.kt only, so the icon set can be swapped later.
 8. Keep the code small and readable. No dead code.
 9. Every reply is under 10 lines unless I ask for more.
+10. After every successful CI build, download the APK artifact to `/data/data/com.termux/files/home/storage/shared/Mizu/` (using `TMPDIR=/tmp gh run download`) so the user can install it directly.
