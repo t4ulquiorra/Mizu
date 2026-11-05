@@ -163,8 +163,9 @@ fun PlayerScreen(
         onClose()
     }
 
+    val targetControlsAlpha = if (areControlsVisible && !isDraggingSeek) 1f else 0f
     val controlsAlpha by animateFloatAsState(
-        targetValue = if (areControlsVisible) 1f else 0f,
+        targetValue = targetControlsAlpha,
         animationSpec = tween(200),
         label = "controlsAlpha"
     )
@@ -206,7 +207,7 @@ fun PlayerScreen(
         }
 
         // Custom Compose overlay controls driven by controlsAlpha
-        if (controlsAlpha > 0f) {
+        if (controlsAlpha > 0f || isDraggingSeek) {
             VideoControls(
                 controlsAlpha = controlsAlpha,
                 title = videoTitle,

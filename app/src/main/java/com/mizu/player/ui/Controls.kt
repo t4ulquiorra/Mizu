@@ -1,6 +1,8 @@
 package com.mizu.player.ui
 
 import android.os.Build
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -25,11 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mizu.player.util.TimeFormatter
+import kotlin.math.roundToInt
 
 /**
  * Overlay controls for video playback.
@@ -56,6 +62,13 @@ fun VideoControls(
 ) {
     var draggingSeekFraction by remember { mutableStateOf<Float?>(null) }
     var isDraggingVolume by remember { mutableStateOf(false) }
+
+    val isSeeking = draggingSeekFraction != null
+    val seekTransition by animateFloatAsState(
+        targetValue = if (isSeeking) 1f else 0f,
+        animationSpec = tween(200),
+        label = "seekTransition"
+    )
 
     val effectivePositionMs = draggingSeekFraction?.let { (it * durationMs).toLong() } ?: currentPositionMs
     val showHours = durationMs >= 3600_000L
@@ -197,48 +210,82 @@ fun VideoControls(
                 }
             }
 
-            // Seek bar with elapsed and remaining timestamps
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = elapsedText,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-                MizuSlider(
-                    value = sliderProgress,
-                    onValueChange = { fraction ->
-                        if (draggingSeekFraction == null) {
+            // Seek bar with smoothly animated thickness (4dp to 12dp) and moving labels
+            Layout(
+                content = {
+                    Text(
+                        text = elapsedText,
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                    MizuSlider(
+                        value = sliderProgress,
+                        onValueChange = { fraction ->
+                            if (draggingSeekFraction == null) {
+                                onSeekPreview(true)
+                            }
+                            draggingSeekFraction = fraction
+                        },
+                        onValueChangeStarted = {
                             onSeekPreview(true)
-                        }
-                        draggingSeekFraction = fraction
-                    },
-                    onValueChangeStarted = {
-                        onSeekPreview(true)
-                    },
-                    onValueChangeFinished = {
-                        val targetMs = ((draggingSeekFraction ?: sliderProgress) * durationMs).toLong()
-                        onSeek(targetMs)
-                        draggingSeekFraction = null
-                        onSeekPreview(false)
-                    },
-                    enabled = durationMs > 0,
-                    trackHeight = 4.dp,
-                    thumbRadius = 6.dp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .padding(horizontal = 8.dp)
+                            draggingSeekFraction = sliderProgress
+                        },
+                        onValueChangeFinished = {
+                            val targetMs = ((draggingSeekFraction ?: sliderProgress) * durationMs).toLong()
+                            onSeek(targetMs)
+                            draggingSeekFraction = null
+                            onSeekPreview(false)
+                        },
+                        enabled = durationMs > 0,
+                        trackHeight = (4f + 8f * seekTransition).dp,
+                        thumbRadius = 6.dp,
+                        modifier = Modifier.height(48.dp)
+                    )
+                    Text(
+                        text = remainingText,
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) { measurables, constraints ->
+                val gapPx = 8.dp.roundToPx()
+                val gapBelowPx = 4.dp.roundToPx()
+                val sliderHeightPx = 48.dp.roundToPx()
+
+                val elapsedPlaceable = measurables[0].measure(constraints.copy(minWidth = 0, minHeight = 0))
+                val remainingPlaceable = measurables[2].measure(constraints.copy(minWidth = 0, minHeight = 0))
+
+                val fullWidth = constraints.maxWidth
+                val normalSliderWidth = (fullWidth - elapsedPlaceable.width - remainingPlaceable.width - 2 * gapPx).coerceAtLeast(0)
+                val currentSliderWidth = (normalSliderWidth + (fullWidth - normalSliderWidth) * seekTransition).roundToInt()
+
+                val sliderPlaceable = measurables[1].measure(
+                    Constraints.fixed(width = currentSliderWidth, height = sliderHeightPx)
                 )
-                Text(
-                    text = remainingText,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
+
+                val labelMaxHeight = maxOf(elapsedPlaceable.height, remainingPlaceable.height)
+                val normalHeight = sliderHeightPx
+                val seekingHeight = sliderHeightPx + gapBelowPx + labelMaxHeight
+                val totalHeight = (normalHeight + (seekingHeight - normalHeight) * seekTransition).roundToInt()
+
+                layout(fullWidth, totalHeight) {
+                    val sliderX = ((elapsedPlaceable.width + gapPx) * (1f - seekTransition)).roundToInt()
+                    sliderPlaceable.placeRelative(sliderX, 0)
+
+                    val normalElapsedY = (sliderHeightPx - elapsedPlaceable.height) / 2
+                    val seekingElapsedY = sliderHeightPx + gapBelowPx
+                    val elapsedY = (normalElapsedY + (seekingElapsedY - normalElapsedY) * seekTransition).roundToInt()
+                    elapsedPlaceable.placeRelative(0, elapsedY)
+
+                    val normalRemainingY = (sliderHeightPx - remainingPlaceable.height) / 2
+                    val seekingRemainingY = sliderHeightPx + gapBelowPx
+                    val remainingY = (normalRemainingY + (seekingRemainingY - normalRemainingY) * seekTransition).roundToInt()
+                    val remainingX = fullWidth - remainingPlaceable.width
+                    remainingPlaceable.placeRelative(remainingX, remainingY)
+                }
             }
         }
     }
