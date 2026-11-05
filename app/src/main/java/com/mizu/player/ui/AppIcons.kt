@@ -1,6 +1,7 @@
 package com.mizu.player.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
@@ -12,7 +13,11 @@ import androidx.compose.ui.unit.dp
  * Can be replaced by editing only this file.
  */
 object AppIcons {
-    private inline fun icon(name: String, block: PathBuilder.() -> Unit): ImageVector {
+    private inline fun icon(
+        name: String,
+        fillType: PathFillType = PathFillType.NonZero,
+        block: PathBuilder.() -> Unit
+    ): ImageVector {
         return ImageVector.Builder(
             name = name,
             defaultWidth = 24.dp,
@@ -22,6 +27,7 @@ object AppIcons {
         ).apply {
             path(
                 fill = SolidColor(Color.White),
+                pathFillType = fillType,
                 pathBuilder = block
             )
         }.build()
@@ -89,6 +95,58 @@ object AppIcons {
         verticalLineToRelative(2.06f)
         curveToRelative(4.01f, -0.91f, 7f, -4.49f, 7f, -8.77f)
         reflectiveCurveToRelative(-2.99f, -7.86f, -7f, -8.77f)
+        close()
+    }
+
+    val Brightness: ImageVector = icon("Brightness") {
+        // Sun center circle
+        moveTo(12f, 7.5f)
+        curveTo(9.51f, 7.5f, 7.5f, 9.51f, 7.5f, 12f)
+        curveTo(7.5f, 14.49f, 9.51f, 16.5f, 12f, 16.5f)
+        curveTo(14.49f, 16.5f, 16.5f, 14.49f, 16.5f, 12f)
+        curveTo(16.5f, 9.51f, 14.49f, 7.5f, 12f, 7.5f)
+        close()
+        // Cardinal rays
+        moveTo(11f, 1f)
+        horizontalLineTo(13f)
+        verticalLineTo(4.5f)
+        horizontalLineTo(11f)
+        close()
+        moveTo(11f, 19.5f)
+        horizontalLineTo(13f)
+        verticalLineTo(23f)
+        horizontalLineTo(11f)
+        close()
+        moveTo(1f, 11f)
+        verticalLineTo(13f)
+        horizontalLineTo(4.5f)
+        verticalLineTo(11f)
+        close()
+        moveTo(19.5f, 11f)
+        verticalLineTo(13f)
+        horizontalLineTo(23f)
+        verticalLineTo(11f)
+        close()
+        // Diagonal rays
+        moveTo(4.45f, 3.05f)
+        lineTo(3.05f, 4.45f)
+        lineTo(5.52f, 6.92f)
+        lineTo(6.92f, 5.52f)
+        close()
+        moveTo(17.08f, 18.48f)
+        lineTo(18.48f, 17.08f)
+        lineTo(20.95f, 19.55f)
+        lineTo(19.55f, 20.95f)
+        close()
+        moveTo(5.52f, 17.08f)
+        lineTo(3.05f, 19.55f)
+        lineTo(4.45f, 20.95f)
+        lineTo(6.92f, 18.48f)
+        close()
+        moveTo(19.55f, 3.05f)
+        lineTo(17.08f, 5.52f)
+        lineTo(18.48f, 6.92f)
+        lineTo(20.95f, 4.45f)
         close()
     }
 
@@ -188,56 +246,91 @@ object AppIcons {
         close()
     }
 
-    val Subtitles: ImageVector = icon("Subtitles") {
+    // Subtitles: speech bubble with two lines
+    val Subtitles: ImageVector = icon("Subtitles", fillType = PathFillType.EvenOdd) {
+        moveTo(20f, 2f)
+        horizontalLineTo(4f)
+        curveTo(2.9f, 2f, 2f, 2.9f, 2f, 4f)
+        verticalLineTo(16f)
+        curveTo(2f, 17.1f, 2.9f, 18f, 4f, 18f)
+        horizontalLineTo(7f)
+        verticalLineTo(21.5f)
+        lineTo(10.5f, 18f)
+        horizontalLineTo(20f)
+        curveTo(21.1f, 18f, 22f, 17.1f, 22f, 16f)
+        verticalLineTo(4f)
+        curveTo(22f, 2.9f, 21.1f, 2f, 20f, 2f)
+        close()
+        // Cut out interior
         moveTo(20f, 4f)
+        verticalLineTo(16f)
+        horizontalLineTo(10f)
+        lineTo(8f, 18f)
+        verticalLineTo(16f)
         horizontalLineTo(4f)
-        curveToRelative(-1.1f, 0f, -2f, 0.9f, -2f, 2f)
-        verticalLineToRelative(12f)
-        curveToRelative(0f, 1.1f, 0.9f, 2f, 2f, 2f)
-        horizontalLineToRelative(16f)
-        curveToRelative(1.1f, 0f, 2f, -0.9f, 2f, -2f)
-        verticalLineTo(6f)
-        curveToRelative(0f, -1.1f, -0.9f, -2f, -2f, -2f)
+        verticalLineTo(4f)
+        horizontalLineTo(20f)
         close()
-        moveTo(20f, 18f)
-        horizontalLineTo(4f)
-        verticalLineTo(6f)
-        horizontalLineToRelative(16f)
-        verticalLineToRelative(12f)
+        // Line 1
+        moveTo(7f, 7.5f)
+        horizontalLineTo(17f)
+        verticalLineTo(9.5f)
+        horizontalLineTo(7f)
         close()
-        moveTo(6f, 10f)
-        horizontalLineToRelative(2f)
-        verticalLineToRelative(2f)
-        horizontalLineTo(6f)
-        close()
-        moveTo(6f, 14f)
-        horizontalLineToRelative(8f)
-        verticalLineToRelative(2f)
-        horizontalLineTo(6f)
-        close()
-        moveTo(16f, 14f)
-        horizontalLineToRelative(2f)
-        verticalLineToRelative(2f)
-        horizontalLineToRelative(-2f)
-        close()
-        moveTo(10f, 10f)
-        horizontalLineToRelative(8f)
-        verticalLineToRelative(2f)
-        horizontalLineToRelative(-8f)
+        // Line 2
+        moveTo(7f, 11.5f)
+        horizontalLineTo(14f)
+        verticalLineTo(13.5f)
+        horizontalLineTo(7f)
         close()
     }
 
+    // AudioTrack: vertical waveform
     val AudioTrack: ImageVector = icon("AudioTrack") {
-        moveTo(12f, 3f)
-        verticalLineToRelative(10.55f)
-        curveToRelative(-0.59f, -0.34f, -1.27f, -0.55f, -2f, -0.55f)
-        curveToRelative(-2.21f, 0f, -4f, 1.79f, -4f, 4f)
-        reflectiveCurveToRelative(1.79f, 4f, 4f, 4f)
-        reflectiveCurveToRelative(4f, -1.79f, 4f, -4f)
+        // Bar 1
+        moveTo(5f, 9f)
+        curveTo(5.55f, 9f, 6f, 9.45f, 6f, 10f)
+        verticalLineTo(14f)
+        curveTo(6f, 14.55f, 5.55f, 15f, 5f, 15f)
+        curveTo(4.45f, 15f, 4f, 14.55f, 4f, 14f)
+        verticalLineTo(10f)
+        curveTo(4f, 9.45f, 4.45f, 9f, 5f, 9f)
+        close()
+        // Bar 2
+        moveTo(9f, 5f)
+        curveTo(9.55f, 5f, 10f, 5.45f, 10f, 6f)
+        verticalLineTo(18f)
+        curveTo(10f, 18.55f, 9.55f, 19f, 9f, 19f)
+        curveTo(8.45f, 19f, 8f, 18.55f, 8f, 18f)
+        verticalLineTo(6f)
+        curveTo(8f, 5.45f, 8.45f, 5f, 9f, 5f)
+        close()
+        // Bar 3
+        moveTo(13f, 3f)
+        curveTo(13.55f, 3f, 14f, 3.45f, 14f, 4f)
+        verticalLineTo(20f)
+        curveTo(14f, 20.55f, 13.55f, 21f, 13f, 21f)
+        curveTo(12.45f, 21f, 12f, 20.55f, 12f, 20f)
+        verticalLineTo(4f)
+        curveTo(12f, 3.45f, 12.45f, 3f, 13f, 3f)
+        close()
+        // Bar 4
+        moveTo(17f, 6f)
+        curveTo(17.55f, 6f, 18f, 6.45f, 18f, 7f)
+        verticalLineTo(17f)
+        curveTo(18f, 17.55f, 17.55f, 18f, 17f, 18f)
+        curveTo(16.45f, 18f, 16f, 17.55f, 16f, 17f)
         verticalLineTo(7f)
-        horizontalLineToRelative(4f)
-        verticalLineTo(3f)
-        horizontalLineToRelative(-6f)
+        curveTo(16f, 6.45f, 16.45f, 6f, 17f, 6f)
+        close()
+        // Bar 5
+        moveTo(21f, 9f)
+        curveTo(21.55f, 9f, 22f, 9.45f, 22f, 10f)
+        verticalLineTo(14f)
+        curveTo(22f, 14.55f, 21.55f, 15f, 21f, 15f)
+        curveTo(20.45f, 15f, 20f, 14.55f, 20f, 14f)
+        verticalLineTo(10f)
+        curveTo(20f, 9.45f, 20.45f, 9f, 21f, 9f)
         close()
     }
 

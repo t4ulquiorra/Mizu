@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,12 +79,12 @@ fun VideoControls(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) {
+                IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
                     Icon(AppIcons.Close, contentDescription = "Close", tint = Color.White)
                 }
                 // PiP is available on Android 8+ (API 26+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    IconButton(onClick = onPip) {
+                    IconButton(onClick = onPip, modifier = Modifier.size(48.dp)) {
                         Icon(AppIcons.Pip, contentDescription = "Picture in Picture", tint = Color.White)
                     }
                 }
@@ -100,28 +99,25 @@ fun VideoControls(
                     AppIcons.Volume,
                     contentDescription = "Volume",
                     tint = Color.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Slider(
+                Spacer(modifier = Modifier.width(8.dp))
+                MizuSlider(
                     value = volumeFraction,
-                    onValueChange = {
-                        if (!isDraggingVolume) {
-                            isDraggingVolume = true
-                            onVolumeDrag(true)
-                        }
-                        onVolumeChange(it)
+                    onValueChange = onVolumeChange,
+                    onValueChangeStarted = {
+                        isDraggingVolume = true
+                        onVolumeDrag(true)
                     },
                     onValueChangeFinished = {
                         isDraggingVolume = false
                         onVolumeDrag(false)
                     },
-                    modifier = Modifier.width(110.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.White,
-                        activeTrackColor = Color.White,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.35f)
-                    )
+                    trackHeight = 4.dp,
+                    thumbRadius = 5.dp,
+                    modifier = Modifier
+                        .width(110.dp)
+                        .height(48.dp)
                 )
             }
         }
@@ -140,12 +136,12 @@ fun VideoControls(
                     modifier = Modifier.size(36.dp)
                 )
             }
-            IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(64.dp)) {
+            IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(56.dp)) {
                 Icon(
                     if (isPlaying) AppIcons.Pause else AppIcons.Play,
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = Color.White,
-                    modifier = Modifier.size(54.dp)
+                    modifier = Modifier.size(56.dp)
                 )
             }
             IconButton(onClick = onForward10, modifier = Modifier.size(48.dp)) {
@@ -172,7 +168,8 @@ fun VideoControls(
                 Text(
                     text = title,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
@@ -181,13 +178,13 @@ fun VideoControls(
                 )
                 // Visual only buttons for Step 1
                 Row {
-                    IconButton(onClick = { /* Visual only in Step 1 */ }) {
+                    IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
                         Icon(AppIcons.Subtitles, contentDescription = "Subtitles", tint = Color.White)
                     }
-                    IconButton(onClick = { /* Visual only in Step 1 */ }) {
+                    IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
                         Icon(AppIcons.AudioTrack, contentDescription = "Audio track", tint = Color.White)
                     }
-                    IconButton(onClick = { /* Visual only in Step 1 */ }) {
+                    IconButton(onClick = { /* Visual only in Step 1 */ }, modifier = Modifier.size(48.dp)) {
                         Icon(AppIcons.Speed, contentDescription = "Playback speed", tint = Color.White)
                     }
                 }
@@ -204,13 +201,16 @@ fun VideoControls(
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 8.dp)
                 )
-                Slider(
+                MizuSlider(
                     value = sliderProgress,
                     onValueChange = { fraction ->
                         if (draggingSeekFraction == null) {
                             onSeekPreview(true)
                         }
                         draggingSeekFraction = fraction
+                    },
+                    onValueChangeStarted = {
+                        onSeekPreview(true)
                     },
                     onValueChangeFinished = {
                         val targetMs = ((draggingSeekFraction ?: sliderProgress) * durationMs).toLong()
@@ -219,14 +219,12 @@ fun VideoControls(
                         onSeekPreview(false)
                     },
                     enabled = durationMs > 0,
+                    trackHeight = 4.dp,
+                    thumbRadius = 6.dp,
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.White,
-                        activeTrackColor = Color.White,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.35f)
-                    )
+                        .height(48.dp)
+                        .padding(horizontal = 8.dp)
                 )
                 Text(
                     text = remainingText,
