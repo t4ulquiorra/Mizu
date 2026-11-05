@@ -28,9 +28,9 @@ fun MizuSlider(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    trackHeight: Dp = 4.dp,
-    thumbRadius: Dp = 6.dp,
-    showThumb: Boolean = true,
+    trackHeight: Dp = 8.dp,
+    thumbRadius: Dp = 0.dp,
+    showThumb: Boolean = false,
     onValueChangeStarted: (() -> Unit)? = null,
     onValueChangeFinished: (() -> Unit)? = null
 ) {

@@ -137,8 +137,8 @@ fun VideoControls(
                             value = brightnessFraction,
                             onValueChange = {},
                             enabled = false,
-                            trackHeight = 4.dp,
-                            thumbRadius = 5.dp,
+                            trackHeight = 8.dp,
+                            showThumb = false,
                             modifier = Modifier
                                 .width(110.dp)
                                 .height(48.dp)
@@ -190,8 +190,8 @@ fun VideoControls(
                             isDraggingVolume = false
                             onVolumeDrag(false)
                         },
-                        trackHeight = 4.dp,
-                        thumbRadius = 5.dp,
+                        trackHeight = 8.dp,
+                        showThumb = false,
                         modifier = Modifier
                             .width(110.dp)
                             .height(48.dp)
@@ -237,7 +237,7 @@ fun VideoControls(
         }
 
         // Bottom section: title & extra buttons row, then seek bar
-        val seekSectionAlpha = if (isSwiping) 0f else if (isSeeking) 1f else controlsAlpha
+        val seekSectionAlpha = if (isSeeking) 1f else if (isSwiping) 0f else controlsAlpha
         if (effectiveControlsAlpha > 0f || seekSectionAlpha > 0f) {
             Column(
                 modifier = Modifier
@@ -306,8 +306,8 @@ fun VideoControls(
                                     onSeekPreview(false)
                                 },
                                 enabled = durationMs > 0,
-                                trackHeight = (4f + 8f * seekTransition).dp,
-                                thumbRadius = 6.dp,
+                                trackHeight = (8f + 4f * seekTransition).dp,
+                                showThumb = false,
                                 modifier = Modifier.height(48.dp)
                             )
                             Text(

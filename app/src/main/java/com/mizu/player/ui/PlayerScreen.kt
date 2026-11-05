@@ -206,7 +206,7 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .pointerInput(Unit) {
+            .pointerInput(isDraggingSeek, isDraggingVolume) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val startX = down.position.x
@@ -225,9 +225,20 @@ fun PlayerScreen(
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
 
                         if (change.pressed) {
+                            val dx = change.position.x - startX
                             val dy = change.position.y - startY
                             if (!hasMovedPastSlop) {
-                                if (kotlin.math.abs(dy) > touchSlop) {
+                                if (isDraggingSeek || isDraggingVolume || change.isConsumed) {
+                                    // Seek bar or buttons own this touch
+                                    break
+                                }
+                                val absDx = kotlin.math.abs(dx)
+                                val absDy = kotlin.math.abs(dy)
+                                if (absDx > touchSlop && absDx > absDy) {
+                                    // Horizontal drag - never trigger vertical swipe gestures
+                                    break
+                                }
+                                if (absDy > touchSlop && absDy > absDx) {
                                     hasMovedPastSlop = true
                                     change.consume()
                                     initialVolumeFraction = volumeFraction
@@ -265,9 +276,11 @@ fun PlayerScreen(
                         } else {
                             // Pointer up
                             if (!hasMovedPastSlop) {
-                                // Tap toggles controls
-                                areControlsVisible = !areControlsVisible
-                                lastInteractionTime = System.currentTimeMillis()
+                                if (!isDraggingSeek && !isDraggingVolume && !change.isConsumed) {
+                                    // Tap toggles controls
+                                    areControlsVisible = !areControlsVisible
+                                    lastInteractionTime = System.currentTimeMillis()
+                                }
                             } else {
                                 change.consume()
                                 if (isRightHalf) {
