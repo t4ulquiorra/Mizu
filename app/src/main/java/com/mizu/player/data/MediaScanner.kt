@@ -2,6 +2,8 @@ package com.mizu.player.data
 
 import android.content.ContentUris
 import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.provider.MediaStore
 import com.mizu.player.model.FolderItem
 import com.mizu.player.model.VideoItem
@@ -11,7 +13,7 @@ import java.io.File
 
 object MediaScanner {
 
-    private val SUBTITLE_EXTENSIONS = listOf("srt", "ssa", "ass", "vtt")
+    private val SUBTITLE_EXTENSIONS = setOf("srt", "ssa", "ass", "vtt", "sub")
 
     suspend fun scanMedia(context: Context): Pair<List<FolderItem>, List<VideoItem>> = withContext(Dispatchers.IO) {
         val videoList = mutableListOf<VideoItem>()
@@ -27,6 +29,9 @@ object MediaScanner {
         )
 
         val sortOrder = "${MediaStore.Video.Media.DATE_MODIFIED} DESC"
+
+        val rawVideos = mutableListOf<RawVideo>()
+        val uniqueFolderPaths = mutableSetOf<String>()
 
         try {
             val cursor = context.contentResolver.query(
@@ -53,33 +58,81 @@ object MediaScanner {
                     val size = it.getLong(sizeCol)
                     val dateModified = it.getLong(dateCol)
 
-                    val uri = ContentUris.withAppendedId(
-                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                        id
+                    val parentPath = if (path.isNotEmpty()) {
+                        File(path).parent ?: "Unknown"
+                    } else {
+                        "Unknown"
+                    }
+
+                    if (parentPath != "Unknown") {
+                        uniqueFolderPaths.add(parentPath)
+                    }
+
+                    rawVideos.add(
+                        RawVideo(
+                            id = id,
+                            title = name,
+                            path = path,
+                            parentPath = parentPath,
+                            duration = duration,
+                            size = size,
+                            dateModified = dateModified
+                        )
                     )
-
-                    val subtitleType = findCompanionSubtitle(path)
-
-                    val videoItem = VideoItem(
-                        id = id,
-                        title = name,
-                        uri = uri,
-                        path = path,
-                        durationMs = duration,
-                        sizeBytes = size,
-                        dateModified = dateModified,
-                        subtitleType = subtitleType
-                    )
-
-                    videoList.add(videoItem)
-
-                    val parentDir = if (path.isNotEmpty()) File(path).parentFile else null
-                    val folderPath = parentDir?.absolutePath ?: "Unknown"
-                    folderMap.getOrPut(folderPath) { mutableListOf() }.add(videoItem)
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+
+        // STEP 1: Scan unique folders ONCE in batch to collect companion subtitles (O(1) lookups per folder)
+        val folderSubtitles = mutableMapOf<String, List<File>>()
+        for (folderPath in uniqueFolderPaths) {
+            try {
+                val dir = File(folderPath)
+                if (dir.exists() && dir.isDirectory) {
+                    val subs = dir.listFiles { _, fileName ->
+                        val ext = fileName.substringAfterLast('.', "").lowercase()
+                        ext in SUBTITLE_EXTENSIONS
+                    }?.toList() ?: emptyList()
+                    folderSubtitles[folderPath] = subs
+                }
+            } catch (e: Exception) {
+                // Ignore folder read error
+            }
+        }
+
+        // STEP 2: Process videos with fast in-memory matching
+        for (raw in rawVideos) {
+            val uri = ContentUris.withAppendedId(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                raw.id
+            )
+
+            val subsInFolder = folderSubtitles[raw.parentPath] ?: emptyList()
+            var detectedSubtitle = findCompanionSubtitle(raw.path, subsInFolder)
+
+            // If no companion subtitle file on disk, check for embedded subtitle tracks in container
+            if (detectedSubtitle == null && raw.path.isNotEmpty()) {
+                val ext = raw.path.substringAfterLast('.', "").lowercase()
+                if (ext == "mkv" || ext == "mp4") {
+                    detectedSubtitle = checkEmbeddedSubtitle(raw.path)
+                }
+            }
+
+            val videoItem = VideoItem(
+                id = raw.id,
+                title = raw.title,
+                uri = uri,
+                path = raw.path,
+                durationMs = raw.duration,
+                sizeBytes = raw.size,
+                dateModified = raw.dateModified,
+                subtitleType = detectedSubtitle
+            )
+
+            videoList.add(videoItem)
+            folderMap.getOrPut(raw.parentPath) { mutableListOf() }.add(videoItem)
         }
 
         val folderList = folderMap.map { (path, videos) ->
@@ -90,36 +143,95 @@ object MediaScanner {
                 videoCount = videos.size,
                 videos = videos
             )
-        }.sortedBy { it.name.lowercase() }
+        }
 
         Pair(folderList, videoList)
     }
 
-    private fun findCompanionSubtitle(videoPath: String): String? {
-        if (videoPath.isEmpty()) return null
+    private fun findCompanionSubtitle(videoPath: String, subsInFolder: List<File>): String? {
+        if (videoPath.isEmpty() || subsInFolder.isEmpty()) return null
         return try {
-            val videoFile = File(videoPath)
-            val parent = videoFile.parentFile ?: return null
-            val baseName = videoFile.nameWithoutExtension
+            val videoBase = File(videoPath).nameWithoutExtension.lowercase()
 
-            for (ext in SUBTITLE_EXTENSIONS) {
-                val directSub = File(parent, "$baseName.$ext")
-                if (directSub.exists() && directSub.isFile) {
-                    return ext.uppercase()
-                }
-
-                // Check for language tagged subtitles like movie.en.srt or movie.eng.srt
-                val companion = parent.listFiles { _, fileName ->
-                    fileName.startsWith(baseName, ignoreCase = true) &&
-                            fileName.endsWith(".$ext", ignoreCase = true)
-                }
-                if (!companion.isNullOrEmpty()) {
-                    return ext.uppercase()
-                }
+            // 1. Check exact base name match (e.g. video.mp4 -> video.srt)
+            val exact = subsInFolder.firstOrNull {
+                it.nameWithoutExtension.equals(videoBase, ignoreCase = true)
             }
-            null
+            if (exact != null) {
+                return exact.extension.uppercase()
+            }
+
+            // 2. Check prefix / language match (e.g. video.mp4 -> video.en.srt, video.eng.ass)
+            val prefixMatch = subsInFolder.firstOrNull {
+                it.nameWithoutExtension.lowercase().startsWith(videoBase)
+            }
+            if (prefixMatch != null) {
+                return prefixMatch.extension.uppercase()
+            }
+
+            // 3. Check contains / relaxed match
+            val relaxedMatch = subsInFolder.firstOrNull {
+                val subBase = it.nameWithoutExtension.lowercase()
+                videoBase.startsWith(subBase) || videoBase.contains(subBase)
+            }
+            relaxedMatch?.extension?.uppercase()
         } catch (e: Exception) {
             null
         }
     }
+
+    private fun checkEmbeddedSubtitle(path: String): String? {
+        return try {
+            val file = File(path)
+            if (!file.exists() || !file.canRead()) return null
+
+            val extractor = MediaExtractor()
+            extractor.setDataSource(path)
+            var subType: String? = null
+            val trackCount = extractor.trackCount
+
+            for (i in 0 until trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                if (mime.startsWith("text/") || mime.startsWith("application/")) {
+                    when {
+                        mime.contains("subrip") || mime.contains("srt") -> {
+                            subType = "SRT"
+                            break
+                        }
+                        mime.contains("ssa") -> {
+                            subType = "SSA"
+                            break
+                        }
+                        mime.contains("ass") -> {
+                            subType = "ASS"
+                            break
+                        }
+                        mime.contains("vtt") -> {
+                            subType = "VTT"
+                            break
+                        }
+                        mime.contains("pgs") || mime.contains("sub") -> {
+                            subType = "SUB"
+                            break
+                        }
+                    }
+                }
+            }
+            extractor.release()
+            subType
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    private data class RawVideo(
+        val id: Long,
+        val title: String,
+        val path: String,
+        val parentPath: String,
+        val duration: Long,
+        val size: Long,
+        val dateModified: Long
+    )
 }

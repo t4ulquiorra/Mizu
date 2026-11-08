@@ -1,8 +1,6 @@
 package com.mizu.player.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,9 +64,11 @@ import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
-import com.mizu.player.data.MediaScanner
+import coil.memory.MemoryCache
+import com.mizu.player.data.MediaRepository
 import com.mizu.player.model.FolderItem
 import com.mizu.player.model.VideoItem
+import com.mizu.player.util.AndroidThumbnailFetcher
 import kotlinx.coroutines.launch
 
 enum class SortOption {
@@ -88,10 +88,6 @@ fun LibraryScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var folders by remember { mutableStateOf<List<FolderItem>>(emptyList()) }
-    var allVideos by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var isGridView by remember { mutableStateOf(true) }
     var sortOption by remember { mutableStateOf(SortOption.DATE_DESC) }
@@ -104,27 +100,34 @@ fun LibraryScreen(
     // Active folder detail view (null means top-level library)
     var selectedFolder by remember { mutableStateOf<FolderItem?>(null) }
 
+    // Handle System Back Navigation
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
+    }
+
+    BackHandler(enabled = !isSearchActive && selectedFolder != null) {
+        selectedFolder = null
+    }
+
+    // High performance image loader with hardware thumbnail cache + in-memory cache
     val imageLoader = remember {
         ImageLoader.Builder(context)
             .components {
+                add(AndroidThumbnailFetcher.Factory(context))
                 add(VideoFrameDecoder.Factory())
+            }
+            .memoryCache {
+                MemoryCache.Builder(context)
+                    .maxSizePercent(0.25)
+                    .build()
             }
             .crossfade(true)
             .build()
     }
 
-    fun refreshMedia() {
-        scope.launch {
-            isLoading = true
-            val (f, v) = MediaScanner.scanMedia(context)
-            folders = f
-            allVideos = v
-            isLoading = false
-        }
-    }
-
     LaunchedEffect(Unit) {
-        refreshMedia()
+        MediaRepository.loadIfNeeded(context)
     }
 
     fun sortVideos(list: List<VideoItem>): List<VideoItem> {
@@ -135,6 +138,17 @@ fun LibraryScreen(
             SortOption.DATE_ASC -> list.sortedBy { it.dateModified }
             SortOption.SIZE_DESC -> list.sortedByDescending { it.sizeBytes }
             SortOption.SIZE_ASC -> list.sortedBy { it.sizeBytes }
+        }
+    }
+
+    fun sortFolders(list: List<FolderItem>): List<FolderItem> {
+        return when (sortOption) {
+            SortOption.NAME_ASC -> list.sortedBy { it.name.lowercase() }
+            SortOption.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
+            SortOption.DATE_DESC -> list.sortedByDescending { it.videos.maxOfOrNull { v -> v.dateModified } ?: 0L }
+            SortOption.DATE_ASC -> list.sortedBy { it.videos.maxOfOrNull { v -> v.dateModified } ?: 0L }
+            SortOption.SIZE_DESC -> list.sortedByDescending { it.videoCount }
+            SortOption.SIZE_ASC -> list.sortedBy { it.videoCount }
         }
     }
 
@@ -329,7 +343,9 @@ fun LibraryScreen(
                                         text = { Text("Refresh library", color = Color.White) },
                                         onClick = {
                                             showMoreMenu = false
-                                            refreshMedia()
+                                            scope.launch {
+                                                MediaRepository.refresh(context)
+                                            }
                                         }
                                     )
                                 }
@@ -366,7 +382,7 @@ fun LibraryScreen(
 
         // MAIN CONTENT BODY
         Box(modifier = Modifier.weight(1f)) {
-            if (isLoading) {
+            if (MediaRepository.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF3B82F6))
                 }
@@ -384,18 +400,19 @@ fun LibraryScreen(
             } else {
                 when (selectedTabIndex) {
                     0 -> {
-                        // Folders Tab
-                        val filteredFolders = folders.filter {
+                        // Folders Tab (Supports both Grid and List + Sorting)
+                        val filteredFolders = sortFolders(MediaRepository.folders).filter {
                             searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true)
                         }
                         FoldersContentView(
                             folders = filteredFolders,
+                            isGridView = isGridView,
                             onFolderClick = { folder -> selectedFolder = folder }
                         )
                     }
                     1 -> {
                         // Master Videos Tab
-                        val filteredVideos = sortVideos(allVideos).filter {
+                        val filteredVideos = sortVideos(MediaRepository.allVideos).filter {
                             searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
                         }
                         VideosContentView(
@@ -427,6 +444,7 @@ fun LibraryScreen(
 @Composable
 fun FoldersContentView(
     folders: List<FolderItem>,
+    isGridView: Boolean,
     onFolderClick: (FolderItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -437,55 +455,147 @@ fun FoldersContentView(
         return
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(folders, key = { it.path }) { folder ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF161922))
-                    .clickable { onFolderClick(folder) }
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF222736)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
-                        contentDescription = "Folder",
-                        tint = Color(0xFF60A5FA),
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(14.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = folder.name,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
-                        fontSize = 13.sp,
-                        color = Color(0xFF94A3B8)
-                    )
-                }
+    if (isGridView) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 160.dp),
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(folders, key = { it.path }) { folder ->
+                FolderGridCard(
+                    folder = folder,
+                    onClick = { onFolderClick(folder) }
+                )
             }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(folders, key = { it.path }) { folder ->
+                FolderListRow(
+                    folder = folder,
+                    onClick = { onFolderClick(folder) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FolderGridCard(
+    folder: FolderItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 10f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF161922)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = "Folder",
+                tint = Color(0xFF60A5FA),
+                modifier = Modifier.size(48.dp)
+            )
+
+            // Video count badge bottom right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .background(Color(0xCC000000), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "${folder.videoCount}",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = folder.name,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFFE2E8F0),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Text(
+            text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
+            fontSize = 12.sp,
+            color = Color(0xFF94A3B8)
+        )
+    }
+}
+
+@Composable
+fun FolderListRow(
+    folder: FolderItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF161922))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF222736)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = "Folder",
+                tint = Color(0xFF60A5FA),
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = folder.name,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
+                fontSize = 13.sp,
+                color = Color(0xFF94A3B8)
+            )
         }
     }
 }
