@@ -12,3 +12,5 @@ captures/
 # Ensure wrapper jar is tracked
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties
+
+.gemini/
