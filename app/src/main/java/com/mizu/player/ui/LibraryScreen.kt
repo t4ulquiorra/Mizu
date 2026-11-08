@@ -3,6 +3,7 @@ package com.mizu.player.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,8 +43,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,15 +56,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -76,6 +78,8 @@ import com.mizu.player.model.VideoItem
 import com.mizu.player.util.AndroidThumbnailFetcher
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 enum class SortOption {
     NAME_ASC,
@@ -366,63 +370,84 @@ fun LibraryScreen(
 
         val activeFolder = MediaRepository.selectedFolder
 
-        // TABS WITH ZERO-LATENCY DIRECT-LAYOUT UNDERLINE INDICATOR
+        // FLUID TAB BAR (CONTINUOUS SUB-PIXEL TRACKING + ELASTIC SPRING UNDERLINE)
         if (activeFolder == null) {
-            TabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = Color(0xFF13161F),
-                contentColor = Color(0xFF3B82F6),
-                divider = {},
-                indicator = { tabPositions ->
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .wrapContentSize(Alignment.BottomStart)
-                            .layout { measurable, constraints ->
-                                val page = pagerState.currentPage
-                                val offset = pagerState.currentPageOffsetFraction
-                                val currentTab = tabPositions.getOrNull(page) ?: tabPositions[0]
-                                val targetTab = when {
-                                    offset > 0f -> tabPositions.getOrNull(page + 1) ?: currentTab
-                                    offset < 0f -> tabPositions.getOrNull(page - 1) ?: currentTab
-                                    else -> currentTab
-                                }
-                                val fraction = abs(offset)
-                                val leftPx = lerp(currentTab.left, targetTab.left, fraction).roundToPx()
-                                val rightPx = lerp(currentTab.right, targetTab.right, fraction).roundToPx()
-                                val widthPx = (rightPx - leftPx).coerceAtLeast(1)
-
-                                val placeable = measurable.measure(
-                                    constraints.copy(minWidth = widthPx, maxWidth = widthPx)
-                                )
-                                layout(constraints.maxWidth, placeable.height) {
-                                    placeable.placeRelative(leftPx, 0)
-                                }
-                            }
-                            .height(3.dp)
-                            .background(Color(0xFF3B82F6), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .background(Color(0xFF13161F))
             ) {
-                tabs.forEachIndexed { index, title ->
-                    val isSelected = pagerState.currentPage == index
-                    Tab(
-                        selected = isSelected,
-                        onClick = {
-                            scope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        text = {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        // Continuous interactive progress from pager: exactly 0.0 -> 1.0 -> 2.0
+                        val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                            .coerceIn(0f, (tabs.size - 1).toFloat())
+                        val dist = abs(progress - index)
+                        val activeFraction = (1f - dist).coerceIn(0f, 1f)
+                        val tabTextColor = lerpColor(
+                            Color(0xFF8E9BAE),
+                            Color.White,
+                            activeFraction
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
                                 text = title,
                                 fontSize = 13.5.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isSelected) Color(0xFF3B82F6) else Color(0xFF94A3B8)
+                                fontWeight = if (activeFraction > 0.5f) FontWeight.SemiBold else FontWeight.Medium,
+                                color = tabTextColor
                             )
                         }
-                    )
+                    }
                 }
+
+                // Elastic pill indicator with physical spring stretch that tracks continuous finger gestures
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .align(Alignment.BottomStart)
+                        .layout { measurable, constraints ->
+                            val tabWidth = constraints.maxWidth.toFloat() / tabs.size
+                            val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                                .coerceIn(0f, (tabs.size - 1).toFloat())
+                            val centerPx = (progress + 0.5f) * tabWidth
+
+                            // Elastic stretch on finger drag (expands toward midpoint, snaps back on settle)
+                            val segmentFraction = (progress - progress.toInt()).let { if (it < 0f) it + 1f else it }
+                            val stretchPx = sin(segmentFraction * Math.PI.toFloat()) * 12.dp.toPx()
+                            val indicatorWidth = (28.dp.toPx() + stretchPx).roundToInt().coerceAtLeast(1)
+
+                            val leftPx = (centerPx - indicatorWidth / 2f).roundToInt()
+                            val placeable = measurable.measure(
+                                constraints.copy(minWidth = indicatorWidth, maxWidth = indicatorWidth)
+                            )
+                            layout(constraints.maxWidth, placeable.height) {
+                                placeable.placeRelative(leftPx, 0)
+                            }
+                        }
+                        .background(
+                            color = Color(0xFF3B82F6),
+                            shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp)
+                        )
+                )
             }
         }
 
@@ -447,7 +472,7 @@ fun LibraryScreen(
             } else {
                 HorizontalPager(
                     state = pagerState,
-                    beyondViewportPageCount = 0,
+                    beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     when (page) {
@@ -519,7 +544,7 @@ fun FoldersContentView(
             columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp), // Extra horizontal breathing room
+            horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(folders, key = { it.path }) { folder ->
@@ -574,11 +599,11 @@ fun FolderGridCard(
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(5.dp))
 
         Text(
             text = folder.name,
-            fontSize = 13.5.sp,
+            fontSize = 12.5.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE2E8F0),
             maxLines = 1,
@@ -588,7 +613,7 @@ fun FolderGridCard(
         // Video count shown ONLY below title
         Text(
             text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
-            fontSize = 11.5.sp,
+            fontSize = 11.sp,
             color = Color(0xFF94A3B8)
         )
     }
@@ -666,7 +691,7 @@ fun VideosContentView(
             columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp), // Extra horizontal breathing room
+            horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(videos, key = { it.id }) { video ->
@@ -724,54 +749,68 @@ fun VideoGridCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Subtitle Badge (Bottom-Left) with tight, compact vertical padding
+            // Subtitle Badge (Bottom-Left) with snug height hugging text
             if (video.subtitleType != null) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(5.dp)
-                        .background(Color(0xE610141D), RoundedCornerShape(3.dp))
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                        .background(Color(0xE60F172A), RoundedCornerShape(3.dp))
+                        .padding(horizontal = 4.dp, vertical = 0.5.dp)
                 ) {
                     Text(
                         text = video.subtitleType,
                         color = Color(0xFF38BDF8),
-                        fontSize = 10.sp,
-                        lineHeight = 11.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 9.5.sp,
+                        lineHeight = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = TextStyle(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Center,
+                                trim = LineHeightStyle.Trim.Both
+                            )
+                        )
                     )
                 }
             }
 
-            // Duration Badge (Bottom-Right) with tight, compact vertical padding
+            // Duration Badge (Bottom-Right) with snug height hugging text/number
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(5.dp)
                     .background(Color(0xCC000000), RoundedCornerShape(3.dp))
-                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                    .padding(horizontal = 4.dp, vertical = 0.5.dp)
             ) {
                 Text(
                     text = video.formattedDuration(),
                     color = Color.White,
-                    fontSize = 10.sp,
-                    lineHeight = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = 9.5.sp,
+                    lineHeight = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        )
+                    )
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(5.dp))
 
-        // Clean, slightly smaller font size for balanced hierarchy
+        // Clean, balanced title font size
         Text(
             text = video.title,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE2E8F0),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            lineHeight = 17.sp
+            lineHeight = 15.sp
         )
     }
 }
