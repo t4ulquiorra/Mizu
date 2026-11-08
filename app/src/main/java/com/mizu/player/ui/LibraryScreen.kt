@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -203,7 +203,7 @@ fun LibraryScreen(
                                 Text(
                                     text = "Search in media files",
                                     color = Color(0xFF64748B),
-                                    fontSize = 15.sp
+                                    fontSize = 14.5.sp
                                 )
                             }
                             BasicTextField(
@@ -211,7 +211,7 @@ fun LibraryScreen(
                                 onValueChange = { searchQuery = it },
                                 textStyle = TextStyle(
                                     color = Color.White,
-                                    fontSize = 15.sp
+                                    fontSize = 14.5.sp
                                 ),
                                 cursorBrush = SolidColor(Color(0xFF3B82F6)),
                                 singleLine = true,
@@ -258,7 +258,7 @@ fun LibraryScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = activeFolder.name,
-                                fontSize = 18.sp,
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White,
                                 maxLines = 1,
@@ -366,7 +366,7 @@ fun LibraryScreen(
 
         val activeFolder = MediaRepository.selectedFolder
 
-        // TABS WITH FLUID CONTINUOUS TOUCH-PHYSICS UNDERLINE INDICATOR
+        // TABS WITH ZERO-LATENCY DIRECT-LAYOUT UNDERLINE INDICATOR
         if (activeFolder == null) {
             TabRow(
                 selectedTabIndex = pagerState.currentPage,
@@ -374,30 +374,34 @@ fun LibraryScreen(
                 contentColor = Color(0xFF3B82F6),
                 divider = {},
                 indicator = { tabPositions ->
-                    val page = pagerState.currentPage
-                    val offset = pagerState.currentPageOffsetFraction
-                    if (page in tabPositions.indices) {
-                        val currentTab = tabPositions[page]
-                        val targetTab = when {
-                            offset > 0f -> tabPositions.getOrNull(page + 1) ?: currentTab
-                            offset < 0f -> tabPositions.getOrNull(page - 1) ?: currentTab
-                            else -> currentTab
-                        }
-                        val fraction = abs(offset)
-                        val left = lerp(currentTab.left, targetTab.left, fraction)
-                        val right = lerp(currentTab.right, targetTab.right, fraction)
-                        val width = right - left
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .wrapContentSize(Alignment.BottomStart)
+                            .layout { measurable, constraints ->
+                                val page = pagerState.currentPage
+                                val offset = pagerState.currentPageOffsetFraction
+                                val currentTab = tabPositions.getOrNull(page) ?: tabPositions[0]
+                                val targetTab = when {
+                                    offset > 0f -> tabPositions.getOrNull(page + 1) ?: currentTab
+                                    offset < 0f -> tabPositions.getOrNull(page - 1) ?: currentTab
+                                    else -> currentTab
+                                }
+                                val fraction = abs(offset)
+                                val leftPx = lerp(currentTab.left, targetTab.left, fraction).roundToPx()
+                                val rightPx = lerp(currentTab.right, targetTab.right, fraction).roundToPx()
+                                val widthPx = (rightPx - leftPx).coerceAtLeast(1)
 
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .wrapContentSize(Alignment.BottomStart)
-                                .offset(x = left)
-                                .width(width)
-                                .height(3.dp)
-                                .background(Color(0xFF3B82F6), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        )
-                    }
+                                val placeable = measurable.measure(
+                                    constraints.copy(minWidth = widthPx, maxWidth = widthPx)
+                                )
+                                layout(constraints.maxWidth, placeable.height) {
+                                    placeable.placeRelative(leftPx, 0)
+                                }
+                            }
+                            .height(3.dp)
+                            .background(Color(0xFF3B82F6), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                    )
                 }
             ) {
                 tabs.forEachIndexed { index, title ->
@@ -412,7 +416,7 @@ fun LibraryScreen(
                         text = {
                             Text(
                                 text = title,
-                                fontSize = 14.sp,
+                                fontSize = 13.5.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (isSelected) Color(0xFF3B82F6) else Color(0xFF94A3B8)
                             )
@@ -484,7 +488,7 @@ fun LibraryScreen(
                                 Text(
                                     text = "No playlists yet",
                                     color = Color(0xFF64748B),
-                                    fontSize = 15.sp
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -505,7 +509,7 @@ fun FoldersContentView(
 ) {
     if (folders.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "No folders found", color = Color(0xFF64748B), fontSize = 15.sp)
+            Text(text = "No folders found", color = Color(0xFF64748B), fontSize = 14.sp)
         }
         return
     }
@@ -515,8 +519,8 @@ fun FoldersContentView(
             columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp), // Extra horizontal breathing room
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(folders, key = { it.path }) { folder ->
                 FolderGridCard(
@@ -566,7 +570,7 @@ fun FolderGridCard(
                 imageVector = Icons.Default.Folder,
                 contentDescription = "Folder",
                 tint = Color(0xFF60A5FA),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(46.dp)
             )
         }
 
@@ -574,7 +578,7 @@ fun FolderGridCard(
 
         Text(
             text = folder.name,
-            fontSize = 14.sp,
+            fontSize = 13.5.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE2E8F0),
             maxLines = 1,
@@ -584,7 +588,7 @@ fun FolderGridCard(
         // Video count shown ONLY below title
         Text(
             text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
-            fontSize = 12.sp,
+            fontSize = 11.5.sp,
             color = Color(0xFF94A3B8)
         )
     }
@@ -602,12 +606,12 @@ fun FolderListRow(
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF161922))
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(44.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF222736)),
             contentAlignment = Alignment.Center
@@ -616,7 +620,7 @@ fun FolderListRow(
                 imageVector = Icons.Default.Folder,
                 contentDescription = "Folder",
                 tint = Color(0xFF60A5FA),
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
 
@@ -625,16 +629,16 @@ fun FolderListRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = folder.name,
-                fontSize = 15.sp,
+                fontSize = 14.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 color = Color(0xFF94A3B8)
             )
         }
@@ -652,7 +656,7 @@ fun VideosContentView(
 ) {
     if (videos.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "No videos found", color = Color(0xFF64748B), fontSize = 15.sp)
+            Text(text = "No videos found", color = Color(0xFF64748B), fontSize = 14.sp)
         }
         return
     }
@@ -662,8 +666,8 @@ fun VideosContentView(
             columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp), // Extra horizontal breathing room
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(videos, key = { it.id }) { video ->
                 VideoGridCard(
@@ -720,36 +724,38 @@ fun VideoGridCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Subtitle Badge (Bottom-Left)
+            // Subtitle Badge (Bottom-Left) with tight, compact vertical padding
             if (video.subtitleType != null) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .background(Color(0xE610141D), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(5.dp)
+                        .background(Color(0xE610141D), RoundedCornerShape(3.dp))
+                        .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
                     Text(
                         text = video.subtitleType,
                         color = Color(0xFF38BDF8),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
+                        lineHeight = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            // Duration Badge (Bottom-Right)
+            // Duration Badge (Bottom-Right) with tight, compact vertical padding
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(6.dp)
-                    .background(Color(0xCC000000), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .padding(5.dp)
+                    .background(Color(0xCC000000), RoundedCornerShape(3.dp))
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Text(
                     text = video.formattedDuration(),
                     color = Color.White,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
+                    lineHeight = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -757,14 +763,15 @@ fun VideoGridCard(
 
         Spacer(modifier = Modifier.height(6.dp))
 
+        // Clean, slightly smaller font size for balanced hierarchy
         Text(
             text = video.title,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE2E8F0),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            lineHeight = 18.sp
+            lineHeight = 17.sp
         )
     }
 }
@@ -801,7 +808,7 @@ fun VideoListRow(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Duration Badge
+            // Duration Badge (tight, compact height)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -812,7 +819,8 @@ fun VideoListRow(
                 Text(
                     text = video.formattedDuration(),
                     color = Color.White,
-                    fontSize = 10.sp,
+                    fontSize = 9.5.sp,
+                    lineHeight = 10.5.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -824,12 +832,12 @@ fun VideoListRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = video.title,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFFE2E8F0),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp
+                lineHeight = 17.sp
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -839,12 +847,13 @@ fun VideoListRow(
                     Box(
                         modifier = Modifier
                             .background(Color(0xFF1E293B), RoundedCornerShape(3.dp))
-                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
                     ) {
                         Text(
                             text = video.subtitleType,
                             color = Color(0xFF38BDF8),
-                            fontSize = 10.sp,
+                            fontSize = 9.5.sp,
+                            lineHeight = 10.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -855,7 +864,7 @@ fun VideoListRow(
                 if (size.isNotEmpty()) {
                     Text(
                         text = size,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         color = Color(0xFF94A3B8)
                     )
                 }
