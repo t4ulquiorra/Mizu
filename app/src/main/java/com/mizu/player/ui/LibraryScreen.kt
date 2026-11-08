@@ -366,19 +366,24 @@ fun LibraryScreen(
 
         val activeFolder = MediaRepository.selectedFolder
 
-        // TABS WITH SMOOTH TOUCH-INTERPOLATED UNDERLINE INDICATOR
+        // TABS WITH FLUID CONTINUOUS TOUCH-PHYSICS UNDERLINE INDICATOR
         if (activeFolder == null) {
             TabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Color(0xFF13161F),
                 contentColor = Color(0xFF3B82F6),
+                divider = {},
                 indicator = { tabPositions ->
-                    if (pagerState.currentPage < tabPositions.size) {
-                        val currentTab = tabPositions[pagerState.currentPage]
-                        val targetPage = pagerState.targetPage
-                        val targetTab = tabPositions.getOrNull(targetPage) ?: currentTab
-                        val fraction = abs(pagerState.currentPageOffsetFraction)
-
+                    val page = pagerState.currentPage
+                    val offset = pagerState.currentPageOffsetFraction
+                    if (page in tabPositions.indices) {
+                        val currentTab = tabPositions[page]
+                        val targetTab = when {
+                            offset > 0f -> tabPositions.getOrNull(page + 1) ?: currentTab
+                            offset < 0f -> tabPositions.getOrNull(page - 1) ?: currentTab
+                            else -> currentTab
+                        }
+                        val fraction = abs(offset)
                         val left = lerp(currentTab.left, targetTab.left, fraction)
                         val right = lerp(currentTab.right, targetTab.right, fraction)
                         val width = right - left
@@ -438,6 +443,7 @@ fun LibraryScreen(
             } else {
                 HorizontalPager(
                     state = pagerState,
+                    beyondViewportPageCount = 0,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     when (page) {
@@ -450,7 +456,10 @@ fun LibraryScreen(
                                 folders = filteredFolders,
                                 isGridView = isGridView,
                                 columns = gridColumns,
-                                onFolderClick = { folder -> MediaRepository.selectedFolder = folder }
+                                onFolderClick = { folder ->
+                                    MediaRepository.selectedFolder = folder
+                                    MediaRepository.enrichFolderSubtitles(folder)
+                                }
                             )
                         }
                         1 -> {

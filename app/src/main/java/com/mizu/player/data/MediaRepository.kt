@@ -33,19 +33,20 @@ object MediaRepository {
         allVideos = v
         isLoading = false
         isInitialized = true
-
-        // Background non-blocking subtitle enrichment for MKV containers
-        enrichSubtitlesInBackground()
     }
 
     suspend fun refresh(context: Context) {
         loadIfNeeded(context, force = true)
     }
 
-    private fun enrichSubtitlesInBackground() {
+    /**
+     * Enriches embedded MKV subtitles on-demand only for the folder currently opened.
+     * Keeps home screen completely idle, snappy, and free from background disk I/O thrashing.
+     */
+    fun enrichFolderSubtitles(folder: FolderItem) {
         backgroundScope.launch {
             var anyChanged = false
-            val updatedVideos = allVideos.map { video ->
+            val updatedVideos = folder.videos.map { video ->
                 if (video.subtitleType == null && video.path.endsWith(".mkv", ignoreCase = true)) {
                     val embeddedSub = MediaScanner.detectEmbeddedSubtitle(video.path)
                     if (embeddedSub != null) {
@@ -60,17 +61,13 @@ object MediaRepository {
             }
 
             if (anyChanged) {
-                allVideos = updatedVideos
                 val videoMap = updatedVideos.associateBy { it.id }
-                folders = folders.map { folder ->
-                    folder.copy(videos = folder.videos.map { v ->
-                        videoMap[v.id] ?: v
-                    })
+                allVideos = allVideos.map { videoMap[it.id] ?: it }
+                folders = folders.map { f ->
+                    if (f.path == folder.path) f.copy(videos = updatedVideos) else f
                 }
-
-                // Also update selectedFolder if open
-                selectedFolder?.let { current ->
-                    selectedFolder = folders.find { it.path == current.path } ?: current
+                if (selectedFolder?.path == folder.path) {
+                    selectedFolder = selectedFolder?.copy(videos = updatedVideos)
                 }
             }
         }

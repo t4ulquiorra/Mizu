@@ -18,8 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * High-speed hardware thumbnail fetcher with in-memory LruCache.
- * Delivers cached video thumbnails in nanoseconds, eliminating scroll stutter.
+ * High-speed hardware thumbnail fetcher with in-memory LruCache and automatic downscaling.
+ * Prevents giant 1080p uncompressed bitmaps from exhausting RAM or stalling the GPU.
  */
 class AndroidThumbnailFetcher(
     private val context: Context,
@@ -27,14 +27,14 @@ class AndroidThumbnailFetcher(
 ) : Fetcher {
 
     companion object {
-        // Fast in-memory cache of 200 decoded thumbnails for silky 60/120fps scrolling
+        // Fast in-memory cache of downsampled 320x180 thumbnails (~200KB each)
         private val memoryCache = object : LruCache<String, Bitmap>(200) {}
     }
 
     override suspend fun fetch(): FetchResult? = withContext(Dispatchers.IO) {
         val key = uri.toString()
         val cached = memoryCache.get(key)
-        if (cached != null) {
+        if (cached != null && !cached.isRecycled) {
             return@withContext DrawableResult(
                 drawable = BitmapDrawable(context.resources, cached),
                 isSampled = false,
@@ -44,11 +44,25 @@ class AndroidThumbnailFetcher(
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                // Request 16:9 thumbnail from Android hardware media cache
-                val bitmap = context.contentResolver.loadThumbnail(uri, Size(320, 180), null)
-                memoryCache.put(key, bitmap)
+                // Request hardware thumbnail
+                val rawBitmap = context.contentResolver.loadThumbnail(uri, Size(320, 180), null)
+
+                // Downscale if Android returned a giant full-resolution frame
+                val finalBitmap = if (rawBitmap.width > 360 || rawBitmap.height > 240) {
+                    val targetW = 320
+                    val targetH = (320f * rawBitmap.height / rawBitmap.width).toInt().coerceAtLeast(180)
+                    val scaled = Bitmap.createScaledBitmap(rawBitmap, targetW, targetH, true)
+                    if (scaled != rawBitmap) {
+                        rawBitmap.recycle()
+                    }
+                    scaled
+                } else {
+                    rawBitmap
+                }
+
+                memoryCache.put(key, finalBitmap)
                 DrawableResult(
-                    drawable = BitmapDrawable(context.resources, bitmap),
+                    drawable = BitmapDrawable(context.resources, finalBitmap),
                     isSampled = false,
                     dataSource = DataSource.DISK
                 )
