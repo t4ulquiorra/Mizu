@@ -12,13 +12,16 @@ import kotlinx.coroutines.launch
 
 /**
  * Singleton repository holding media library state in memory.
- * Provides instant initial display (<30ms) and background subtitle badge enrichment.
+ * Preserves active folder and video lists across navigation and playback.
  */
 object MediaRepository {
     var folders by mutableStateOf<List<FolderItem>>(emptyList())
     var allVideos by mutableStateOf<List<VideoItem>>(emptyList())
     var isLoading by mutableStateOf(false)
     var isInitialized by mutableStateOf(false)
+
+    // Preserved active folder so back button from player returns into the folder
+    var selectedFolder by mutableStateOf<FolderItem?>(null)
 
     private val backgroundScope = CoroutineScope(Dispatchers.IO)
 
@@ -63,6 +66,11 @@ object MediaRepository {
                     folder.copy(videos = folder.videos.map { v ->
                         videoMap[v.id] ?: v
                     })
+                }
+
+                // Also update selectedFolder if open
+                selectedFolder?.let { current ->
+                    selectedFolder = folders.find { it.path == current.path } ?: current
                 }
             }
         }

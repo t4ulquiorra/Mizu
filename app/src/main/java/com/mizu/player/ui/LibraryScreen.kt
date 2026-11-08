@@ -13,15 +13,19 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -44,7 +48,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,11 +58,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -70,6 +75,7 @@ import com.mizu.player.model.FolderItem
 import com.mizu.player.model.VideoItem
 import com.mizu.player.util.AndroidThumbnailFetcher
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 enum class SortOption {
     NAME_ASC,
@@ -87,8 +93,14 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
 
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    // Minimum 2 columns on phones/portrait, Maximum 5 columns on wide tablets
+    val gridColumns = (configuration.screenWidthDp / 180).coerceIn(2, 5)
+
+    val tabs = listOf("Folders", "Videos", "Playlists")
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+
     var isGridView by remember { mutableStateOf(true) }
     var sortOption by remember { mutableStateOf(SortOption.DATE_DESC) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -97,17 +109,14 @@ fun LibraryScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Active folder detail view (null means top-level library)
-    var selectedFolder by remember { mutableStateOf<FolderItem?>(null) }
-
     // Handle System Back Navigation
     BackHandler(enabled = isSearchActive) {
         isSearchActive = false
         searchQuery = ""
     }
 
-    BackHandler(enabled = !isSearchActive && selectedFolder != null) {
-        selectedFolder = null
+    BackHandler(enabled = !isSearchActive && MediaRepository.selectedFolder != null) {
+        MediaRepository.selectedFolder = null
     }
 
     // High performance image loader with hardware thumbnail cache + in-memory cache
@@ -119,10 +128,10 @@ fun LibraryScreen(
             }
             .memoryCache {
                 MemoryCache.Builder(context)
-                    .maxSizePercent(0.25)
+                    .maxSizePercent(0.30)
                     .build()
             }
-            .crossfade(true)
+            .crossfade(false) // Disable crossfade during fast scrolling for buttery 120fps
             .build()
     }
 
@@ -151,8 +160,6 @@ fun LibraryScreen(
             SortOption.SIZE_ASC -> list.sortedBy { it.videoCount }
         }
     }
-
-    val tabs = listOf("Folders", "Videos", "Playlists")
 
     Column(
         modifier = modifier
@@ -237,10 +244,11 @@ fun LibraryScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (selectedFolder != null) {
+                    val activeFolder = MediaRepository.selectedFolder
+                    if (activeFolder != null) {
                         // Folder Detail Header
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { selectedFolder = null }) {
+                            IconButton(onClick = { MediaRepository.selectedFolder = null }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
@@ -249,7 +257,7 @@ fun LibraryScreen(
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = selectedFolder?.name ?: "Folder",
+                                text = activeFolder.name,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White,
@@ -325,7 +333,7 @@ fun LibraryScreen(
                             )
                         }
 
-                        if (selectedFolder == null) {
+                        if (activeFolder == null) {
                             Box {
                                 IconButton(onClick = { showMoreMenu = true }) {
                                     Icon(
@@ -356,23 +364,52 @@ fun LibraryScreen(
             }
         }
 
-        // TABS (Only shown when not inside a folder)
-        if (selectedFolder == null) {
+        val activeFolder = MediaRepository.selectedFolder
+
+        // TABS WITH SMOOTH TOUCH-INTERPOLATED UNDERLINE INDICATOR
+        if (activeFolder == null) {
             TabRow(
-                selectedTabIndex = selectedTabIndex,
+                selectedTabIndex = pagerState.currentPage,
                 containerColor = Color(0xFF13161F),
-                contentColor = Color(0xFF3B82F6)
+                contentColor = Color(0xFF3B82F6),
+                indicator = { tabPositions ->
+                    if (pagerState.currentPage < tabPositions.size) {
+                        val currentTab = tabPositions[pagerState.currentPage]
+                        val targetPage = pagerState.targetPage
+                        val targetTab = tabPositions.getOrNull(targetPage) ?: currentTab
+                        val fraction = abs(pagerState.currentPageOffsetFraction)
+
+                        val left = lerp(currentTab.left, targetTab.left, fraction)
+                        val right = lerp(currentTab.right, targetTab.right, fraction)
+                        val width = right - left
+
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .wrapContentSize(Alignment.BottomStart)
+                                .offset(x = left)
+                                .width(width)
+                                .height(3.dp)
+                                .background(Color(0xFF3B82F6), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                        )
+                    }
+                }
             ) {
                 tabs.forEachIndexed { index, title ->
+                    val isSelected = pagerState.currentPage == index
                     Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        selected = isSelected,
+                        onClick = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
                         text = {
                             Text(
                                 text = title,
                                 fontSize = 14.sp,
-                                fontWeight = if (selectedTabIndex == index) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (selectedTabIndex == index) Color(0xFF3B82F6) else Color(0xFF94A3B8)
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (isSelected) Color(0xFF3B82F6) else Color(0xFF94A3B8)
                             )
                         }
                     )
@@ -380,59 +417,67 @@ fun LibraryScreen(
             }
         }
 
-        // MAIN CONTENT BODY
+        // MAIN CONTENT BODY (SWIPEABLE HORIZONTAL PAGER)
         Box(modifier = Modifier.weight(1f)) {
             if (MediaRepository.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF3B82F6))
                 }
-            } else if (selectedFolder != null) {
-                // Folder Video View
-                val folderVideos = sortVideos(selectedFolder!!.videos).filter {
+            } else if (activeFolder != null) {
+                // Folder Video View (Active Folder)
+                val folderVideos = sortVideos(activeFolder.videos).filter {
                     searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
                 }
                 VideosContentView(
                     videos = folderVideos,
                     isGridView = isGridView,
+                    columns = gridColumns,
                     imageLoader = imageLoader,
                     onVideoClick = onVideoClick
                 )
             } else {
-                when (selectedTabIndex) {
-                    0 -> {
-                        // Folders Tab (Supports both Grid and List + Sorting)
-                        val filteredFolders = sortFolders(MediaRepository.folders).filter {
-                            searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true)
-                        }
-                        FoldersContentView(
-                            folders = filteredFolders,
-                            isGridView = isGridView,
-                            onFolderClick = { folder -> selectedFolder = folder }
-                        )
-                    }
-                    1 -> {
-                        // Master Videos Tab
-                        val filteredVideos = sortVideos(MediaRepository.allVideos).filter {
-                            searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
-                        }
-                        VideosContentView(
-                            videos = filteredVideos,
-                            isGridView = isGridView,
-                            imageLoader = imageLoader,
-                            onVideoClick = onVideoClick
-                        )
-                    }
-                    2 -> {
-                        // Playlists Tab
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No playlists yet",
-                                color = Color(0xFF64748B),
-                                fontSize = 15.sp
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    when (page) {
+                        0 -> {
+                            // Folders Tab (Supports Grid & List + Sorting)
+                            val filteredFolders = sortFolders(MediaRepository.folders).filter {
+                                searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true)
+                            }
+                            FoldersContentView(
+                                folders = filteredFolders,
+                                isGridView = isGridView,
+                                columns = gridColumns,
+                                onFolderClick = { folder -> MediaRepository.selectedFolder = folder }
                             )
+                        }
+                        1 -> {
+                            // Master Videos Tab
+                            val filteredVideos = sortVideos(MediaRepository.allVideos).filter {
+                                searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
+                            }
+                            VideosContentView(
+                                videos = filteredVideos,
+                                isGridView = isGridView,
+                                columns = gridColumns,
+                                imageLoader = imageLoader,
+                                onVideoClick = onVideoClick
+                            )
+                        }
+                        2 -> {
+                            // Playlists Tab
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No playlists yet",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 15.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -445,6 +490,7 @@ fun LibraryScreen(
 fun FoldersContentView(
     folders: List<FolderItem>,
     isGridView: Boolean,
+    columns: Int,
     onFolderClick: (FolderItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -457,7 +503,7 @@ fun FoldersContentView(
 
     if (isGridView) {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 160.dp),
+            columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -498,6 +544,7 @@ fun FolderGridCard(
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
     ) {
+        // Clean folder card: icon centered with soft background, NO number on thumbnail
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -512,22 +559,6 @@ fun FolderGridCard(
                 tint = Color(0xFF60A5FA),
                 modifier = Modifier.size(48.dp)
             )
-
-            // Video count badge bottom right
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(6.dp)
-                    .background(Color(0xCC000000), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = "${folder.videoCount}",
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -541,6 +572,7 @@ fun FolderGridCard(
             overflow = TextOverflow.Ellipsis
         )
 
+        // Video count shown ONLY below title
         Text(
             text = "${folder.videoCount} video${if (folder.videoCount > 1) "s" else ""}",
             fontSize = 12.sp,
@@ -604,6 +636,7 @@ fun FolderListRow(
 fun VideosContentView(
     videos: List<VideoItem>,
     isGridView: Boolean,
+    columns: Int,
     imageLoader: ImageLoader,
     onVideoClick: (VideoItem) -> Unit,
     modifier: Modifier = Modifier
@@ -617,7 +650,7 @@ fun VideosContentView(
 
     if (isGridView) {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 180.dp),
+            columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
