@@ -80,7 +80,6 @@ enum class SortOption {
     SIZE_ASC
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     onVideoClick: (VideoItem) -> Unit,
