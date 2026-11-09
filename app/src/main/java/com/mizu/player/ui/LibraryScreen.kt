@@ -98,9 +98,9 @@ fun LibraryScreen(
     val tabs = listOf("Folders", "Videos", "Playlists")
     val pagerState = rememberPagerState(initialPage = MediaRepository.selectedTab.coerceIn(0, tabs.size - 1)) { tabs.size }
 
-    // Persist active tab across navigation
+    // Persist active tab across navigation and app restarts
     LaunchedEffect(pagerState.currentPage) {
-        MediaRepository.selectedTab = pagerState.currentPage
+        MediaRepository.updateSelectedTab(context, pagerState.currentPage)
     }
 
     var isGridView by remember { mutableStateOf(MediaRepository.isGridView) }
@@ -303,7 +303,7 @@ fun LibraryScreen(
                                     text = { Text("Name (A to Z)", color = Color.White) },
                                     onClick = { 
                                         sortOption = SortOption.NAME_ASC
-                                        MediaRepository.sortOption = SortOption.NAME_ASC
+                                        MediaRepository.updateSortOption(context, SortOption.NAME_ASC)
                                         showSortMenu = false 
                                     }
                                 )
@@ -311,7 +311,7 @@ fun LibraryScreen(
                                     text = { Text("Name (Z to A)", color = Color.White) },
                                     onClick = { 
                                         sortOption = SortOption.NAME_DESC
-                                        MediaRepository.sortOption = SortOption.NAME_DESC
+                                        MediaRepository.updateSortOption(context, SortOption.NAME_DESC)
                                         showSortMenu = false 
                                     }
                                 )
@@ -319,7 +319,7 @@ fun LibraryScreen(
                                     text = { Text("Date (Newest first)", color = Color.White) },
                                     onClick = { 
                                         sortOption = SortOption.DATE_DESC
-                                        MediaRepository.sortOption = SortOption.DATE_DESC
+                                        MediaRepository.updateSortOption(context, SortOption.DATE_DESC)
                                         showSortMenu = false 
                                     }
                                 )
@@ -327,7 +327,7 @@ fun LibraryScreen(
                                     text = { Text("Date (Oldest first)", color = Color.White) },
                                     onClick = { 
                                         sortOption = SortOption.DATE_ASC
-                                        MediaRepository.sortOption = SortOption.DATE_ASC
+                                        MediaRepository.updateSortOption(context, SortOption.DATE_ASC)
                                         showSortMenu = false 
                                     }
                                 )
@@ -335,7 +335,7 @@ fun LibraryScreen(
                                     text = { Text("Size (Largest first)", color = Color.White) },
                                     onClick = { 
                                         sortOption = SortOption.SIZE_DESC
-                                        MediaRepository.sortOption = SortOption.SIZE_DESC
+                                        MediaRepository.updateSortOption(context, SortOption.SIZE_DESC)
                                         showSortMenu = false 
                                     }
                                 )
@@ -343,7 +343,7 @@ fun LibraryScreen(
                                     text = { Text("Size (Smallest first)", color = Color.White) },
                                     onClick = { 
                                         sortOption = SortOption.SIZE_ASC
-                                        MediaRepository.sortOption = SortOption.SIZE_ASC
+                                        MediaRepository.updateSortOption(context, SortOption.SIZE_ASC)
                                         showSortMenu = false 
                                     }
                                 )
@@ -352,7 +352,7 @@ fun LibraryScreen(
 
                         IconButton(onClick = { 
                             isGridView = !isGridView 
-                            MediaRepository.isGridView = isGridView
+                            MediaRepository.updateGridView(context, isGridView)
                         }) {
                             Icon(
                                 imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,

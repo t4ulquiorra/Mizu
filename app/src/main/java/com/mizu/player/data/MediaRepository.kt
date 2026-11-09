@@ -28,9 +28,35 @@ object MediaRepository {
     var isGridView by mutableStateOf(true)
     var sortOption by mutableStateOf(SortOption.DATE_DESC)
 
+    private var preferencesLoaded = false
+
+    fun initPreferences(context: Context) {
+        if (preferencesLoaded) return
+        isGridView = UserPreferences.isGridView(context)
+        sortOption = UserPreferences.getSortOption(context)
+        selectedTab = UserPreferences.getSelectedTab(context)
+        preferencesLoaded = true
+    }
+
+    fun updateGridView(context: Context, isGrid: Boolean) {
+        isGridView = isGrid
+        UserPreferences.setGridView(context, isGrid)
+    }
+
+    fun updateSortOption(context: Context, option: SortOption) {
+        sortOption = option
+        UserPreferences.setSortOption(context, option)
+    }
+
+    fun updateSelectedTab(context: Context, tab: Int) {
+        selectedTab = tab
+        UserPreferences.setSelectedTab(context, tab)
+    }
+
     private val backgroundScope = CoroutineScope(Dispatchers.IO)
 
     suspend fun loadIfNeeded(context: Context, force: Boolean = false) {
+        initPreferences(context)
         if (isInitialized && !force) return
         isLoading = true
         val (f, v) = MediaScanner.scanMedia(context)

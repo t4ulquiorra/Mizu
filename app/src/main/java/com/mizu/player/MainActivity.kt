@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.mizu.player.data.MediaRepository
 import com.mizu.player.model.VideoItem
 import com.mizu.player.ui.LibraryScreen
 import com.mizu.player.ui.PermissionHelper
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MediaRepository.initPreferences(this)
 
         setContent {
             MaterialTheme(
