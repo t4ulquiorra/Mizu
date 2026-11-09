@@ -1,8 +1,10 @@
 package com.mizu.player.model
 
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 import java.util.Locale
 
+@Immutable
 data class VideoItem(
     val id: Long,
     val title: String,
@@ -39,6 +41,7 @@ data class VideoItem(
     }
 }
 
+@Immutable
 data class FolderItem(
     val name: String,
     val path: String,

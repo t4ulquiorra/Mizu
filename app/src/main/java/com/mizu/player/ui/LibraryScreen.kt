@@ -70,8 +70,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.decode.VideoFrameDecoder
 import coil.memory.MemoryCache
+import coil.request.ImageRequest
 import com.mizu.player.data.MediaRepository
 import com.mizu.player.model.FolderItem
 import com.mizu.player.model.VideoItem
@@ -128,7 +128,6 @@ fun LibraryScreen(
         ImageLoader.Builder(context)
             .components {
                 add(AndroidThumbnailFetcher.Factory(context))
-                add(VideoFrameDecoder.Factory())
             }
             .memoryCache {
                 MemoryCache.Builder(context)
@@ -451,6 +450,24 @@ fun LibraryScreen(
             }
         }
 
+        // Memoize sorted and filtered lists so scrolling never triggers heavy list sorting/allocations
+        val folderVideos = remember(activeFolder?.videos, sortOption, searchQuery) {
+            if (activeFolder == null) emptyList()
+            else sortVideos(activeFolder.videos).filter {
+                searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
+            }
+        }
+        val filteredFolders = remember(MediaRepository.folders, sortOption, searchQuery) {
+            sortFolders(MediaRepository.folders).filter {
+                searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true)
+            }
+        }
+        val filteredVideos = remember(MediaRepository.allVideos, sortOption, searchQuery) {
+            sortVideos(MediaRepository.allVideos).filter {
+                searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
         // MAIN CONTENT BODY (SWIPEABLE HORIZONTAL PAGER)
         Box(modifier = Modifier.weight(1f)) {
             if (MediaRepository.isLoading) {
@@ -459,9 +476,6 @@ fun LibraryScreen(
                 }
             } else if (activeFolder != null) {
                 // Folder Video View (Active Folder)
-                val folderVideos = sortVideos(activeFolder.videos).filter {
-                    searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
-                }
                 VideosContentView(
                     videos = folderVideos,
                     isGridView = isGridView,
@@ -478,9 +492,6 @@ fun LibraryScreen(
                     when (page) {
                         0 -> {
                             // Folders Tab (Supports Grid & List + Sorting)
-                            val filteredFolders = sortFolders(MediaRepository.folders).filter {
-                                searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true)
-                            }
                             FoldersContentView(
                                 folders = filteredFolders,
                                 isGridView = isGridView,
@@ -493,9 +504,6 @@ fun LibraryScreen(
                         }
                         1 -> {
                             // Master Videos Tab
-                            val filteredVideos = sortVideos(MediaRepository.allVideos).filter {
-                                searchQuery.isEmpty() || it.title.contains(searchQuery, ignoreCase = true)
-                            }
                             VideosContentView(
                                 videos = filteredVideos,
                                 isGridView = isGridView,
@@ -547,7 +555,11 @@ fun FoldersContentView(
             horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(folders, key = { it.path }) { folder ->
+            items(
+                items = folders,
+                key = { it.path },
+                contentType = { "folder_card" }
+            ) { folder ->
                 FolderGridCard(
                     folder = folder,
                     onClick = { onFolderClick(folder) }
@@ -560,7 +572,11 @@ fun FoldersContentView(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(folders, key = { it.path }) { folder ->
+            items(
+                items = folders,
+                key = { it.path },
+                contentType = { "folder_row" }
+            ) { folder ->
                 FolderListRow(
                     folder = folder,
                     onClick = { onFolderClick(folder) }
@@ -694,7 +710,11 @@ fun VideosContentView(
             horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(videos, key = { it.id }) { video ->
+            items(
+                items = videos,
+                key = { it.id },
+                contentType = { "video_card" }
+            ) { video ->
                 VideoGridCard(
                     video = video,
                     imageLoader = imageLoader,
@@ -708,7 +728,11 @@ fun VideosContentView(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(videos, key = { it.id }) { video ->
+            items(
+                items = videos,
+                key = { it.id },
+                contentType = { "video_row" }
+            ) { video ->
                 VideoListRow(
                     video = video,
                     imageLoader = imageLoader,
@@ -726,6 +750,15 @@ fun VideoGridCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(video.uri) {
+        ImageRequest.Builder(context)
+            .data(video.uri)
+            .memoryCacheKey(video.id.toString())
+            .diskCacheKey(video.id.toString())
+            .build()
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -742,7 +775,7 @@ fun VideoGridCard(
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = video.uri,
+                model = imageRequest,
                 imageLoader = imageLoader,
                 contentDescription = video.title,
                 contentScale = ContentScale.Crop,
@@ -822,6 +855,15 @@ fun VideoListRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(video.uri) {
+        ImageRequest.Builder(context)
+            .data(video.uri)
+            .memoryCacheKey(video.id.toString())
+            .diskCacheKey(video.id.toString())
+            .build()
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -840,7 +882,7 @@ fun VideoListRow(
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = video.uri,
+                model = imageRequest,
                 imageLoader = imageLoader,
                 contentDescription = video.title,
                 contentScale = ContentScale.Crop,
