@@ -99,8 +99,9 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
 
-    // Minimum 2 columns on phones/portrait, Maximum 5 columns on wide tablets
-    val gridColumns = (configuration.screenWidthDp / 180).coerceIn(2, 5)
+    // Adaptive Grid Columns: 2 minimum on phones, up to 5 on wide tablets
+    val videoGridColumns = (configuration.screenWidthDp / 180).coerceIn(2, 5)
+    val folderGridColumns = (configuration.screenWidthDp / 130).coerceIn(2, 5)
 
     val tabs = listOf("Folders", "Videos", "Playlists")
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
@@ -479,7 +480,7 @@ fun LibraryScreen(
                 VideosContentView(
                     videos = folderVideos,
                     isGridView = isGridView,
-                    columns = gridColumns,
+                    columns = videoGridColumns,
                     imageLoader = imageLoader,
                     onVideoClick = onVideoClick
                 )
@@ -495,7 +496,7 @@ fun LibraryScreen(
                             FoldersContentView(
                                 folders = filteredFolders,
                                 isGridView = isGridView,
-                                columns = gridColumns,
+                                columns = folderGridColumns,
                                 onFolderClick = { folder ->
                                     MediaRepository.selectedFolder = folder
                                     MediaRepository.enrichFolderSubtitles(folder)
@@ -507,7 +508,7 @@ fun LibraryScreen(
                             VideosContentView(
                                 videos = filteredVideos,
                                 isGridView = isGridView,
-                                columns = gridColumns,
+                                columns = videoGridColumns,
                                 imageLoader = imageLoader,
                                 onVideoClick = onVideoClick
                             )
@@ -622,7 +623,8 @@ fun FolderGridCard(
             fontSize = 12.5.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE2E8F0),
-            maxLines = 1,
+            maxLines = 2,
+            minLines = 1,
             overflow = TextOverflow.Ellipsis
         )
 
@@ -835,12 +837,13 @@ fun VideoGridCard(
 
         Spacer(modifier = Modifier.height(5.dp))
 
-        // Clean, balanced title font size
+        // Uniform 2-line title height prevents jagged card bottoms in grid
         Text(
             text = video.title,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE2E8F0),
+            minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 15.sp

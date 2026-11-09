@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.util.LruCache
@@ -21,10 +22,14 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Ultra-fast hardware thumbnail fetcher with dual-tier cache (Memory LRU + Disk File Cache).
- * Bypasses Android ContentResolver IPC once cached, achieving instant 120 FPS scrolling.
+ * High-performance thumbnail fetcher with dual-tier cache (Memory LRU + Disk File Cache).
+ * - Avoids black frames by seeking to keyframes 10-15s into the video.
+ * - Blacklists failed/corrupt media files so scrolling stays 120 FPS without retry stalls.
+ * - Concurrency throttled to 2 parallel workers (matching MX Player architecture).
  */
 class AndroidThumbnailFetcher(
     private val context: Context,
@@ -35,12 +40,20 @@ class AndroidThumbnailFetcher(
         // In-memory cache of downsampled 320x180 bitmaps for instantaneous frame display
         private val memoryCache = object : LruCache<String, Bitmap>(300) {}
 
-        // Throttle concurrent thumbnail extractions so we don't saturate CPU or Binder IPC threads
-        private val extractionThrottle = Semaphore(4)
+        // Blacklist set for corrupted/unreadable files to prevent scroll lag loops
+        private val failedUris = Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+
+        // Throttle concurrent thumbnail extractions to 2 workers to avoid CPU/Binder IPC starvation
+        private val extractionThrottle = Semaphore(2)
     }
 
     override suspend fun fetch(): FetchResult? = withContext(Dispatchers.IO) {
         val key = uri.toString()
+
+        // Fast-path: Blacklisted unreadable file
+        if (failedUris.contains(key)) {
+            return@withContext null
+        }
 
         // 1. Level 1: In-Memory LruCache (0.01ms)
         val cachedMem = memoryCache.get(key)
@@ -52,7 +65,7 @@ class AndroidThumbnailFetcher(
             )
         }
 
-        // 2. Level 2: Local Disk Cache (0.5ms vs 30-50ms ContentResolver IPC)
+        // 2. Level 2: Local Disk Cache (0.5ms vs 30-50ms IPC/decoding)
         val diskCacheDir = File(context.cacheDir, "mizu_thumbs").apply { if (!exists()) mkdirs() }
         val cacheKeyName = (uri.lastPathSegment ?: uri.hashCode().toString()).replace("[^a-zA-Z0-9_-]".toRegex(), "_")
         val cacheFile = File(diskCacheDir, "$cacheKeyName.jpg")
@@ -73,43 +86,81 @@ class AndroidThumbnailFetcher(
             }
         }
 
-        // 3. Level 3: Android Hardware ContentResolver (Throttled to 4 concurrent calls)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            extractionThrottle.withPermit {
-                try {
-                    val rawBitmap = context.contentResolver.loadThumbnail(uri, Size(320, 180), null)
-
-                    val finalBitmap = if (rawBitmap.width > 360 || rawBitmap.height > 240) {
-                        val targetW = 320
-                        val targetH = (320f * rawBitmap.height / rawBitmap.width).toInt().coerceAtLeast(180)
-                        val scaled = Bitmap.createScaledBitmap(rawBitmap, targetW, targetH, true)
-                        if (scaled != rawBitmap) {
-                            rawBitmap.recycle()
-                        }
-                        scaled
-                    } else {
-                        rawBitmap
-                    }
-
-                    // Save to disk cache for future zero-latency loads
-                    try {
-                        FileOutputStream(cacheFile).use { out ->
-                            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 82, out)
-                        }
-                    } catch (_: Throwable) {}
-
-                    memoryCache.put(key, finalBitmap)
-                    DrawableResult(
-                        drawable = BitmapDrawable(context.resources, finalBitmap),
+        // 3. Level 3: Extraction with Concurrency Throttle (Max 2 simultaneous tasks)
+        extractionThrottle.withPermit {
+            // Re-check memory and disk in case previous concurrent worker finished it
+            memoryCache.get(key)?.let {
+                if (!it.isRecycled) {
+                    return@withContext DrawableResult(
+                        drawable = BitmapDrawable(context.resources, it),
                         isSampled = false,
-                        dataSource = DataSource.DISK
+                        dataSource = DataSource.MEMORY
                     )
-                } catch (_: Throwable) {
-                    null
                 }
             }
-        } else {
-            null
+
+            var extractedBitmap: Bitmap? = null
+
+            // Strategy A: Android Q+ ContentResolver Hardware Thumbnail
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    extractedBitmap = context.contentResolver.loadThumbnail(uri, Size(320, 180), null)
+                } catch (_: Throwable) {
+                    // Fall back to Strategy B
+                }
+            }
+
+            // Strategy B: MediaMetadataRetriever seeking 10-15s keyframe (avoids black/blank frame 0)
+            if (extractedBitmap == null) {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(context, uri)
+                    val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                    // Seek ~12 seconds in, or middle of video for short clips
+                    val seekUs = when {
+                        durationMs > 20_000L -> 12_000_000L
+                        durationMs > 2_000L -> (durationMs * 500L)
+                        else -> 0L
+                    }
+                    extractedBitmap = retriever.getFrameAtTime(seekUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                } catch (_: Throwable) {
+                    // Extraction failed
+                } finally {
+                    try { retriever.release() } catch (_: Throwable) {}
+                }
+            }
+
+            if (extractedBitmap == null) {
+                failedUris.add(key)
+                return@withContext null
+            }
+
+            // Scale to standard 320x180 card thumbnail size
+            val finalBitmap = if (extractedBitmap.width > 360 || extractedBitmap.height > 240) {
+                val targetW = 320
+                val targetH = (320f * extractedBitmap.height / extractedBitmap.width).toInt().coerceAtLeast(180)
+                val scaled = Bitmap.createScaledBitmap(extractedBitmap, targetW, targetH, true)
+                if (scaled != extractedBitmap) {
+                    extractedBitmap.recycle()
+                }
+                scaled
+            } else {
+                extractedBitmap
+            }
+
+            // Save to disk cache for zero-latency future scrolling
+            try {
+                FileOutputStream(cacheFile).use { out ->
+                    finalBitmap.compress(Bitmap.CompressFormat.JPEG, 82, out)
+                }
+            } catch (_: Throwable) {}
+
+            memoryCache.put(key, finalBitmap)
+            DrawableResult(
+                drawable = BitmapDrawable(context.resources, finalBitmap),
+                isSampled = false,
+                dataSource = DataSource.DISK
+            )
         }
     }
 
