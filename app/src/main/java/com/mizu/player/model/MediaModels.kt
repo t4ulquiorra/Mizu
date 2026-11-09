@@ -48,3 +48,12 @@ data class FolderItem(
     val videoCount: Int,
     val videos: List<VideoItem>
 )
+
+enum class SortOption {
+    NAME_ASC,
+    NAME_DESC,
+    DATE_DESC,
+    DATE_ASC,
+    SIZE_DESC,
+    SIZE_ASC
+}

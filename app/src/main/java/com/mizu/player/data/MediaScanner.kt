@@ -154,24 +154,30 @@ object MediaScanner {
                 it.nameWithoutExtension.equals(videoBase, ignoreCase = true)
             }
             if (exact != null) {
-                return exact.extension.uppercase()
+                return normalizeSubtitleExt(exact.extension)
             }
 
             val prefixMatch = subsInFolder.firstOrNull {
                 it.nameWithoutExtension.lowercase().startsWith(videoBase)
             }
             if (prefixMatch != null) {
-                return prefixMatch.extension.uppercase()
+                return normalizeSubtitleExt(prefixMatch.extension)
             }
 
             val relaxedMatch = subsInFolder.firstOrNull {
                 val subBase = it.nameWithoutExtension.lowercase()
                 videoBase.startsWith(subBase) || videoBase.contains(subBase)
             }
-            relaxedMatch?.extension?.uppercase()
+            relaxedMatch?.let { normalizeSubtitleExt(it.extension) }
         } catch (e: Exception) {
             null
         }
+    }
+
+    private fun normalizeSubtitleExt(ext: String): String {
+        val up = ext.uppercase()
+        // Map ASS (Advanced SubStation Alpha) to SSA to match standard player styling
+        return if (up == "ASS") "SSA" else up
     }
 
     /**
@@ -191,7 +197,7 @@ object MediaScanner {
                 if (read > 0) {
                     val str = String(buffer, 0, read, Charsets.ISO_8859_1)
                     when {
-                        str.contains("S_TEXT/ASS") -> "ASS"
+                        str.contains("S_TEXT/ASS") -> "SSA"
                         str.contains("S_TEXT/SSA") -> "SSA"
                         str.contains("S_TEXT/UTF8") -> "SRT"
                         str.contains("S_VOBSUB") -> "SUB"

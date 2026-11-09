@@ -54,7 +54,8 @@ fun PlayerScreen(
                 val videoFile = File(video.path)
                 val parent = videoFile.parentFile
                 val baseName = videoFile.nameWithoutExtension
-                val subFile = File(parent, "$baseName.${video.subtitleType.lowercase()}")
+                val directSub = File(parent, "$baseName.${video.subtitleType.lowercase()}")
+                val subFile = if (directSub.exists()) directSub else File(parent, "$baseName.ass")
 
                 if (subFile.exists()) {
                     val mimeType = when (video.subtitleType.lowercase()) {

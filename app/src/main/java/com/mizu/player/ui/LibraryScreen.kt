@@ -80,15 +80,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sin
-
-enum class SortOption {
-    NAME_ASC,
-    NAME_DESC,
-    DATE_DESC,
-    DATE_ASC,
-    SIZE_DESC,
-    SIZE_ASC
-}
+import com.mizu.player.model.SortOption
 
 @Composable
 fun LibraryScreen(
@@ -104,10 +96,15 @@ fun LibraryScreen(
     val folderGridColumns = (configuration.screenWidthDp / 130).coerceIn(2, 5)
 
     val tabs = listOf("Folders", "Videos", "Playlists")
-    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    val pagerState = rememberPagerState(initialPage = MediaRepository.selectedTab.coerceIn(0, tabs.size - 1)) { tabs.size }
 
-    var isGridView by remember { mutableStateOf(true) }
-    var sortOption by remember { mutableStateOf(SortOption.DATE_DESC) }
+    // Persist active tab across navigation
+    LaunchedEffect(pagerState.currentPage) {
+        MediaRepository.selectedTab = pagerState.currentPage
+    }
+
+    var isGridView by remember { mutableStateOf(MediaRepository.isGridView) }
+    var sortOption by remember { mutableStateOf(MediaRepository.sortOption) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
 
@@ -304,32 +301,59 @@ fun LibraryScreen(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Name (A to Z)", color = Color.White) },
-                                    onClick = { sortOption = SortOption.NAME_ASC; showSortMenu = false }
+                                    onClick = { 
+                                        sortOption = SortOption.NAME_ASC
+                                        MediaRepository.sortOption = SortOption.NAME_ASC
+                                        showSortMenu = false 
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Name (Z to A)", color = Color.White) },
-                                    onClick = { sortOption = SortOption.NAME_DESC; showSortMenu = false }
+                                    onClick = { 
+                                        sortOption = SortOption.NAME_DESC
+                                        MediaRepository.sortOption = SortOption.NAME_DESC
+                                        showSortMenu = false 
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Date (Newest first)", color = Color.White) },
-                                    onClick = { sortOption = SortOption.DATE_DESC; showSortMenu = false }
+                                    onClick = { 
+                                        sortOption = SortOption.DATE_DESC
+                                        MediaRepository.sortOption = SortOption.DATE_DESC
+                                        showSortMenu = false 
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Date (Oldest first)", color = Color.White) },
-                                    onClick = { sortOption = SortOption.DATE_ASC; showSortMenu = false }
+                                    onClick = { 
+                                        sortOption = SortOption.DATE_ASC
+                                        MediaRepository.sortOption = SortOption.DATE_ASC
+                                        showSortMenu = false 
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Size (Largest first)", color = Color.White) },
-                                    onClick = { sortOption = SortOption.SIZE_DESC; showSortMenu = false }
+                                    onClick = { 
+                                        sortOption = SortOption.SIZE_DESC
+                                        MediaRepository.sortOption = SortOption.SIZE_DESC
+                                        showSortMenu = false 
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Size (Smallest first)", color = Color.White) },
-                                    onClick = { sortOption = SortOption.SIZE_ASC; showSortMenu = false }
+                                    onClick = { 
+                                        sortOption = SortOption.SIZE_ASC
+                                        MediaRepository.sortOption = SortOption.SIZE_ASC
+                                        showSortMenu = false 
+                                    }
                                 )
                             }
                         }
 
-                        IconButton(onClick = { isGridView = !isGridView }) {
+                        IconButton(onClick = { 
+                            isGridView = !isGridView 
+                            MediaRepository.isGridView = isGridView
+                        }) {
                             Icon(
                                 imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
                                 contentDescription = "Toggle Grid/List",

@@ -101,18 +101,22 @@ fun AppContent(intent: Intent?) {
                 hasPermission = true
             }
         )
-    } else if (playingVideo != null) {
-        PlayerScreen(
-            video = playingVideo!!,
-            onBack = {
-                playingVideo = null
-            }
-        )
     } else {
-        LibraryScreen(
-            onVideoClick = { video ->
-                playingVideo = video
+        Box(modifier = Modifier.fillMaxSize()) {
+            LibraryScreen(
+                onVideoClick = { video ->
+                    playingVideo = video
+                }
+            )
+
+            playingVideo?.let { video ->
+                PlayerScreen(
+                    video = video,
+                    onBack = {
+                        playingVideo = null
+                    }
+                )
             }
-        )
+        }
     }
 }

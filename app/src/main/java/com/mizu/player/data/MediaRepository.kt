@@ -2,9 +2,11 @@ package com.mizu.player.data
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mizu.player.model.FolderItem
+import com.mizu.player.model.SortOption
 import com.mizu.player.model.VideoItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +14,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Singleton repository holding media library state in memory.
- * Preserves active folder and video lists across navigation and playback.
+ * Preserves active folder, tab, and view preferences across navigation and playback.
  */
 object MediaRepository {
     var folders by mutableStateOf<List<FolderItem>>(emptyList())
@@ -20,8 +22,11 @@ object MediaRepository {
     var isLoading by mutableStateOf(false)
     var isInitialized by mutableStateOf(false)
 
-    // Preserved active folder so back button from player returns into the folder
+    // Preserved active folder, tab, and view preferences across navigation and playback
     var selectedFolder by mutableStateOf<FolderItem?>(null)
+    var selectedTab by mutableIntStateOf(0)
+    var isGridView by mutableStateOf(true)
+    var sortOption by mutableStateOf(SortOption.DATE_DESC)
 
     private val backgroundScope = CoroutineScope(Dispatchers.IO)
 
