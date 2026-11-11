@@ -264,7 +264,8 @@ class VlcPlayerEngine @Inject constructor(
         val mp = mediaPlayer ?: return
         val path = uri.path ?: uri.toString()
         PlaybackLog.logVlcEvent("addSidecarSubtitle", "path=$path")
-        mp.addSlave(Media.Slave.Type.Subtitle, path, true)
+        // 1 = IMedia.Slave.Type.Subtitle in LibVLC
+        mp.addSlave(1, path, true)
         updateTracks()
     }
 

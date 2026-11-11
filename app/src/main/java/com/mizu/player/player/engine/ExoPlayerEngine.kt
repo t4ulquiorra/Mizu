@@ -433,9 +433,9 @@ class ExoPlayerEngine @Inject constructor(
         subtitleView.setApplyEmbeddedFontSizes(true)
         subtitleView.setStyle(
             CaptionStyleCompat(
-                CaptionStyleCompat.COLOR_UNSPECIFIED,
-                CaptionStyleCompat.COLOR_UNSPECIFIED,
-                CaptionStyleCompat.COLOR_UNSPECIFIED,
+                android.graphics.Color.WHITE,
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
                 CaptionStyleCompat.EDGE_TYPE_OUTLINE,
                 android.graphics.Color.BLACK,
                 null
