@@ -21,10 +21,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
@@ -507,6 +509,8 @@ fun LibraryScreen(
                     videos = folderVideos,
                     isGridView = isGridView,
                     columns = videoGridColumns,
+                    sortOption = sortOption,
+                    searchQuery = searchQuery,
                     imageLoader = imageLoader,
                     onVideoClick = onVideoClick
                 )
@@ -523,6 +527,8 @@ fun LibraryScreen(
                                 folders = filteredFolders,
                                 isGridView = isGridView,
                                 columns = folderGridColumns,
+                                sortOption = sortOption,
+                                searchQuery = searchQuery,
                                 onFolderClick = { folder ->
                                     MediaRepository.selectedFolder = folder
                                     MediaRepository.enrichFolderSubtitles(folder)
@@ -535,6 +541,8 @@ fun LibraryScreen(
                                 videos = filteredVideos,
                                 isGridView = isGridView,
                                 columns = videoGridColumns,
+                                sortOption = sortOption,
+                                searchQuery = searchQuery,
                                 imageLoader = imageLoader,
                                 onVideoClick = onVideoClick
                             )
@@ -564,6 +572,8 @@ fun FoldersContentView(
     folders: List<FolderItem>,
     isGridView: Boolean,
     columns: Int,
+    sortOption: SortOption,
+    searchQuery: String,
     onFolderClick: (FolderItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -574,8 +584,22 @@ fun FoldersContentView(
         return
     }
 
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+
+    var isInitial by remember { mutableStateOf(true) }
+    LaunchedEffect(sortOption, searchQuery) {
+        if (isInitial) {
+            isInitial = false
+        } else {
+            gridState.scrollToItem(0)
+            listState.scrollToItem(0)
+        }
+    }
+
     if (isGridView) {
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
@@ -595,6 +619,7 @@ fun FoldersContentView(
         }
     } else {
         LazyColumn(
+            state = listState,
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -719,6 +744,8 @@ fun VideosContentView(
     videos: List<VideoItem>,
     isGridView: Boolean,
     columns: Int,
+    sortOption: SortOption,
+    searchQuery: String,
     imageLoader: ImageLoader,
     onVideoClick: (VideoItem, List<VideoItem>, Int) -> Unit,
     modifier: Modifier = Modifier
@@ -730,8 +757,22 @@ fun VideosContentView(
         return
     }
 
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+
+    var isInitial by remember { mutableStateOf(true) }
+    LaunchedEffect(sortOption, searchQuery) {
+        if (isInitial) {
+            isInitial = false
+        } else {
+            gridState.scrollToItem(0)
+            listState.scrollToItem(0)
+        }
+    }
+
     if (isGridView) {
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(columns),
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
@@ -752,6 +793,7 @@ fun VideosContentView(
         }
     } else {
         LazyColumn(
+            state = listState,
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)

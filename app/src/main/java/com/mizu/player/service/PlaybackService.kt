@@ -5,8 +5,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.util.Size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +35,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 
 @UnstableApi
 class PlaybackService : MediaSessionService() {
@@ -97,11 +102,78 @@ class PlaybackService : MediaSessionService() {
             context.startService(intent)
         }
 
-        fun buildMediaItem(video: VideoItem): MediaItem {
+        fun getThumbnailBytes(context: Context, video: VideoItem): ByteArray? {
+            val diskCacheDir = File(context.cacheDir, "mizu_thumbs").apply { if (!exists()) mkdirs() }
+            val cacheKeyName = (video.uri.lastPathSegment ?: video.uri.hashCode().toString()).replace("[^a-zA-Z0-9_-]".toRegex(), "_")
+            val cacheFile = File(diskCacheDir, "$cacheKeyName.jpg")
+
+            if (cacheFile.exists() && cacheFile.length() > 0) {
+                try {
+                    return cacheFile.readBytes()
+                } catch (_: Exception) {}
+            }
+
+            try {
+                var bitmap: Bitmap? = null
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        bitmap = context.contentResolver.loadThumbnail(video.uri, Size(512, 288), null)
+                    } catch (_: Throwable) {}
+                }
+
+                if (bitmap == null) {
+                    val retriever = MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(context, video.uri)
+                        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                        val seekUs = when {
+                            durationMs > 20_000L -> 12_000_000L
+                            durationMs > 2_000L -> (durationMs * 500L)
+                            else -> 0L
+                        }
+                        bitmap = retriever.getFrameAtTime(seekUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    } catch (_: Throwable) {
+                    } finally {
+                        try { retriever.release() } catch (_: Throwable) {}
+                    }
+                }
+
+                if (bitmap != null) {
+                    val targetW = 512
+                    val targetH = (512f * bitmap.height / bitmap.width).toInt().coerceAtLeast(288)
+                    val scaled = if (bitmap.width != targetW || bitmap.height != targetH) {
+                        val s = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+                        if (s != bitmap) bitmap.recycle()
+                        s
+                    } else bitmap
+
+                    val outStream = ByteArrayOutputStream()
+                    scaled.compress(Bitmap.CompressFormat.JPEG, 80, outStream)
+                    val bytes = outStream.toByteArray()
+
+                    try {
+                        FileOutputStream(cacheFile).use { fos ->
+                            fos.write(bytes)
+                        }
+                    } catch (_: Throwable) {}
+
+                    return bytes
+                }
+            } catch (_: Throwable) {}
+
+            return null
+        }
+
+        fun buildMediaItem(context: Context, video: VideoItem): MediaItem {
+            val artworkBytes = getThumbnailBytes(context, video)
             val metadata = MediaMetadata.Builder()
                 .setTitle(video.title)
                 .setDisplayTitle(video.title)
-                .setArtworkUri(video.uri)
+                .apply {
+                    if (artworkBytes != null) {
+                        setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    }
+                }
                 .build()
 
             val mediaItemBuilder = MediaItem.Builder()
@@ -270,7 +342,7 @@ class PlaybackService : MediaSessionService() {
         val p = exoPlayer ?: return
         if (playlist.isEmpty()) return
 
-        val mediaItems = playlist.map { buildMediaItem(it) }
+        val mediaItems = playlist.map { buildMediaItem(applicationContext, it) }
         val safeIndex = startIndex.coerceIn(0, playlist.size - 1)
 
         val targetVideo = playlist[safeIndex]

@@ -1,6 +1,5 @@
 package com.mizu.player
 
-import android.Manifest
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
@@ -8,15 +7,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -86,7 +83,7 @@ class MainActivity : ComponentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             addOnPictureInPictureModeChangedListener { info ->
-                isInPipMode = info.isInPictureInPictureMode
+                handlePipModeChange(info.isInPictureInPictureMode)
             }
         }
 
@@ -115,24 +112,47 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun handlePipModeChange(inPip: Boolean) {
+        isInPipMode = inPip
+        if (!inPip) {
+            // Check if user dismissed PiP with the cross (X) button vs expanding it back to full screen.
+            // When dismissed via the cross button, the activity is no longer in STARTED or RESUMED state.
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                PlaybackService.stop(this)
+                isPlayingVideo = false
+                finish()
+            }
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        @Suppress("DEPRECATION")
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        handlePipModeChange(isInPictureInPictureMode)
+    }
+
     fun buildPipParams(isPlaying: Boolean, hasPrev: Boolean, hasNext: Boolean): PictureInPictureParams {
         val builder = PictureInPictureParams.Builder()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val actions = mutableListOf<RemoteAction>()
 
-            // 1. Previous Action
+            // 1. Previous Action (matching unified Material 24dp vector icon)
             val prevIntent = PendingIntent.getBroadcast(
                 this, 101,
                 Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL, CONTROL_PREV),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            val prevIcon = Icon.createWithResource(this, android.R.drawable.ic_media_previous)
+            val prevIcon = Icon.createWithResource(this, R.drawable.ic_pip_previous)
             val prevAction = RemoteAction(prevIcon, "Previous", "Previous", prevIntent).apply {
                 isEnabled = hasPrev
             }
             actions.add(prevAction)
 
-            // 2. Play / Pause Action
+            // 2. Play / Pause Action (matching unified Material 24dp vector icon)
             val playPauseIntent = PendingIntent.getBroadcast(
                 this, 102,
                 Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL, CONTROL_PLAY_PAUSE),
@@ -140,7 +160,7 @@ class MainActivity : ComponentActivity() {
             )
             val playPauseIcon = Icon.createWithResource(
                 this,
-                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+                if (isPlaying) R.drawable.ic_pip_pause else R.drawable.ic_pip_play
             )
             val playPauseAction = RemoteAction(
                 playPauseIcon,
@@ -150,13 +170,13 @@ class MainActivity : ComponentActivity() {
             )
             actions.add(playPauseAction)
 
-            // 3. Next Action
+            // 3. Next Action (matching unified Material 24dp vector icon)
             val nextIntent = PendingIntent.getBroadcast(
                 this, 103,
                 Intent(ACTION_PIP_CONTROL).putExtra(EXTRA_CONTROL, CONTROL_NEXT),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            val nextIcon = Icon.createWithResource(this, android.R.drawable.ic_media_next)
+            val nextIcon = Icon.createWithResource(this, R.drawable.ic_pip_next)
             val nextAction = RemoteAction(nextIcon, "Next", "Next", nextIntent).apply {
                 isEnabled = hasNext
             }
@@ -178,16 +198,6 @@ class MainActivity : ComponentActivity() {
                 )
                 enterPictureInPictureMode(params)
             } catch (_: Exception) {}
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        // If user closes PiP with the cross (X) button, stop playback completely
-        if (isInPipMode) {
-            PlaybackService.stop(this)
-            isInPipMode = false
-            isPlayingVideo = false
         }
     }
 
@@ -217,11 +227,6 @@ fun AppContent(
     var playingVideo by remember { mutableStateOf<VideoItem?>(null) }
     var currentQueue by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
     var currentQueueIndex by remember { mutableIntStateOf(0) }
-
-    // Launcher for POST_NOTIFICATIONS on Android 13+
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { /* Playback continues regardless of notification permission outcome */ }
 
     // Dynamically update PiP actions whenever playing state or next/prev availability changes
     val isPlaying = PlaybackService.isPlaying
@@ -290,13 +295,6 @@ fun AppContent(
                     currentQueue = queue
                     currentQueueIndex = index
                     playingVideo = video
-
-                    // Request notification permission once on Android 13+ if not yet granted
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                    }
                 }
             )
 
