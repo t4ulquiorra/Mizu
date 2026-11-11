@@ -76,6 +76,7 @@ interface PlayerEngine {
     fun hasPrevious(): Boolean
 
     fun attachVideoLayout(layout: VLCVideoLayout)
+    fun notifySurfaceReady(layout: VLCVideoLayout, width: Int, height: Int)
     fun detachVideoLayout()
 
     fun addListener(listener: PlayerEngineListener)

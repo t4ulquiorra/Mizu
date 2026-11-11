@@ -191,6 +191,12 @@ fun PlayerScreen(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            PlaybackService.engine?.detachVideoLayout()
+        }
+    }
+
     if (errorMessage != null) {
         // Clear error view with message and Back button
         Box(
@@ -251,10 +257,25 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         PlaybackService.engine?.attachVideoLayout(this)
+                        addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+                            val w = right - left
+                            val h = bottom - top
+                            if (w > 0 && h > 0) {
+                                PlaybackService.engine?.notifySurfaceReady(this, w, h)
+                            }
+                        }
+                        post {
+                            if (width > 0 && height > 0) {
+                                PlaybackService.engine?.notifySurfaceReady(this, width, height)
+                            }
+                        }
                     }
                 },
                 update = { layout ->
                     PlaybackService.engine?.attachVideoLayout(layout)
+                    if (layout.width > 0 && layout.height > 0) {
+                        PlaybackService.engine?.notifySurfaceReady(layout, layout.width, layout.height)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxSize()

@@ -3,6 +3,7 @@ package com.mizu.player.engine
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import androidx.media3.common.Player
 import com.mizu.player.data.MediaRepository
 import com.mizu.player.data.UserPreferences
@@ -21,6 +22,7 @@ import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.interfaces.IMedia
 import org.videolan.libvlc.util.VLCVideoLayout
 import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -58,6 +60,12 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
     private var activeFallbackStep: Int = 0
     private var attachedLayout: VLCVideoLayout? = null
     private var isBuffering: Boolean = false
+    private var isSurfaceReady: Boolean = false
+    private var pendingPlayAfterSurfaceReady: Boolean = false
+    private var surfaceWaitJob: Job? = null
+    private var hasOpenedSuccessfully: Boolean = false
+    private var isUsingPfd: Boolean = false
+    private var currentPfd: ParcelFileDescriptor? = null
 
     companion object {
         fun createLibVlcInstance(context: Context): LibVLC {
@@ -65,14 +73,18 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
             // Verified against options in libvlc.so (VLC 3.x line used by libvlc-all).
             val primaryOptions = arrayListOf(
                 "--audio-time-stretch",
-                "--sub-autodetect-file"
+                "--sub-autodetect-file",
+                "-v"
             )
             val minimalOptions = arrayListOf(
-                "--audio-time-stretch"
+                "--audio-time-stretch",
+                "-v"
             )
-            val bareOptions = arrayListOf<String>()
+            val bareOptions = arrayListOf(
+                "-v"
+            )
 
-            // 1. Primary Attempt: Known-good audio time stretch and subtitle autodetection
+            // 1. Primary Attempt: Known-good audio time stretch, subtitle autodetection, verbose logging
             try {
                 DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "Attempting LibVLC init with primary options: $primaryOptions")
                 val lib = LibVLC(context, primaryOptions)
@@ -96,21 +108,21 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                 DiagnosticLogger.log(
                     context,
                     "VlcPlayerEngine.Startup",
-                    "Minimal options failed (${t.message}) with options: $minimalOptions. Retrying with bare options: []"
+                    "Minimal options failed (${t.message}) with options: $minimalOptions. Retrying with bare options: $bareOptions"
                 )
             }
 
             // 3. Fallback Attempt: Bare options (empty list)
             try {
-                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "Attempting LibVLC init with bare options: []")
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "Attempting LibVLC init with bare options: $bareOptions")
                 val lib = LibVLC(context, bareOptions)
-                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "LibVLC initialized successfully (fallback: BARE_OPTIONS, options: [])")
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "LibVLC initialized successfully (fallback: BARE_OPTIONS, options: $bareOptions)")
                 return lib
             } catch (t: Throwable) {
                 DiagnosticLogger.log(
                     context,
                     "VlcPlayerEngine.Startup",
-                    "ALL LibVLC options failed. Tested: [primary: $primaryOptions, minimal: $minimalOptions, bare: []]. Error: ${t.message}"
+                    "ALL LibVLC options failed. Tested: [primary: $primaryOptions, minimal: $minimalOptions, bare: $bareOptions]. Error: ${t.message}"
                 )
                 throw t
             }
@@ -126,7 +138,12 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
     private fun setupEventListener() {
         mediaPlayer.setEventListener { event ->
             when (event.type) {
+                MediaPlayer.Event.Opening -> {
+                    hasOpenedSuccessfully = true
+                    DiagnosticLogger.log(context, "VlcPlayerEngine.Event", "Opening")
+                }
                 MediaPlayer.Event.Playing -> {
+                    hasOpenedSuccessfully = true
                     isPlaying = true
                     isBuffering = false
                     durationMs = mediaPlayer.length.coerceAtLeast(0L)
@@ -142,6 +159,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                         activeFallbackStep = 0
                     }
                     DiagnosticLogger.log(context, "VlcPlayerEngine.Event", "Playing, durationMs=$durationMs")
+                    DiagnosticLogger.captureVlcLogcat(context, "VlcPlayerEngine.Playing_logcat")
                 }
                 MediaPlayer.Event.Paused -> {
                     isPlaying = false
@@ -162,6 +180,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                     handleAutoplayNext()
                 }
                 MediaPlayer.Event.TimeChanged -> {
+                    hasOpenedSuccessfully = true
                     currentPositionMs = event.timeChanged
                     if (durationMs <= 0L) {
                         durationMs = mediaPlayer.length.coerceAtLeast(0L)
@@ -175,6 +194,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                     }
                 }
                 MediaPlayer.Event.Buffering -> {
+                    hasOpenedSuccessfully = true
                     isBuffering = event.buffering < 100f
                     if (isBuffering) {
                         notifyPlaybackState(Player.STATE_BUFFERING)
@@ -185,6 +205,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                 MediaPlayer.Event.ESAdded,
                 MediaPlayer.Event.ESDeleted,
                 MediaPlayer.Event.ESSelected -> {
+                    hasOpenedSuccessfully = true
                     engineScope.launch {
                         delay(100)
                         notifyTracksChanged()
@@ -193,7 +214,12 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                 MediaPlayer.Event.EncounteredError -> {
                     isPlaying = false
                     notifyIsPlaying(false)
-                    DiagnosticLogger.log(context, "VlcPlayerEngine.Event", "EncounteredError at pos=$currentPositionMs, step=$activeFallbackStep")
+                    DiagnosticLogger.log(
+                        context,
+                        "VlcPlayerEngine.Event",
+                        "EncounteredError at pos=$currentPositionMs, step=$activeFallbackStep, hasOpened=$hasOpenedSuccessfully, audioTracks=${mediaPlayer.audioTracksCount}, spuTracks=${mediaPlayer.spuTracksCount}"
+                    )
+                    DiagnosticLogger.captureVlcLogcat(context, "VlcPlayerEngine.Error_logcat")
                     handlePlaybackFailure()
                 }
             }
@@ -216,11 +242,30 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
 
     override fun play() {
         if (!mediaPlayer.isPlaying) {
-            mediaPlayer.play()
+            val layout = attachedLayout
+            val surfaceHasSize = isSurfaceReady && layout != null && layout.width > 0 && layout.height > 0
+            if (surfaceHasSize || mediaPlayer.media == null) {
+                mediaPlayer.play()
+            } else {
+                pendingPlayAfterSurfaceReady = true
+                surfaceWaitJob?.cancel()
+                surfaceWaitJob = engineScope.launch {
+                    delay(1200)
+                    if (pendingPlayAfterSurfaceReady) {
+                        DiagnosticLogger.log(context, "VlcPlayerEngine.play", "Surface wait timed out (1.2s). Starting playback without surface (audio-only recovery / background)")
+                        pendingPlayAfterSurfaceReady = false
+                        withContext(Dispatchers.Main) {
+                            mediaPlayer.play()
+                        }
+                    }
+                }
+            }
         }
     }
 
     override fun pause() {
+        pendingPlayAfterSurfaceReady = false
+        surfaceWaitJob?.cancel()
         if (mediaPlayer.isPlaying) {
             mediaPlayer.pause()
         }
@@ -334,14 +379,25 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
 
     override fun addExternalSubtitle(uri: Uri, selectImmediately: Boolean): Boolean {
         return try {
-            val success = mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, uri, selectImmediately)
+            val targetUri = if (uri.scheme == "content") {
+                val cacheSub = File(context.cacheDir, "ext_sub_${System.currentTimeMillis()}.srt")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(cacheSub).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                Uri.fromFile(cacheSub)
+            } else {
+                uri
+            }
+            val success = mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, targetUri, selectImmediately)
             if (success) {
                 engineScope.launch {
                     delay(200)
                     notifyTracksChanged()
                 }
             }
-            DiagnosticLogger.log(context, "VlcPlayerEngine.addExternalSubtitle", "uri=$uri, success=$success")
+            DiagnosticLogger.log(context, "VlcPlayerEngine.addExternalSubtitle", "uri=$targetUri, success=$success")
             success
         } catch (e: Exception) {
             DiagnosticLogger.log(context, "VlcPlayerEngine.addExternalSubtitle_error", e.message ?: "error")
@@ -359,10 +415,10 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
         currentVideo = video
         listeners.forEach { it.onMediaItemTransition(video, currentIndex) }
 
-        playVideoInternal(video, seekPos = 0L, fallbackStep = fallbackStep)
+        playVideoInternal(video, seekPos = 0L, fallbackStep = fallbackStep, forcePfd = false)
     }
 
-    private fun playVideoInternal(video: VideoItem, seekPos: Long, fallbackStep: Int) {
+    private fun playVideoInternal(video: VideoItem, seekPos: Long, fallbackStep: Int, forcePfd: Boolean = false) {
         engineScope.launch(Dispatchers.IO) {
             val isMissing = video.path.isNotEmpty() && !File(video.path).exists()
             if (isMissing) {
@@ -382,7 +438,37 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
             }
 
             try {
-                val media = Media(libVLC, video.uri)
+                // Clean up any previous ParcelFileDescriptor
+                currentPfd?.close()
+                currentPfd = null
+
+                val file = if (video.path.isNotEmpty()) File(video.path) else null
+                val canReadFile = file != null && file.exists() && file.canRead()
+
+                val media: Media = if (canReadFile && !forcePfd) {
+                    val fileUri = Uri.fromFile(file)
+                    isUsingPfd = false
+                    DiagnosticLogger.log(context, "VlcPlayerEngine.Media", "Opening media via file path URI: $fileUri")
+                    Media(libVLC, fileUri)
+                } else {
+                    DiagnosticLogger.log(context, "VlcPlayerEngine.Media", "Opening media via ParcelFileDescriptor (canRead=$canReadFile, forcePfd=$forcePfd)")
+                    val pfd = try {
+                        context.contentResolver.openFileDescriptor(video.uri, "r")
+                    } catch (e: Exception) {
+                        DiagnosticLogger.log(context, "VlcPlayerEngine.Media_pfd_error", "Failed to open PFD: ${e.message}")
+                        null
+                    }
+                    if (pfd == null) {
+                        DiagnosticLogger.log(context, "VlcPlayerEngine.Media_error", "Cannot open file path or PFD for ${video.title}")
+                        withContext(Dispatchers.Main) {
+                            listeners.forEach { it.onError("This video can't be played", false) }
+                        }
+                        return@launch
+                    }
+                    currentPfd = pfd
+                    isUsingPfd = true
+                    Media(libVLC, pfd.fileDescriptor)
+                }
 
                 // Requirement: Use libVLC's real hardware decoder API: setHWDecoderEnabled
                 // Step 4 of failsafe: hardware decoding disabled (software fallback)
@@ -398,6 +484,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                 media.addOption(":network-caching=1500")
 
                 withContext(Dispatchers.Main) {
+                    hasOpenedSuccessfully = false
                     mediaPlayer.media = media
                     media.release()
 
@@ -408,13 +495,16 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                         }
                     }
 
-                    // Auto-load companion subtitle files (.srt, .ass, .ssa, .vtt, .sub, .idx, .smi)
+                    // Auto-load companion subtitle files by path (.srt, .ass, .ssa, .vtt, .sub, .idx, .smi)
                     // unless fallbackStep >= 2 (step 2 disables external companion subtitles)
                     if (fallbackStep < 2 && video.path.isNotEmpty()) {
                         val companionSubs = findCompanionSubtitleFiles(File(video.path))
                         for (subFile in companionSubs) {
-                            val subUri = Uri.fromFile(subFile)
-                            mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, subUri, false)
+                            if (subFile.exists() && subFile.canRead()) {
+                                val subUri = Uri.fromFile(subFile)
+                                val ok = mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, subUri, false)
+                                DiagnosticLogger.log(context, "VlcPlayerEngine.Subtitles", "Attached companion sub by path URI: ${subFile.absolutePath}, success=$ok")
+                            }
                         }
                     }
 
@@ -427,7 +517,26 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                         mediaPlayer.time = savedPos
                     }
 
-                    mediaPlayer.play()
+                    val layout = attachedLayout
+                    val surfaceHasSize = isSurfaceReady && layout != null && layout.width > 0 && layout.height > 0
+                    if (surfaceHasSize) {
+                        DiagnosticLogger.log(context, "VlcPlayerEngine.play", "Surface ready (${layout?.width}x${layout?.height}), calling play() immediately")
+                        mediaPlayer.play()
+                    } else {
+                        DiagnosticLogger.log(context, "VlcPlayerEngine.play", "Surface not ready yet (isSurfaceReady=$isSurfaceReady, layout=$layout). Waiting for surface signal before calling play()...")
+                        pendingPlayAfterSurfaceReady = true
+                        surfaceWaitJob?.cancel()
+                        surfaceWaitJob = engineScope.launch {
+                            delay(1200)
+                            if (pendingPlayAfterSurfaceReady) {
+                                DiagnosticLogger.log(context, "VlcPlayerEngine.play", "Surface wait timed out (1.2s). Starting playback without surface (audio-only recovery / background)")
+                                pendingPlayAfterSurfaceReady = false
+                                withContext(Dispatchers.Main) {
+                                    mediaPlayer.play()
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -517,6 +626,30 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
         val currentPos = currentPositionMs
         val key = UserPreferences.getVideoKey(video)
 
+        val hasTracks = mediaPlayer.audioTracksCount > 0 || mediaPlayer.spuTracksCount > 0
+        val isOpenFailure = !hasOpenedSuccessfully || (currentPos == 0L && !hasTracks)
+
+        DiagnosticLogger.log(
+            context,
+            "VlcPlayerEngine.Failure",
+            "Failure detected. isOpenFailure=$isOpenFailure (hasOpened=$hasOpenedSuccessfully, pos=$currentPos, hasTracks=$hasTracks, isUsingPfd=$isUsingPfd, step=$activeFallbackStep)"
+        )
+
+        if (isOpenFailure) {
+            // Requirement 3: If error happens before Opening or at position 0 with no tracks,
+            // treat it as an open failure (try the path, then the file descriptor, then report).
+            // Don't run the subtitle, audio, or software-decoder fallbacks for open failures.
+            if (!isUsingPfd) {
+                DiagnosticLogger.log(context, "VlcPlayerEngine.OpenFallback", "Initial file path open failed. Retrying with ParcelFileDescriptor...")
+                playVideoInternal(video, currentPos, fallbackStep = activeFallbackStep, forcePfd = true)
+            } else {
+                DiagnosticLogger.log(context, "VlcPlayerEngine.OpenFallback", "ParcelFileDescriptor also failed to open. Reporting unplayable error.")
+                listeners.forEach { it.onError("This video can't be played", false) }
+            }
+            return
+        }
+
+        // Failsafe chain for errors after playback has started or tracks have loaded
         DiagnosticLogger.logFailsafeEvent(
             context = context,
             error = "VLC playback failure",
@@ -533,26 +666,26 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
                 listeners.forEach { it.onNotice("Subtitles couldn't be loaded, retrying...") }
                 // Blacklist current subtitle track
                 UserPreferences.blacklistSubtitleTrack(context, key, mediaPlayer.spuTrack.toString())
-                playVideoInternal(video, currentPos, fallbackStep = 1)
+                playVideoInternal(video, currentPos, fallbackStep = 1, forcePfd = isUsingPfd)
             }
             1 -> {
                 // Step 2: Retry without external subtitle files
                 activeFallbackStep = 2
                 listeners.forEach { it.onNotice("External subtitles couldn't be loaded, retrying...") }
-                playVideoInternal(video, currentPos, fallbackStep = 2)
+                playVideoInternal(video, currentPos, fallbackStep = 2, forcePfd = isUsingPfd)
             }
             2 -> {
                 // Step 3: Retry without saved audio track
                 activeFallbackStep = 3
                 listeners.forEach { it.onNotice("Audio track couldn't be played, resetting audio...") }
                 UserPreferences.blacklistAudioTrack(context, key, mediaPlayer.audioTrack.toString())
-                playVideoInternal(video, currentPos, fallbackStep = 3)
+                playVideoInternal(video, currentPos, fallbackStep = 3, forcePfd = isUsingPfd)
             }
             3 -> {
                 // Step 4: Retry with software decoding only
                 activeFallbackStep = 4
                 listeners.forEach { it.onNotice("Hardware decoding failed, switching to software decoding...") }
-                playVideoInternal(video, currentPos, fallbackStep = 4)
+                playVideoInternal(video, currentPos, fallbackStep = 4, forcePfd = isUsingPfd)
             }
             else -> {
                 // All 4 fallback steps failed -> show error card with Back
@@ -577,7 +710,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
             currentVideo = nextVideo
             activeFallbackStep = 0
             listeners.forEach { it.onMediaItemTransition(nextVideo, currentIndex) }
-            playVideoInternal(nextVideo, seekPos = 0L, fallbackStep = 0)
+            playVideoInternal(nextVideo, seekPos = 0L, fallbackStep = 0, forcePfd = false)
         }
     }
 
@@ -588,7 +721,7 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
             currentVideo = prevVideo
             activeFallbackStep = 0
             listeners.forEach { it.onMediaItemTransition(prevVideo, currentIndex) }
-            playVideoInternal(prevVideo, seekPos = 0L, fallbackStep = 0)
+            playVideoInternal(prevVideo, seekPos = 0L, fallbackStep = 0, forcePfd = false)
         }
     }
 
@@ -602,7 +735,25 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
         }
     }
 
+    override fun notifySurfaceReady(layout: VLCVideoLayout, width: Int, height: Int) {
+        DiagnosticLogger.log(context, "VlcPlayerEngine.Surface", "notifySurfaceReady: ${width}x${height}, pendingPlay=$pendingPlayAfterSurfaceReady")
+        isSurfaceReady = true
+        attachedLayout = layout
+        if (!mediaPlayer.vlcVout.areViewsAttached()) {
+            mediaPlayer.attachViews(layout, null, false, false)
+        }
+        surfaceWaitJob?.cancel()
+        if (pendingPlayAfterSurfaceReady) {
+            pendingPlayAfterSurfaceReady = false
+            DiagnosticLogger.log(context, "VlcPlayerEngine.Surface", "Triggering pending mediaPlayer.play() after surface ready")
+            mediaPlayer.play()
+        }
+    }
+
     override fun detachVideoLayout() {
+        isSurfaceReady = false
+        pendingPlayAfterSurfaceReady = false
+        surfaceWaitJob?.cancel()
         if (mediaPlayer.vlcVout.areViewsAttached()) {
             mediaPlayer.detachViews()
         }
@@ -618,8 +769,11 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
     }
 
     override fun release() {
+        surfaceWaitJob?.cancel()
         detachVideoLayout()
         mediaPlayer.stop()
+        currentPfd?.close()
+        currentPfd = null
         mediaPlayer.release()
         libVLC.release()
     }

@@ -76,6 +76,24 @@ object DiagnosticLogger {
         log(context, if (fixedByStep != null) "FAILSAFE_RESOLVED" else "FAILSAFE_RETRY", details)
     }
 
+    fun captureVlcLogcat(context: Context, tag: String = "VLC_LOGCAT") {
+        try {
+            val myPid = android.os.Process.myPid().toString()
+            val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "time"))
+            val lines = process.inputStream.bufferedReader().useLines { seq ->
+                seq.filter { line ->
+                    line.contains("VLC", ignoreCase = true) || line.contains(myPid)
+                }.toList()
+            }
+            if (lines.isNotEmpty()) {
+                val snippet = lines.takeLast(50).joinToString("\n")
+                log(context, tag, "\n$snippet")
+            }
+        } catch (e: Exception) {
+            log(context, "${tag}_error", e.message ?: "Failed to read logcat")
+        }
+    }
+
     fun init(context: Context) {
         // 1. Setup Global Uncaught Exception Handler
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
