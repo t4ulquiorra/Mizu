@@ -354,12 +354,6 @@ fun SettingsScreen(
                     }
                 }
             }
-                            selected = darkMode == "dark",
-                            onClick = { viewModel.setDarkMode("dark") }
-                        )
-                    }
-                }
-            }
 
             Spacer(Modifier.height(24.dp))
         }

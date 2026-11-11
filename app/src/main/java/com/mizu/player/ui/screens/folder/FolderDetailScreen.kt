@@ -379,14 +379,9 @@ fun FolderDetailScreen(
                     selectedCount = selectedIds.size,
                     onClose = { selectedIds = emptySet() },
                     onSelectAll = { selectedIds = sortedVideos.map { it.id }.toSet() },
-                    onPlay = {
-                        val firstSelected = sortedVideos.firstOrNull { selectedIds.contains(it.id) }
-                        if (firstSelected != null) {
-                            onVideoClick(firstSelected)
-                        }
-                    },
-                    onAddToPlaylist = { /* Wire to bottom sheet */ },
-                    onDelete = { /* Wire to delete */ },
+                    onDelete = { /* Delete */ },
+                    onShare = { /* Share */ },
+                    onAddToPlaylist = { /* Add to playlist */ },
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
