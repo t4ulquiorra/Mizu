@@ -49,3 +49,34 @@ This document records key non-obvious technical and design choices made during t
 ### 7. Licensing
 - **Decision:** Published under the GNU General Public License v3.0 (`GPL-3.0`).
 - **Rationale:** Required due to linking with GPL-licensed components in NextLib and LibVLC FFmpeg decoders. An in-app open source licenses screen gives full attribution to all dependencies.
+
+
+---
+
+### 8. Milestone F1: Root Causes, Fixes & Hardening
+
+#### A. ExoPlayer Black Screen (Bug K)
+- **Root Cause:** In `PlayerScreen`, `AndroidView.factory` immediately invoked `viewModel.attachSurface(this)` before `activeEngine.prepare()` had been called. In `ExoPlayerEngine`, `attachSurfaceView` was guarded by `player?.setVideoSurfaceView(surfaceView)`. Because `player` was `null` prior to `prepare()`, the `SurfaceView` was silently ignored and discarded. Furthermore, surface destruction and recreation upon rotation or recomposition lacked active `SurfaceHolder.Callback` synchronization.
+- **Fix:** `ExoPlayerEngine` retains a persistent reference to `currentSurfaceView`. Upon `initPlayer()`, the surface view is immediately attached. A dedicated `SurfaceHolder.Callback` monitors `surfaceCreated`, `surfaceChanged`, and `surfaceDestroyed` lifecycle events, keeping the decoder surface synchronized. In addition, an `AnalyticsListener` now logs decoder initialization, dropped frames, and codec exceptions to `PlaybackLog`.
+
+#### B. LibVLC Compatibility Engine Non-Functional (Bug M)
+- **Root Cause:** Passing `content://` URIs directly to `Media(libVLC, uri)` fails on modern Android because native LibVLC cannot open scoped storage content URIs via standard POSIX paths.
+- **Fix:** In `VlcPlayerEngine.prepare()`, for `content://` URIs, the engine opens a `ParcelFileDescriptor` using `context.contentResolver.openFileDescriptor(uri, "r")` and constructs `Media(libVLC, pfd.fileDescriptor)`, keeping the descriptor open throughout playback. Rebuilt `vlcVout` view attachment with window size management and wired all `MediaPlayer.EventListener` events (`LengthChanged`, `TimeChanged`, `ESAdded`, `ESSelected`, `EncounteredError`) to update the playback state reactively.
+
+#### C. Track Selection & Subtitle Rendering (Bug L)
+- **Root Cause:** `selectAudioTrack` and `selectSubtitleTrack` in `ExoPlayerEngine` were no-op stubs that only updated local StateFlow properties without modifying `trackSelectionParameters`. Furthermore, `PlayerScreen` completely lacked a `SubtitleView`.
+- **Fix:** Implemented `TrackSelectionOverride` mapping on `player.trackSelectionParameters` for both audio and text tracks. Mapped disabled subtitles to `setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)`. Attached an explicit `androidx.media3.ui.SubtitleView` positioned over the `SurfaceView` in `PlayerScreen`, styled with outline contrast to prevent invisible text.
+
+#### D. Engine Selection & Auto-Fallback (Bug N)
+- **Decision:** Defaulted engine preference to `PlayerEngine.AUTO`.
+- **Implementation:** Added container and extension probing in `PlayerViewModel`. Exotic formats (`avi`, `rmvb`, `wmv`, `flv`, `vob`, `ts`, etc.) automatically route to LibVLC, while standard MP4/MKV routes to ExoPlayer + NextLib. On unrecoverable ExoPlayer playback or decoder errors, the session automatically falls back to LibVLC at the exact millisecond position, preserving speed and track choices.
+
+#### E. Seek Duration Unification (Bug O)
+- **Decision:** Unified seek preferences into a single `seekDuration` DataStore key (default 10s, supporting 5s, 10s, 15s, 30s, 60s).
+- **Implementation:** Both the on-screen seek button labels (`-10s`, `+10s`) and double-tap gesture seek increments dynamically read from this single source of truth.
+
+#### F. File-Backed Playback Diagnostics Log (Section 1.6)
+- **Implementation:** Created `PlaybackLog`, a 2 MB file-backed ring buffer tracking engine choice, URI scheme, decoder initialization, dropped frames, VLC events, and uncaught exceptions. Integrated into `AboutScreen` with live text viewing, sharing via Android Sharesheet, and clearing.
+
+#### G. WCAG 2.1 AA Theme Contrast Compliance (Section 1.4)
+- **Implementation:** Evaluated and proved all Light and Dark theme token pairs achieve >= 4.5:1 contrast ratios through automated JVM unit tests (`ThemeContrastTest.kt`). Redesigned the dark palette to use a deep indigo-ink background (`#1A1830`), raised indigo surfaces (`#262344`), and cream text (`#FFF6E3`).

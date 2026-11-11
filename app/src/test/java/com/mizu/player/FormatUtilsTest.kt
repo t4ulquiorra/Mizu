@@ -43,4 +43,28 @@ class FormatUtilsTest {
         assertEquals("480p", FormatUtils.formatResolution(854, 480))
         assertEquals("", FormatUtils.formatResolution(0, 0))
     }
+
+    @Test
+    fun testCleanMediaTitle() {
+        assertEquals(
+            "Cowboy Bebop - 01",
+            FormatUtils.cleanMediaTitle("[SubsPlease] Cowboy Bebop - 01 [1080p][x265][AAC].mkv")
+        )
+        assertEquals(
+            "Steins Gate S01E05",
+            FormatUtils.cleanMediaTitle("Steins.Gate.S01E05.1080p.WEBRip.x264-FLUX.mp4")
+        )
+        assertEquals(
+            "Sample Video",
+            FormatUtils.cleanMediaTitle("Sample_Video.mp4")
+        )
+    }
+
+    @Test
+    fun testMiddleEllipsis() {
+        val longTitle = "Cowboy Bebop Extra Long Episode Name 24 Final Battle"
+        val shortened = FormatUtils.middleEllipsis(longTitle, 25)
+        assertEquals(25, shortened.length)
+        assertEquals("Cowboy Bebo…ttle", shortened)
+    }
 }

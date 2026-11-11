@@ -66,21 +66,25 @@ data class PlaylistItem(
 data class SubtitleTrack(
     val index: Int,
     val label: String,
-    val language: String?,
-    val mimeType: String?,
+    val language: String? = null,
+    val mimeType: String? = null,
     val uri: Uri? = null,
-    val isEmbedded: Boolean = true
+    val isEmbedded: Boolean = true,
+    val isSelected: Boolean = false
 )
 
 data class AudioTrackInfo(
     val index: Int,
     val label: String,
-    val language: String?,
-    val channelCount: Int,
-    val sampleRate: Int
+    val language: String? = null,
+    val channelCount: Int = 2,
+    val sampleRate: Int = 44100,
+    val codec: String? = null,
+    val isSelected: Boolean = false
 )
 
 enum class PlayerEngine {
+    AUTO,
     EXOPLAYER,
     VLC
 }

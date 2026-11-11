@@ -1,12 +1,17 @@
 package com.mizu.player.ui.screens.player
 
+import android.app.Activity
 import android.net.Uri
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -16,11 +21,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,13 +37,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.ClosedCaption
-import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -57,11 +67,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.ui.SubtitleView
 import com.mizu.player.domain.model.PlayerEngine
 import com.mizu.player.ui.components.NeuButton
 import com.mizu.player.ui.components.NeuChip
@@ -75,7 +88,9 @@ import com.mizu.player.ui.theme.MizuThemeObj
 import com.mizu.player.ui.theme.Sun
 import com.mizu.player.util.FormatUtils
 import kotlinx.coroutines.delay
+import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
     mediaUri: Uri,
@@ -83,9 +98,12 @@ fun PlayerScreen(
     onNavigateBack: () -> Unit,
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val colors = MizuThemeObj.colors
+
     val playbackState by viewModel.playbackState.collectAsState()
     val currentEngine by viewModel.currentEngine.collectAsState()
+    val seekSec by viewModel.seekDurationSeconds.collectAsState()
 
     var controlsVisible by remember { mutableStateOf(true) }
     var isControlsLocked by remember { mutableStateOf(false) }
@@ -96,8 +114,18 @@ fun PlayerScreen(
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var isUserSeeking by remember { mutableStateOf(false) }
 
+    val subtitlePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.addSidecarSubtitle(uri)
+        }
+    }
+
     LaunchedEffect(mediaUri) {
-        viewModel.initialize(mediaUri, isVideo)
+        val rawTitle = mediaUri.lastPathSegment?.substringAfterLast('/') ?: "Media"
+        val cleanTitle = FormatUtils.cleanMediaTitle(rawTitle)
+        viewModel.initialize(mediaUri, isVideo, cleanTitle)
     }
 
     // Auto-hide controls timer
@@ -112,77 +140,117 @@ fun PlayerScreen(
         onNavigateBack()
     }
 
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues()
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .pointerInput(Unit) {
+            .pointerInput(isControlsLocked) {
                 detectTapGestures(
                     onTap = {
-                        controlsVisible = !controlsVisible
+                        if (!isControlsLocked) {
+                            controlsVisible = !controlsVisible
+                        } else {
+                            // If locked, tap shows unlock button briefly
+                            controlsVisible = true
+                        }
                     },
                     onDoubleTap = { offset ->
-                        val screenWidth = size.width
-                        if (offset.x < screenWidth / 2) {
-                            viewModel.seekBy(-10000L)
-                        } else {
-                            viewModel.seekBy(10000L)
+                        if (!isControlsLocked) {
+                            val screenWidth = size.width
+                            if (offset.x < screenWidth * 0.4f) {
+                                viewModel.seekBackward()
+                            } else if (offset.x > screenWidth * 0.6f) {
+                                viewModel.seekForward()
+                            } else {
+                                viewModel.togglePlayPause()
+                            }
                         }
                     }
                 )
             }
     ) {
-        // Video Surface
+        // Video surface and subtitle rendering layer
         if (isVideo) {
             AndroidView(
                 factory = { ctx ->
-                    SurfaceView(ctx).also { surfaceView ->
-                        viewModel.attachSurface(surfaceView)
+                    SurfaceView(ctx).apply {
+                        viewModel.attachSurface(this)
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             )
 
-            DisposableEffect(Unit) {
-                onDispose {
-                    viewModel.detachSurface()
+            AndroidView(
+                factory = { ctx ->
+                    SubtitleView(ctx).apply {
+                        viewModel.attachSubtitleView(this)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // Audio visualizer / cover art display
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(200.dp)
+                            .clip(RoundedCornerShape(NeuTokens.CardRadius))
+                            .background(Sun)
+                            .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.CardRadius)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Audiotrack,
+                            contentDescription = null,
+                            tint = Ink,
+                            modifier = Modifier.size(96.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        text = playbackState.title.ifEmpty { "Playing Audio" },
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
                 }
             }
-        } else {
-            // Audio mode visualizer card
+        }
+
+        // Buffering indicator
+        if (playbackState.isBuffering) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Sun)
-                        .border(3.dp, Ink, RoundedCornerShape(16.dp)),
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(NeuTokens.CardRadius))
+                        .background(colors.surface)
+                        .border(NeuTokens.BorderWidth, colors.border, RoundedCornerShape(NeuTokens.CardRadius)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Audiotrack,
-                        contentDescription = null,
-                        tint = Ink,
-                        modifier = Modifier.size(80.dp)
+                    CircularProgressIndicator(
+                        color = Sun,
+                        strokeWidth = 4.dp,
+                        modifier = Modifier.size(44.dp)
                     )
                 }
             }
         }
 
-        // Buffering Indicator
-        if (playbackState.isBuffering) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .size(48.dp)
-                    .align(Alignment.Center),
-                color = Sun
-            )
-        }
-
-        // Controls Overlay
+        // Overlay controls
         AnimatedVisibility(
             visible = controlsVisible,
             enter = fadeIn(),
@@ -194,171 +262,187 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.5f))
             ) {
-                // Top Bar
+                // Top Bar with Inset Padding
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .align(Alignment.TopCenter),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .align(Alignment.TopCenter)
+                        .padding(statusBarPadding)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
+                            .background(colors.surface)
+                            .border(NeuTokens.BorderWidth, colors.border, RoundedCornerShape(NeuTokens.ButtonRadius))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
-                                .background(colors.surface)
-                                .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
-                                .clickable { onNavigateBack() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Ink
-                            )
-                        }
-
-                        Spacer(Modifier.width(12.dp))
-
-                        Text(
-                            text = playbackState.title.ifEmpty { "Playing Media" },
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = colors.ink
                         )
                     }
 
-                    // Engine Badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(if (currentEngine == PlayerEngine.EXOPLAYER) Sun else Coral)
-                            .border(1.5.dp, Ink, RoundedCornerShape(4.dp))
-                            .clickable {
-                                viewModel.switchEngine(
-                                    if (currentEngine == PlayerEngine.EXOPLAYER) PlayerEngine.VLC else PlayerEngine.EXOPLAYER
-                                )
-                            }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (currentEngine == PlayerEngine.EXOPLAYER) "EXO" else "VLC",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = playbackState.title.ifEmpty { "Playing Media" },
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black,
-                            color = Ink
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.basicMarquee()
+                        )
+                        Text(
+                            text = if (isVideo) "Video Playback" else "Audio Playback",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.7f)
                         )
                     }
 
                     Spacer(Modifier.width(8.dp))
 
-                    // Lock button
+                    // Engine Badge & Toggle
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
+                            .background(if (currentEngine == PlayerEngine.EXOPLAYER) Aqua else Lime)
+                            .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
+                            .clickable { viewModel.toggleOtherEngine() }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (currentEngine == PlayerEngine.EXOPLAYER) "EXO" else "VLC",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Ink
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.SwapHoriz,
+                                contentDescription = "Switch Engine",
+                                tint = Ink,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    // Lock button
+                    IconButton(
+                        onClick = { isControlsLocked = !isControlsLocked },
+                        modifier = Modifier
+                            .size(44.dp)
                             .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
                             .background(if (isControlsLocked) Coral else colors.surface)
-                            .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
-                            .clickable { isControlsLocked = !isControlsLocked },
-                        contentAlignment = Alignment.Center
+                            .border(NeuTokens.BorderWidth, colors.border, RoundedCornerShape(NeuTokens.ButtonRadius))
                     ) {
                         Icon(
                             imageVector = if (isControlsLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = "Lock",
-                            tint = Ink,
-                            modifier = Modifier.size(20.dp)
+                            contentDescription = "Lock Controls",
+                            tint = if (isControlsLocked) Ink else colors.ink
                         )
                     }
                 }
 
+                // Center playback controls (hidden when locked)
                 if (!isControlsLocked) {
-                    // Center Controls: Rewind 10s, Play/Pause, Forward 10s
                     Row(
                         modifier = Modifier.align(Alignment.Center),
-                        horizontalArrangement = Arrangement.spacedBy(28.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Rewind 10
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
-                                .background(colors.surface)
-                                .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
-                                .clickable { viewModel.seekBy(-10000L) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Replay10,
-                                contentDescription = "Rewind",
-                                tint = Ink,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
+                        // Rewind (-seekSec)
+                        NeuButton(
+                            text = "-${seekSec}s",
+                            onClick = { viewModel.seekBackward() },
+                            color = colors.surface,
+                            textColor = colors.ink,
+                            icon = Icons.Default.Replay
+                        )
 
-                        // Play/Pause
+                        // Big Play / Pause
                         Box(
                             modifier = Modifier
-                                .size(68.dp)
-                                .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
+                                .size(76.dp)
+                                .clip(CircleShape)
                                 .background(Sun)
-                                .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
+                                .border(3.dp, Ink, CircleShape)
                                 .clickable { viewModel.togglePlayPause() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = "Play/Pause",
+                                contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
                                 tint = Ink,
                                 modifier = Modifier.size(44.dp)
                             )
                         }
 
-                        // Forward 10
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
-                                .background(colors.surface)
-                                .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
-                                .clickable { viewModel.seekBy(10000L) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Forward10,
-                                contentDescription = "Forward",
-                                tint = Ink,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
+                        // Fast forward (+seekSec)
+                        NeuButton(
+                            text = "+${seekSec}s",
+                            onClick = { viewModel.seekForward() },
+                            color = colors.surface,
+                            textColor = colors.ink,
+                            icon = Icons.Default.PlayArrow
+                        )
                     }
+                }
 
-                    // Bottom Bar
+                // Bottom Controls Bar with Inset Padding (hidden when locked)
+                if (!isControlsLocked) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
                             .align(Alignment.BottomCenter)
+                            .padding(navBarPadding)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        // Time & Scrubber
+                        // Time & Scrubber Row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val currentPos = if (isUserSeeking) sliderPosition.toLong() else playbackState.currentPosition
                             Text(
-                                text = FormatUtils.formatDuration(currentPos),
+                                text = FormatUtils.formatDuration(playbackState.currentPosition),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
+
+                            Spacer(Modifier.width(12.dp))
+
+                            val progress = if (playbackState.duration > 0) {
+                                (playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()).coerceIn(0f, 1f)
+                            } else 0f
+
+                            Slider(
+                                value = if (isUserSeeking) sliderPosition else progress,
+                                onValueChange = {
+                                    isUserSeeking = true
+                                    sliderPosition = it
+                                },
+                                onValueChangeFinished = {
+                                    isUserSeeking = false
+                                    val targetMs = (sliderPosition * playbackState.duration).toLong()
+                                    viewModel.seekTo(targetMs)
+                                },
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Sun,
+                                    activeTrackColor = Sun,
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Spacer(Modifier.width(12.dp))
 
                             Text(
                                 text = FormatUtils.formatDuration(playbackState.duration),
@@ -368,25 +452,9 @@ fun PlayerScreen(
                             )
                         }
 
-                        Slider(
-                            value = if (isUserSeeking) sliderPosition else playbackState.currentPosition.toFloat(),
-                            onValueChange = {
-                                isUserSeeking = true
-                                sliderPosition = it
-                            },
-                            onValueChangeFinished = {
-                                viewModel.seekTo(sliderPosition.toLong())
-                                isUserSeeking = false
-                            },
-                            valueRange = 0f..playbackState.duration.coerceAtLeast(1L).toFloat(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Sun,
-                                activeTrackColor = Sun,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                            )
-                        )
+                        Spacer(Modifier.height(8.dp))
 
-                        // Action Buttons: Speed, Subtitles, Audio Track
+                        // Secondary action bar
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -397,7 +465,7 @@ fun PlayerScreen(
                                 text = "${playbackState.playbackSpeed}x",
                                 onClick = { showSpeedDialog = true },
                                 color = colors.surface,
-                                textColor = Ink,
+                                textColor = colors.ink,
                                 icon = Icons.Default.Speed
                             )
 
@@ -406,7 +474,7 @@ fun PlayerScreen(
                                 text = "Subs (${playbackState.subtitleTracks.size})",
                                 onClick = { showSubtitleDialog = true },
                                 color = colors.surface,
-                                textColor = Ink,
+                                textColor = colors.ink,
                                 icon = Icons.Default.ClosedCaption
                             )
 
@@ -415,7 +483,7 @@ fun PlayerScreen(
                                 text = "Audio (${playbackState.audioTracks.size})",
                                 onClick = { showAudioTrackDialog = true },
                                 color = colors.surface,
-                                textColor = Ink,
+                                textColor = colors.ink,
                                 icon = Icons.Default.Audiotrack
                             )
                         }
@@ -424,33 +492,59 @@ fun PlayerScreen(
             }
         }
 
-        // Speed Dialog
+        // Neubrutalist Playback Speed Panel (0.1x to 8.0x)
         if (showSpeedDialog) {
             AlertDialog(
                 onDismissRequest = { showSpeedDialog = false },
                 containerColor = colors.paper,
                 title = { Text("PLAYBACK SPEED", fontWeight = FontWeight.Black, color = Ink) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f).forEach { speed ->
-                            NeuChip(
-                                text = "${speed}x",
-                                selected = playbackState.playbackSpeed == speed,
-                                onClick = {
-                                    viewModel.setSpeed(speed)
-                                    showSpeedDialog = false
-                                }
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = String.format(Locale.US, "Current Speed: %.2fx", playbackState.playbackSpeed),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = Ink
+                        )
+
+                        Slider(
+                            value = playbackState.playbackSpeed,
+                            onValueChange = { viewModel.setSpeed((Math.round(it * 20) / 20f).coerceIn(0.1f, 8.0f)) },
+                            valueRange = 0.1f..8.0f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Sun,
+                                activeTrackColor = Sun,
+                                inactiveTrackColor = colors.border.copy(alpha = 0.3f)
                             )
+                        )
+
+                        // Common preset chips
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                                NeuChip(
+                                    text = "${speed}x",
+                                    selected = playbackState.playbackSpeed == speed,
+                                    onClick = {
+                                        viewModel.setSpeed(speed)
+                                    }
+                                )
+                            }
                         }
                     }
                 },
                 confirmButton = {
-                    NeuButton(text = "CLOSE", onClick = { showSpeedDialog = false })
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NeuButton(text = "RESET (1.0x)", onClick = { viewModel.setSpeed(1.0f) }, color = Coral)
+                        NeuButton(text = "DONE", onClick = { showSpeedDialog = false })
+                    }
                 }
             )
         }
 
-        // Subtitle Dialog
+        // Subtitle Dialog with "Load file..." option
         if (showSubtitleDialog) {
             AlertDialog(
                 onDismissRequest = { showSubtitleDialog = false },
@@ -459,13 +553,14 @@ fun PlayerScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         NeuChip(
-                            text = "Disable Subtitles",
+                            text = "Disable Subtitles (Off)",
                             selected = playbackState.selectedSubtitleTrack == -1,
                             onClick = {
                                 viewModel.selectSubtitle(-1)
                                 showSubtitleDialog = false
                             }
                         )
+
                         playbackState.subtitleTracks.forEach { track ->
                             NeuChip(
                                 text = track.label,
@@ -476,6 +571,26 @@ fun PlayerScreen(
                                 }
                             )
                         }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Load subtitle from file
+                        NeuButton(
+                            text = "Load subtitle file...",
+                            onClick = {
+                                subtitlePickerLauncher.launch(
+                                    arrayOf(
+                                        "application/x-subrip",
+                                        "text/vtt",
+                                        "text/plain",
+                                        "*/*"
+                                    )
+                                )
+                                showSubtitleDialog = false
+                            },
+                            color = Sun,
+                            icon = Icons.Default.FileOpen
+                        )
                     }
                 },
                 confirmButton = {
@@ -494,7 +609,7 @@ fun PlayerScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         playbackState.audioTracks.forEach { track ->
                             NeuChip(
-                                text = "${track.label} (${track.channelCount}ch)",
+                                text = track.label,
                                 selected = playbackState.selectedAudioTrack == track.index,
                                 onClick = {
                                     viewModel.selectAudioTrack(track.index)

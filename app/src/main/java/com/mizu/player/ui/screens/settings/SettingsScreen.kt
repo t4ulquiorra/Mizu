@@ -65,7 +65,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     val playerEngine: StateFlow<PlayerEngine> = preferencesManager.playerEngine
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerEngine.EXOPLAYER)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerEngine.AUTO)
 
     val resumePlayback: StateFlow<Boolean> = preferencesManager.resumePlayback
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -76,10 +76,7 @@ class SettingsViewModel @Inject constructor(
     val darkMode: StateFlow<String> = preferencesManager.darkMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
 
-    val skipForward: StateFlow<Int> = preferencesManager.skipForward
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
-
-    val skipBackward: StateFlow<Int> = preferencesManager.skipBackward
+    val seekDuration: StateFlow<Int> = preferencesManager.seekDuration
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
 
     val defaultSpeed: StateFlow<Float> = preferencesManager.defaultSpeed
@@ -101,12 +98,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferencesManager.setDarkMode(mode) }
     }
 
-    fun setSkipForward(seconds: Int) {
-        viewModelScope.launch { preferencesManager.setSkipForward(seconds) }
-    }
-
-    fun setSkipBackward(seconds: Int) {
-        viewModelScope.launch { preferencesManager.setSkipBackward(seconds) }
+    fun setSeekDuration(seconds: Int) {
+        viewModelScope.launch { preferencesManager.setSeekDuration(seconds) }
     }
 
     fun setDefaultSpeed(speed: Float) {
@@ -126,8 +119,7 @@ fun SettingsScreen(
     val resumePlayback by viewModel.resumePlayback.collectAsState()
     val autoPlayNext by viewModel.autoPlayNext.collectAsState()
     val darkMode by viewModel.darkMode.collectAsState()
-    val skipForward by viewModel.skipForward.collectAsState()
-    val skipBackward by viewModel.skipBackward.collectAsState()
+    val seekDuration by viewModel.seekDuration.collectAsState()
     val defaultSpeed by viewModel.defaultSpeed.collectAsState()
 
     Column(
@@ -165,34 +157,43 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Player Engine Section
+            // Engine Section
             SettingsSection(title = "PLAYBACK ENGINE", icon = Icons.Default.Tune) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Preferred Decoding Engine",
+                        text = "Engine Selection",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Ink
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Standard (ExoPlayer + NextLib) supports modern formats with hardware decoders. Compatibility (VLC) plays legacy/unusual codecs.",
+                        text = "Auto picks Standard (ExoPlayer + FFmpeg) and switches to Compatibility (LibVLC) for legacy/exotic codecs or complex subtitles.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Ink.copy(alpha = 0.7f)
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         NeuChip(
-                            text = "Standard (ExoPlayer)",
+                            text = "Auto (Recommended)",
+                            selected = playerEngine == PlayerEngine.AUTO,
+                            onClick = { viewModel.setPlayerEngine(PlayerEngine.AUTO) },
+                            selectedColor = Sun
+                        )
+                        NeuChip(
+                            text = "Standard (Exo)",
                             selected = playerEngine == PlayerEngine.EXOPLAYER,
                             onClick = { viewModel.setPlayerEngine(PlayerEngine.EXOPLAYER) },
-                            selectedColor = Sun
+                            selectedColor = Aqua
                         )
                         NeuChip(
                             text = "Compatibility (VLC)",
                             selected = playerEngine == PlayerEngine.VLC,
                             onClick = { viewModel.setPlayerEngine(PlayerEngine.VLC) },
-                            selectedColor = Coral
+                            selectedColor = Lime
                         )
                     }
                 }
@@ -214,7 +215,7 @@ fun SettingsScreen(
                                 color = Ink
                             )
                             Text(
-                                text = "Pick up where you left off",
+                                text = "Remember position and resume videos",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Ink.copy(alpha = 0.7f)
                             )
@@ -231,7 +232,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -240,13 +241,13 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Auto play next",
+                                text = "Autoplay next media",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Ink
                             )
                             Text(
-                                text = "Play next media item in folder automatically",
+                                text = "Play next item in folder or playlist",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Ink.copy(alpha = 0.7f)
                             )
@@ -269,21 +270,27 @@ fun SettingsScreen(
             SettingsSection(title = "SEEK DURATION", icon = Icons.Default.FastForward) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Double Tap Seek Duration",
+                        text = "Double Tap & Button Seek Duration",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Ink
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(5, 10, 15, 30).forEach { sec ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Configures both the double-tap seek gesture and on-screen seek buttons.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Ink.copy(alpha = 0.7f)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(5, 10, 15, 30, 60).forEach { sec ->
                             NeuChip(
                                 text = "${sec}s",
-                                selected = skipForward == sec,
-                                onClick = {
-                                    viewModel.setSkipForward(sec)
-                                    viewModel.setSkipBackward(sec)
-                                }
+                                selected = seekDuration == sec,
+                                onClick = { viewModel.setSeekDuration(sec) }
                             )
                         }
                     }
@@ -300,7 +307,10 @@ fun SettingsScreen(
                         color = Ink
                     )
                     Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         listOf(1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
                             NeuChip(
                                 text = "${speed}x",
@@ -322,7 +332,10 @@ fun SettingsScreen(
                         color = Ink
                     )
                     Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         NeuChip(
                             text = "System",
                             selected = darkMode == "system",
@@ -341,6 +354,8 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -353,7 +368,7 @@ private fun SettingsSection(
 ) {
     val colors = MizuThemeObj.colors
 
-    Column {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 6.dp)

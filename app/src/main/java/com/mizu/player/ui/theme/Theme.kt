@@ -7,17 +7,22 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 
 data class MizuColors(
-    val ink: androidx.compose.ui.graphics.Color,
-    val paper: androidx.compose.ui.graphics.Color,
-    val surface: androidx.compose.ui.graphics.Color,
-    val sun: androidx.compose.ui.graphics.Color,
-    val coral: androidx.compose.ui.graphics.Color,
-    val aqua: androidx.compose.ui.graphics.Color,
-    val lavender: androidx.compose.ui.graphics.Color,
-    val lime: androidx.compose.ui.graphics.Color,
-    val border: androidx.compose.ui.graphics.Color,
+    val ink: Color,
+    val paper: Color,
+    val surface: Color,
+    val surfaceRaised: Color,
+    val onSurface: Color,
+    val textMuted: Color,
+    val sun: Color,
+    val coral: Color,
+    val aqua: Color,
+    val lavender: Color,
+    val lime: Color,
+    val border: Color,
+    val shadowColor: Color,
     val isDark: Boolean
 )
 
@@ -25,25 +30,33 @@ val LightMizuColors = MizuColors(
     ink = Ink,
     paper = Paper,
     surface = Surface,
+    surfaceRaised = Surface,
+    onSurface = Ink,
+    textMuted = Color(0xFF666666),
     sun = Sun,
     coral = Coral,
     aqua = Aqua,
     lavender = Lavender,
     lime = Lime,
     border = Ink,
+    shadowColor = Ink,
     isDark = false
 )
 
 val DarkMizuColors = MizuColors(
-    ink = DarkOnSurface,
+    ink = DarkText,
     paper = DarkBackground,
     surface = DarkSurface,
+    surfaceRaised = DarkSurfaceRaised,
+    onSurface = DarkText,
+    textMuted = DarkTextMuted,
     sun = Sun,
     coral = Coral,
     aqua = Aqua,
     lavender = Lavender,
     lime = Lime,
     border = DarkBorder,
+    shadowColor = Sun, // Hard offset shadow in Sun accent for dark theme
     isDark = true
 )
 
@@ -72,9 +85,9 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = Aqua,
     onTertiary = Ink,
     background = DarkBackground,
-    onBackground = DarkOnSurface,
+    onBackground = DarkText,
     surface = DarkSurface,
-    onSurface = DarkOnSurface,
+    onSurface = DarkText,
     error = ErrorRed,
     onError = Surface
 )

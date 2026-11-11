@@ -36,8 +36,7 @@ class UserPreferencesManager @Inject constructor(
         val RESUME_PLAYBACK = booleanPreferencesKey("resume_playback")
         val DARK_MODE = stringPreferencesKey("dark_mode") // system, light, dark
         val AUDIO_PERMISSION_GRANTED = booleanPreferencesKey("audio_permission_granted")
-        val SKIP_DURATION_FORWARD = intPreferencesKey("skip_forward")
-        val SKIP_DURATION_BACKWARD = intPreferencesKey("skip_backward")
+        val SEEK_DURATION = intPreferencesKey("seek_duration")
     }
 
     val onboardingComplete: Flow<Boolean> = context.dataStore.data.map {
@@ -55,8 +54,8 @@ class UserPreferencesManager @Inject constructor(
     }
 
     val playerEngine: Flow<PlayerEngine> = context.dataStore.data.map {
-        try { PlayerEngine.valueOf(it[Keys.PLAYER_ENGINE] ?: PlayerEngine.EXOPLAYER.name) }
-        catch (e: Exception) { PlayerEngine.EXOPLAYER }
+        try { PlayerEngine.valueOf(it[Keys.PLAYER_ENGINE] ?: PlayerEngine.AUTO.name) }
+        catch (e: Exception) { PlayerEngine.AUTO }
     }
 
     val autoPlayNext: Flow<Boolean> = context.dataStore.data.map {
@@ -71,12 +70,8 @@ class UserPreferencesManager @Inject constructor(
         it[Keys.DARK_MODE] ?: "system"
     }
 
-    val skipForward: Flow<Int> = context.dataStore.data.map {
-        it[Keys.SKIP_DURATION_FORWARD] ?: 10
-    }
-
-    val skipBackward: Flow<Int> = context.dataStore.data.map {
-        it[Keys.SKIP_DURATION_BACKWARD] ?: 10
+    val seekDuration: Flow<Int> = context.dataStore.data.map {
+        it[Keys.SEEK_DURATION] ?: 10
     }
 
     val rememberSpeed: Flow<Boolean> = context.dataStore.data.map {
@@ -115,12 +110,8 @@ class UserPreferencesManager @Inject constructor(
         context.dataStore.edit { it[Keys.DARK_MODE] = mode }
     }
 
-    suspend fun setSkipForward(seconds: Int) {
-        context.dataStore.edit { it[Keys.SKIP_DURATION_FORWARD] = seconds }
-    }
-
-    suspend fun setSkipBackward(seconds: Int) {
-        context.dataStore.edit { it[Keys.SKIP_DURATION_BACKWARD] = seconds }
+    suspend fun setSeekDuration(seconds: Int) {
+        context.dataStore.edit { it[Keys.SEEK_DURATION] = seconds.coerceIn(1, 120) }
     }
 
     suspend fun setDefaultSpeed(speed: Float) {
