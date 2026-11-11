@@ -97,10 +97,7 @@ object DiagnosticLogger {
                             else -> "UNKNOWN (${reason.reason})"
                         }
                         val exitTime = dateFormat.format(Date(reason.timestamp))
-                        val subReason = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            try { reason.subReason } catch (_: Throwable) { 0 }
-                        } else 0
-                        sb.append("  #$i: PID=${reason.pid}, Time=$exitTime, Reason=$reasonStr, SubReason=$subReason, Status=${reason.status}, Description=${reason.description}\n")
+                        sb.append("  #$i: PID=${reason.pid}, Time=$exitTime, Reason=$reasonStr, Status=${reason.status}, Description=${reason.description}\n")
 
                         try {
                             reason.traceInputStream?.use { stream ->
