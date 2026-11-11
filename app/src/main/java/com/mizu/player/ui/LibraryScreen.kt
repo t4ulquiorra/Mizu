@@ -24,7 +24,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -84,7 +86,7 @@ import com.mizu.player.model.SortOption
 
 @Composable
 fun LibraryScreen(
-    onVideoClick: (VideoItem) -> Unit,
+    onVideoClick: (VideoItem, List<VideoItem>, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -718,7 +720,7 @@ fun VideosContentView(
     isGridView: Boolean,
     columns: Int,
     imageLoader: ImageLoader,
-    onVideoClick: (VideoItem) -> Unit,
+    onVideoClick: (VideoItem, List<VideoItem>, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (videos.isEmpty()) {
@@ -736,15 +738,15 @@ fun VideosContentView(
             horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = videos,
-                key = { it.id },
-                contentType = { "video_card" }
-            ) { video ->
+                key = { _, it -> it.id },
+                contentType = { _, _ -> "video_card" }
+            ) { index, video ->
                 VideoGridCard(
                     video = video,
                     imageLoader = imageLoader,
-                    onClick = { onVideoClick(video) }
+                    onClick = { onVideoClick(video, videos, index) }
                 )
             }
         }
@@ -754,15 +756,15 @@ fun VideosContentView(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = videos,
-                key = { it.id },
-                contentType = { "video_row" }
-            ) { video ->
+                key = { _, it -> it.id },
+                contentType = { _, _ -> "video_row" }
+            ) { index, video ->
                 VideoListRow(
                     video = video,
                     imageLoader = imageLoader,
-                    onClick = { onVideoClick(video) }
+                    onClick = { onVideoClick(video, videos, index) }
                 )
             }
         }
