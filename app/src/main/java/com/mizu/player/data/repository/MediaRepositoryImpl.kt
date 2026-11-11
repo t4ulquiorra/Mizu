@@ -9,6 +9,7 @@ import com.mizu.player.data.local.entity.PlaybackHistoryEntity
 import com.mizu.player.data.scanner.MediaScanner
 import com.mizu.player.domain.model.AudioItem
 import com.mizu.player.domain.model.FolderInfo
+import com.mizu.player.domain.model.SortOrder
 import com.mizu.player.util.FolderUtils
 import com.mizu.player.util.NaturalOrderComparator
 import com.mizu.player.domain.model.VideoItem
