@@ -126,7 +126,7 @@ fun PermissionScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "To find media files & subtitles on your device, we require 'All File access'.",
+                text = "To find your videos and subtitles, turn on 'Allow access to manage all files' on the next page, then come back.",
                 fontSize = 15.sp,
                 lineHeight = 22.sp,
                 color = Color(0xFF94A3B8),

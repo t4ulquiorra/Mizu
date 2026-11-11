@@ -76,6 +76,21 @@ object MediaRepository {
         }
     }
 
+    fun removeVideo(context: Context, video: VideoItem) {
+        allVideos = allVideos.filter { it.id != video.id }
+        folders = folders.mapNotNull { folder ->
+            val remaining = folder.videos.filter { it.id != video.id }
+            if (remaining.isEmpty()) null
+            else folder.copy(videoCount = remaining.size, videos = remaining)
+        }
+        selectedFolder?.let { currentFolder ->
+            val remaining = currentFolder.videos.filter { it.id != video.id }
+            selectedFolder = if (remaining.isEmpty()) null
+            else currentFolder.copy(videoCount = remaining.size, videos = remaining)
+        }
+        savePlaybackPosition(context, video, 0L)
+    }
+
     fun updateGridView(context: Context, isGrid: Boolean) {
         isGridView = isGrid
         UserPreferences.setGridView(context, isGrid)

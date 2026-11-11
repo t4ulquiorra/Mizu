@@ -1,7 +1,9 @@
 package com.mizu.player
 
+import android.app.PictureInPictureParams
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,9 +33,18 @@ import com.mizu.player.ui.PlayerScreen
 
 class MainActivity : ComponentActivity() {
 
+    private var isVideoPlaying by mutableStateOf(false)
+    private var isInPipMode by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MediaRepository.initPreferences(this)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            addOnPictureInPictureModeChangedListener { info ->
+                isInPipMode = info.isInPictureInPictureMode
+            }
+        }
 
         setContent {
             MaterialTheme(
@@ -48,15 +59,35 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .background(Color(0xFF0D0F14))
                 ) {
-                    AppContent(intent = intent)
+                    AppContent(
+                        intent = intent,
+                        isInPipMode = isInPipMode,
+                        onPlaybackStateChange = { playing ->
+                            isVideoPlaying = playing
+                        }
+                    )
                 }
             }
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (isVideoPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val params = PictureInPictureParams.Builder().build()
+                enterPictureInPictureMode(params)
+            } catch (_: Exception) {}
         }
     }
 }
 
 @Composable
-fun AppContent(intent: Intent?) {
+fun AppContent(
+    intent: Intent?,
+    isInPipMode: Boolean = false,
+    onPlaybackStateChange: (Boolean) -> Unit = {}
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -116,7 +147,9 @@ fun AppContent(intent: Intent?) {
                     video = video,
                     onBack = {
                         playingVideo = null
-                    }
+                    },
+                    isInPipMode = isInPipMode,
+                    onPlaybackStateChange = onPlaybackStateChange
                 )
             }
         }
