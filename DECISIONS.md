@@ -117,3 +117,23 @@ This document records key non-obvious technical and design choices made during t
 
 #### G. Dark Mode Contrast Polish (Bug S)
 - **Implementation:** Replaced hardcoded `Ink` references with theme-aware `colors.text` and `colors.textMuted` in `SettingsScreen` and `VideoTile` to ensure contrast compliance in both Light and Night modes.
+
+---
+
+### 10. Final Verification & Release Status (Round 2: FIX, VERIFY, HARDEN)
+
+- **CI Workflow Status:** 100% Green on GitHub Actions (Run ID `43116980538`).
+- **Hardware-Accelerated Android 14 (API 34) Instrumented Tests:**
+  - `testVlcPlayerEngine_mkvSubtitlesAndAudio`: **PASSED** (Multi-track MKV with embedded ASS/SRT subtitles and dual audio).
+  - `testExoPlayerEngine_playbackAndTrackSwitching`: **PASSED** (H.264 playback, audio track switching, subtitle track switching).
+  - `testVlcPlayerEngine_aviPlayback`: **PASSED** (Legacy MPEG-4 part 2 + MP3 AVI container via LibVLC compatibility path).
+  - Test result summary: **3 passed, 0 failed, 0 ignored**.
+- **JVM Pure Logic Tests:** **100% Passed** (`ThemeContrastTest` >= 4.5:1 AA contrast, `FormatUtilsTest`, `NaturalOrderComparatorTest`, `WatchStateTest`, `FolderGroupingTest`, `SubtitleUtilsTest`).
+- **Artifacts & Releases:**
+  - Signed release APKs published to GitHub Release `v0.1.0`:
+    - `app-arm64-v8a-release.apk` (66 MB, optimized for Xiaomi Pad 6)
+    - `app-universal-release.apk` (240 MB)
+    - `app-armeabi-v7a-release.apk` (52 MB)
+    - `app-x86_64-release.apk` (75 MB)
+  - UI screenshots and logcat archived in `ui-screenshots` artifact.
+
