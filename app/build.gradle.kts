@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.mizu.player"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.mizu.player"
