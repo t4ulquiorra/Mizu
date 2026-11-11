@@ -12,6 +12,7 @@ import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
@@ -43,6 +44,7 @@ import com.mizu.player.ui.LibraryScreen
 import com.mizu.player.ui.PermissionHelper
 import com.mizu.player.ui.PermissionScreen
 import com.mizu.player.ui.PlayerScreen
+import com.mizu.player.ui.SettingsScreen
 
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
@@ -81,12 +83,6 @@ class MainActivity : ComponentActivity() {
         val filter = IntentFilter(ACTION_PIP_CONTROL)
         ContextCompat.registerReceiver(this, pipReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            addOnPictureInPictureModeChangedListener { info ->
-                handlePipModeChange(info.isInPictureInPictureMode)
-            }
-        }
-
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -114,15 +110,6 @@ class MainActivity : ComponentActivity() {
 
     private fun handlePipModeChange(inPip: Boolean) {
         isInPipMode = inPip
-        if (!inPip) {
-            // Check if user dismissed PiP with the cross (X) button vs expanding it back to full screen.
-            // When dismissed via the cross button, the activity is no longer in STARTED or RESUMED state.
-            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                PlaybackService.stop(this)
-                isPlayingVideo = false
-                finish()
-            }
-        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -135,9 +122,27 @@ class MainActivity : ComponentActivity() {
         handlePipModeChange(isInPictureInPictureMode)
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Stop playback only if user explicitly closed the PiP window via the cross (X) button, which finishes the activity
+        if (isInPipMode && isFinishing) {
+            PlaybackService.stop(this)
+            isPlayingVideo = false
+        }
+    }
+
     fun buildPipParams(isPlaying: Boolean, hasPrev: Boolean, hasNext: Boolean): PictureInPictureParams {
         val builder = PictureInPictureParams.Builder()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                builder.setAspectRatio(Rational(16, 9))
+            } catch (_: Exception) {}
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                builder.setAutoEnterEnabled(isPlayingVideo)
+                builder.setSeamlessResizeEnabled(true)
+            }
+
             val actions = mutableListOf<RemoteAction>()
 
             // 1. Previous Action (matching unified Material 24dp vector icon)
@@ -189,7 +194,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (isPlayingVideo && PlaybackService.isPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (isPlayingVideo && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 val params = buildPipParams(
                     isPlaying = PlaybackService.isPlaying,
@@ -206,6 +211,10 @@ class MainActivity : ComponentActivity() {
         try {
             unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
+        if (isFinishing) {
+            PlaybackService.stop(this)
+            isPlayingVideo = false
+        }
     }
 }
 
@@ -224,9 +233,19 @@ fun AppContent(
         mutableStateOf(PermissionHelper.hasStoragePermission(context))
     }
 
-    var playingVideo by remember { mutableStateOf<VideoItem?>(null) }
-    var currentQueue by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
-    var currentQueueIndex by remember { mutableIntStateOf(0) }
+    val activeServiceVideo = PlaybackService.currentVideo
+    var playingVideo by remember { mutableStateOf<VideoItem?>(activeServiceVideo) }
+    var currentQueue by remember { mutableStateOf<List<VideoItem>>(PlaybackService.playlist) }
+    var currentQueueIndex by remember { mutableIntStateOf(PlaybackService.currentIndex) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    LaunchedEffect(activeServiceVideo) {
+        if (activeServiceVideo != null && playingVideo == null) {
+            playingVideo = activeServiceVideo
+            currentQueue = PlaybackService.playlist
+            currentQueueIndex = PlaybackService.currentIndex
+        }
+    }
 
     // Dynamically update PiP actions whenever playing state or next/prev availability changes
     val isPlaying = PlaybackService.isPlaying
@@ -290,24 +309,38 @@ fun AppContent(
         )
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
-            LibraryScreen(
-                onVideoClick = { video, queue, index ->
-                    currentQueue = queue
-                    currentQueueIndex = index
-                    playingVideo = video
+            when {
+                showSettings -> {
+                    SettingsScreen(
+                        onBack = {
+                            showSettings = false
+                        }
+                    )
                 }
-            )
+                else -> {
+                    LibraryScreen(
+                        onVideoClick = { video, queue, index ->
+                            currentQueue = queue
+                            currentQueueIndex = index
+                            playingVideo = video
+                        },
+                        onOpenSettings = {
+                            showSettings = true
+                        }
+                    )
 
-            playingVideo?.let { video ->
-                PlayerScreen(
-                    video = video,
-                    playlist = currentQueue.ifEmpty { listOf(video) },
-                    initialIndex = currentQueueIndex,
-                    onBack = {
-                        playingVideo = null
-                    },
-                    isInPipMode = isInPipMode
-                )
+                    playingVideo?.let { video ->
+                        PlayerScreen(
+                            video = video,
+                            playlist = currentQueue.ifEmpty { listOf(video) },
+                            initialIndex = currentQueueIndex,
+                            onBack = {
+                                playingVideo = null
+                            },
+                            isInPipMode = isInPipMode
+                        )
+                    }
+                }
             }
         }
     }

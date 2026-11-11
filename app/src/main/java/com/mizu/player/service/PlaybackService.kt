@@ -22,12 +22,16 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.mizu.player.MainActivity
 import com.mizu.player.data.MediaRepository
+import com.mizu.player.data.UserPreferences
 import com.mizu.player.model.VideoItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +42,25 @@ import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
+
+data class MizuAudioTrack(
+    val id: String,
+    val groupIndex: Int,
+    val trackIndex: Int,
+    val name: String,
+    val language: String,
+    val isSelected: Boolean
+)
+
+data class MizuSubtitleTrack(
+    val id: String,
+    val groupIndex: Int,
+    val trackIndex: Int,
+    val name: String,
+    val language: String,
+    val isSelected: Boolean
+)
 
 @UnstableApi
 class PlaybackService : MediaSessionService() {
@@ -82,6 +105,11 @@ class PlaybackService : MediaSessionService() {
         var hasNext by mutableStateOf(false)
             private set
 
+        var availableAudioTracks by mutableStateOf<List<MizuAudioTrack>>(emptyList())
+            private set
+        var availableSubtitleTracks by mutableStateOf<List<MizuSubtitleTrack>>(emptyList())
+            private set
+
         fun start(context: Context, videos: List<VideoItem>, startIndex: Int) {
             playlist = videos
             currentIndex = startIndex.coerceIn(0, (videos.size - 1).coerceAtLeast(0))
@@ -100,6 +128,286 @@ class PlaybackService : MediaSessionService() {
                 action = ACTION_STOP
             }
             context.startService(intent)
+        }
+
+        fun getAudioTracks(): List<MizuAudioTrack> {
+            val p = player ?: return emptyList()
+            val trackGroups = p.currentTracks.groups
+            val list = mutableListOf<MizuAudioTrack>()
+            var audioCount = 0
+
+            trackGroups.forEachIndexed { groupIndex, group ->
+                if (group.type == C.TRACK_TYPE_AUDIO) {
+                    for (trackIndex in 0 until group.length) {
+                        audioCount++
+                        val format = group.getTrackFormat(trackIndex)
+                        val lang = format.language?.lowercase() ?: ""
+                        val langName = if (lang.isNotEmpty() && lang != "und") {
+                            try {
+                                val loc = Locale(lang)
+                                loc.getDisplayLanguage(Locale.ENGLISH).replaceFirstChar { it.uppercase() }
+                            } catch (_: Exception) {
+                                lang
+                            }
+                        } else null
+
+                        val mime = format.sampleMimeType ?: ""
+                        val formatName = when {
+                            mime.contains("mp4a-latm", true) || mime.contains("aac", true) -> "AAC"
+                            mime.contains("opus", true) -> "Opus"
+                            mime.contains("ac3", true) -> "AC3"
+                            mime.contains("eac3", true) -> "E-AC3"
+                            mime.contains("dts", true) -> "DTS"
+                            mime.contains("flac", true) -> "FLAC"
+                            mime.contains("vorbis", true) -> "Vorbis"
+                            mime.contains("true-hd", true) -> "TrueHD"
+                            mime.contains("mpeg", true) -> "MP3"
+                            else -> format.codecs?.uppercase() ?: ""
+                        }
+
+                        val channels = when (format.channelCount) {
+                            1 -> "1.0"
+                            2 -> "2.0"
+                            6 -> "5.1"
+                            8 -> "7.1"
+                            in 3..5 -> "${format.channelCount}.0"
+                            else -> if (format.channelCount > 0) "${format.channelCount} ch" else ""
+                        }
+
+                        val details = listOfNotNull(formatName.ifEmpty { null }, channels.ifEmpty { null }).joinToString(" · ")
+                        val trackName = if (langName != null) {
+                            if (details.isNotEmpty()) "$langName · $details" else langName
+                        } else {
+                            if (details.isNotEmpty()) "Track $audioCount · $details" else "Track $audioCount"
+                        }
+
+                        val isSelected = group.isTrackSelected(trackIndex)
+                        val trackId = "${format.id ?: ""}_${lang}_${formatName}_$channels"
+
+                        list.add(
+                            MizuAudioTrack(
+                                id = trackId,
+                                groupIndex = groupIndex,
+                                trackIndex = trackIndex,
+                                name = trackName,
+                                language = lang,
+                                isSelected = isSelected
+                            )
+                        )
+                    }
+                }
+            }
+            return list
+        }
+
+        fun getSubtitleTracks(): List<MizuSubtitleTrack> {
+            val p = player ?: return emptyList()
+            val trackGroups = p.currentTracks.groups
+            val list = mutableListOf<MizuSubtitleTrack>()
+            var subCount = 0
+
+            trackGroups.forEachIndexed { groupIndex, group ->
+                if (group.type == C.TRACK_TYPE_TEXT) {
+                    for (trackIndex in 0 until group.length) {
+                        subCount++
+                        val format = group.getTrackFormat(trackIndex)
+                        val lang = format.language?.lowercase() ?: ""
+                        val langName = if (lang.isNotEmpty() && lang != "und") {
+                            try {
+                                val loc = Locale(lang)
+                                loc.getDisplayLanguage(Locale.ENGLISH).replaceFirstChar { it.uppercase() }
+                            } catch (_: Exception) {
+                                lang
+                            }
+                        } else null
+
+                        val label = format.label
+                        val trackName = when {
+                            langName != null && !label.isNullOrBlank() && label != langName -> "$langName ($label)"
+                            langName != null -> langName
+                            !label.isNullOrBlank() -> label
+                            else -> "Subtitle $subCount"
+                        }
+
+                        val isSelected = group.isTrackSelected(trackIndex)
+                        val trackId = "${format.id ?: ""}_${lang}_$trackName"
+
+                        list.add(
+                            MizuSubtitleTrack(
+                                id = trackId,
+                                groupIndex = groupIndex,
+                                trackIndex = trackIndex,
+                                name = trackName,
+                                language = lang,
+                                isSelected = isSelected
+                            )
+                        )
+                    }
+                }
+            }
+            return list
+        }
+
+        fun refreshTracks() {
+            availableAudioTracks = getAudioTracks()
+            availableSubtitleTracks = getSubtitleTracks()
+        }
+
+        fun selectAudioTrack(context: Context, track: MizuAudioTrack) {
+            val p = player ?: return
+            val groups = p.currentTracks.groups
+            if (track.groupIndex in groups.indices) {
+                val group = groups[track.groupIndex]
+                val override = TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex)
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .setOverrideForType(override)
+                    .build()
+
+                currentVideo?.let { v ->
+                    val key = UserPreferences.getVideoKey(v)
+                    UserPreferences.setSavedAudioTrack(context, key, track.id)
+                }
+                refreshTracks()
+            }
+        }
+
+        fun selectSubtitleTrack(context: Context, track: MizuSubtitleTrack) {
+            val p = player ?: return
+            val groups = p.currentTracks.groups
+            if (track.groupIndex in groups.indices) {
+                val group = groups[track.groupIndex]
+                val override = TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex)
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(override)
+                    .build()
+
+                currentVideo?.let { v ->
+                    val key = UserPreferences.getVideoKey(v)
+                    UserPreferences.setSavedSubtitleTrack(context, key, track.id)
+                }
+                refreshTracks()
+            }
+        }
+
+        fun disableSubtitles(context: Context) {
+            val p = player ?: return
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+
+            currentVideo?.let { v ->
+                val key = UserPreferences.getVideoKey(v)
+                UserPreferences.setSavedSubtitleTrack(context, key, UserPreferences.SUBTITLE_OFF)
+            }
+            refreshTracks()
+        }
+
+        private fun matchLanguage(trackLang: String?, prefLang: String): Boolean {
+            if (trackLang.isNullOrBlank() || trackLang.equals("und", ignoreCase = true)) return false
+            val cleanTrack = trackLang.trim().lowercase()
+            val cleanPref = prefLang.trim().lowercase()
+            if (cleanTrack == cleanPref) return true
+            if (cleanTrack.startsWith("$cleanPref-") || cleanTrack.startsWith("${cleanPref}_")) return true
+            return try {
+                val localePref = Locale(cleanPref)
+                val iso3Pref = localePref.isO3Language.lowercase()
+                if (cleanTrack == iso3Pref) return true
+                val localeTrack = Locale(cleanTrack)
+                localeTrack.language.lowercase() == cleanPref || localeTrack.isO3Language.lowercase() == iso3Pref
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        fun applyTrackPreferences(context: Context, video: VideoItem) {
+            val p = player ?: return
+            val key = UserPreferences.getVideoKey(video)
+            val builder = p.trackSelectionParameters.buildUpon()
+
+            val audioTracks = getAudioTracks()
+            val subtitleTracks = getSubtitleTracks()
+
+            // 1. Subtitles
+            val savedSubId = UserPreferences.getSavedSubtitleTrack(context, key)
+            if (savedSubId == UserPreferences.SUBTITLE_OFF) {
+                builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            } else if (savedSubId != null) {
+                val matchedSub = subtitleTracks.find { it.id == savedSubId }
+                if (matchedSub != null) {
+                    val group = p.currentTracks.groups.getOrNull(matchedSub.groupIndex)
+                    if (group != null) {
+                        builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, matchedSub.trackIndex))
+                    }
+                } else {
+                    applyDefaultSubtitlePriorities(context, subtitleTracks, builder, p)
+                }
+            } else {
+                applyDefaultSubtitlePriorities(context, subtitleTracks, builder, p)
+            }
+
+            // 2. Audio
+            val savedAudioId = UserPreferences.getSavedAudioTrack(context, key)
+            if (savedAudioId != null) {
+                val matchedAudio = audioTracks.find { it.id == savedAudioId }
+                if (matchedAudio != null) {
+                    val group = p.currentTracks.groups.getOrNull(matchedAudio.groupIndex)
+                    if (group != null) {
+                        builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, matchedAudio.trackIndex))
+                    }
+                } else {
+                    applyDefaultAudioPriorities(context, audioTracks, builder, p)
+                }
+            } else {
+                applyDefaultAudioPriorities(context, audioTracks, builder, p)
+            }
+
+            p.trackSelectionParameters = builder.build()
+            refreshTracks()
+        }
+
+        private fun applyDefaultSubtitlePriorities(
+            context: Context,
+            tracks: List<MizuSubtitleTrack>,
+            builder: TrackSelectionParameters.Builder,
+            player: ExoPlayer
+        ) {
+            if (UserPreferences.isSubtitlesOffByDefault(context)) {
+                builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                return
+            }
+            val prefs = UserPreferences.getPreferredSubtitleLanguages(context)
+            for (pref in prefs) {
+                val matched = tracks.find { matchLanguage(it.language, pref) }
+                if (matched != null) {
+                    val group = player.currentTracks.groups.getOrNull(matched.groupIndex)
+                    if (group != null) {
+                        builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, matched.trackIndex))
+                        return
+                    }
+                }
+            }
+        }
+
+        private fun applyDefaultAudioPriorities(
+            context: Context,
+            tracks: List<MizuAudioTrack>,
+            builder: TrackSelectionParameters.Builder,
+            player: ExoPlayer
+        ) {
+            val prefs = UserPreferences.getPreferredAudioLanguages(context)
+            for (pref in prefs) {
+                val matched = tracks.find { matchLanguage(it.language, pref) }
+                if (matched != null) {
+                    val group = player.currentTracks.groups.getOrNull(matched.groupIndex)
+                    if (group != null) {
+                        builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, matched.trackIndex))
+                        return
+                    }
+                }
+            }
         }
 
         fun getThumbnailBytes(context: Context, video: VideoItem): ByteArray? {
@@ -303,6 +611,15 @@ class PlaybackService : MediaSessionService() {
                     }
                 } else {
                     errorMessage = "This video can't be played"
+                }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                val v = currentVideo
+                if (v != null) {
+                    applyTrackPreferences(applicationContext, v)
+                } else {
+                    refreshTracks()
                 }
             }
         })

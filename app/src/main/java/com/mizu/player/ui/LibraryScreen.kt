@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,6 +90,7 @@ import com.mizu.player.model.SortOption
 @Composable
 fun LibraryScreen(
     onVideoClick: (VideoItem, List<VideoItem>, Int) -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -380,6 +382,13 @@ fun LibraryScreen(
                                     modifier = Modifier.background(Color(0xFF1E222D))
                                 ) {
                                     DropdownMenuItem(
+                                        text = { Text("Settings", color = Color.White) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            onOpenSettings()
+                                        }
+                                    )
+                                    DropdownMenuItem(
                                         text = { Text("Refresh library", color = Color.White) },
                                         onClick = {
                                             showMoreMenu = false
@@ -584,55 +593,47 @@ fun FoldersContentView(
         return
     }
 
-    val gridState = rememberLazyGridState()
-    val listState = rememberLazyListState()
+    key(sortOption, searchQuery) {
+        val gridState = rememberLazyGridState()
+        val listState = rememberLazyListState()
 
-    var isInitial by remember { mutableStateOf(true) }
-    LaunchedEffect(sortOption, searchQuery) {
-        if (isInitial) {
-            isInitial = false
-        } else {
-            gridState.scrollToItem(0)
-            listState.scrollToItem(0)
-        }
-    }
-
-    if (isGridView) {
-        LazyVerticalGrid(
-            state = gridState,
-            columns = GridCells.Fixed(columns),
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(
-                items = folders,
-                key = { it.path },
-                contentType = { "folder_card" }
-            ) { folder ->
-                FolderGridCard(
-                    folder = folder,
-                    onClick = { onFolderClick(folder) }
-                )
+        if (isGridView) {
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Fixed(columns),
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(
+                    items = folders,
+                    key = { it.path },
+                    contentType = { "folder_card" }
+                ) { folder ->
+                    FolderGridCard(
+                        folder = folder,
+                        onClick = { onFolderClick(folder) }
+                    )
+                }
             }
-        }
-    } else {
-        LazyColumn(
-            state = listState,
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(
-                items = folders,
-                key = { it.path },
-                contentType = { "folder_row" }
-            ) { folder ->
-                FolderListRow(
-                    folder = folder,
-                    onClick = { onFolderClick(folder) }
-                )
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(
+                    items = folders,
+                    key = { it.path },
+                    contentType = { "folder_row" }
+                ) { folder ->
+                    FolderListRow(
+                        folder = folder,
+                        onClick = { onFolderClick(folder) }
+                    )
+                }
             }
         }
     }
@@ -757,57 +758,49 @@ fun VideosContentView(
         return
     }
 
-    val gridState = rememberLazyGridState()
-    val listState = rememberLazyListState()
+    key(sortOption, searchQuery) {
+        val gridState = rememberLazyGridState()
+        val listState = rememberLazyListState()
 
-    var isInitial by remember { mutableStateOf(true) }
-    LaunchedEffect(sortOption, searchQuery) {
-        if (isInitial) {
-            isInitial = false
-        } else {
-            gridState.scrollToItem(0)
-            listState.scrollToItem(0)
-        }
-    }
-
-    if (isGridView) {
-        LazyVerticalGrid(
-            state = gridState,
-            columns = GridCells.Fixed(columns),
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            itemsIndexed(
-                items = videos,
-                key = { _, it -> it.id },
-                contentType = { _, _ -> "video_card" }
-            ) { index, video ->
-                VideoGridCard(
-                    video = video,
-                    imageLoader = imageLoader,
-                    onClick = { onVideoClick(video, videos, index) }
-                )
+        if (isGridView) {
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Fixed(columns),
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp), // Extra horizontal breathing room
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                itemsIndexed(
+                    items = videos,
+                    key = { _, it -> if (it.id > 0) it.id else it.path.hashCode().toLong() },
+                    contentType = { _, _ -> "video_card" }
+                ) { index, video ->
+                    VideoGridCard(
+                        video = video,
+                        imageLoader = imageLoader,
+                        onClick = { onVideoClick(video, videos, index) }
+                    )
+                }
             }
-        }
-    } else {
-        LazyColumn(
-            state = listState,
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            itemsIndexed(
-                items = videos,
-                key = { _, it -> it.id },
-                contentType = { _, _ -> "video_row" }
-            ) { index, video ->
-                VideoListRow(
-                    video = video,
-                    imageLoader = imageLoader,
-                    onClick = { onVideoClick(video, videos, index) }
-                )
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                itemsIndexed(
+                    items = videos,
+                    key = { _, it -> if (it.id > 0) it.id else it.path.hashCode().toLong() },
+                    contentType = { _, _ -> "video_row" }
+                ) { index, video ->
+                    VideoListRow(
+                        video = video,
+                        imageLoader = imageLoader,
+                        onClick = { onVideoClick(video, videos, index) }
+                    )
+                }
             }
         }
     }
@@ -821,11 +814,14 @@ fun VideoGridCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(video.uri) {
+    val stableKey = remember(video.uri, video.id, video.path) {
+        if (video.id > 0) video.id.toString() else video.path.ifEmpty { video.uri.toString() }
+    }
+    val imageRequest = remember(stableKey) {
         ImageRequest.Builder(context)
             .data(video.uri)
-            .memoryCacheKey(video.id.toString())
-            .diskCacheKey(video.id.toString())
+            .memoryCacheKey(stableKey)
+            .diskCacheKey(stableKey)
             .build()
     }
 
@@ -946,11 +942,14 @@ fun VideoListRow(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(video.uri) {
+    val stableKey = remember(video.uri, video.id, video.path) {
+        if (video.id > 0) video.id.toString() else video.path.ifEmpty { video.uri.toString() }
+    }
+    val imageRequest = remember(stableKey) {
         ImageRequest.Builder(context)
             .data(video.uri)
-            .memoryCacheKey(video.id.toString())
-            .diskCacheKey(video.id.toString())
+            .memoryCacheKey(stableKey)
+            .diskCacheKey(stableKey)
             .build()
     }
 
