@@ -813,7 +813,7 @@ fun VideoGridCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(5.dp)
+                        .padding(start = 5.dp, bottom = 6.dp)
                         .background(Color(0xE60F172A), RoundedCornerShape(3.dp))
                         .padding(horizontal = 4.dp, vertical = 0.5.dp)
                 ) {
@@ -838,7 +838,7 @@ fun VideoGridCard(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(5.dp)
+                    .padding(end = 5.dp, bottom = 6.dp)
                     .background(Color(0xCC000000), RoundedCornerShape(3.dp))
                     .padding(horizontal = 4.dp, vertical = 0.5.dp)
             ) {
@@ -856,6 +856,25 @@ fun VideoGridCard(
                         )
                     )
                 )
+            }
+
+            // Sleek Watch Progress Bar (Bottom edge)
+            val progress = MediaRepository.getProgressFraction(video)
+            if (progress > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(Color(0x80000000))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress.coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .background(Color(0xFF3B82F6))
+                    )
+                }
             }
         }
 
@@ -920,7 +939,7 @@ fun VideoListRow(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp)
+                    .padding(end = 4.dp, bottom = 5.dp)
                     .background(Color(0xCC000000), RoundedCornerShape(3.dp))
                     .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
@@ -931,6 +950,25 @@ fun VideoListRow(
                     lineHeight = 10.5.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+
+            // Sleek Watch Progress Bar (Bottom edge)
+            val progress = MediaRepository.getProgressFraction(video)
+            if (progress > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(Color(0x80000000))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress.coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .background(Color(0xFF3B82F6))
+                    )
+                }
             }
         }
 

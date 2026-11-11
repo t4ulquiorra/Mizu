@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,10 +27,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.mizu.player.data.MediaRepository
 import com.mizu.player.model.VideoItem
+import kotlinx.coroutines.delay
 import java.io.File
 
 @OptIn(UnstableApi::class)
@@ -74,14 +78,53 @@ fun PlayerScreen(
             }
 
             setMediaItem(mediaItemBuilder.build())
+
+            // Seamless resume: if previous playback position exists, seek immediately
+            val savedPos = MediaRepository.getSavedPosition(video)
+            if (savedPos > 3000L) {
+                seekTo(savedPos)
+            }
+
             prepare()
             playWhenReady = true
         }
     }
 
-    DisposableEffect(Unit) {
+    // Persist position whenever playback state changes (pause, finish)
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                val dur = if (exoPlayer.duration > 0) exoPlayer.duration else video.durationMs
+                if (playbackState == Player.STATE_ENDED) {
+                    MediaRepository.savePlaybackPosition(context, video, 0L, dur)
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val dur = if (exoPlayer.duration > 0) exoPlayer.duration else video.durationMs
+                if (!isPlaying) {
+                    MediaRepository.savePlaybackPosition(context, video, exoPlayer.currentPosition, dur)
+                }
+            }
+        }
+        exoPlayer.addListener(listener)
+
         onDispose {
+            val dur = if (exoPlayer.duration > 0) exoPlayer.duration else video.durationMs
+            MediaRepository.savePlaybackPosition(context, video, exoPlayer.currentPosition, dur)
+            exoPlayer.removeListener(listener)
             exoPlayer.release()
+        }
+    }
+
+    // Periodic position snapshot while actively playing (survives task-kill / power loss)
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            delay(2000)
+            if (exoPlayer.isPlaying) {
+                val dur = if (exoPlayer.duration > 0) exoPlayer.duration else video.durationMs
+                MediaRepository.savePlaybackPosition(context, video, exoPlayer.currentPosition, dur)
+            }
         }
     }
 

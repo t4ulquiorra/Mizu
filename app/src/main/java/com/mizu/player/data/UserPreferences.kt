@@ -13,9 +13,37 @@ object UserPreferences {
     private const val KEY_IS_GRID_VIEW = "is_grid_view"
     private const val KEY_SORT_OPTION = "sort_option"
     private const val KEY_SELECTED_TAB = "selected_tab"
+    private const val PREFIX_PLAYBACK_POS = "pos_"
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    fun getVideoKey(video: com.mizu.player.model.VideoItem): String {
+        return if (video.id > 0) video.id.toString() else video.path.ifEmpty { video.uri.toString() }
+    }
+
+    fun getPlaybackPosition(context: Context, key: String): Long {
+        return getPrefs(context).getLong(PREFIX_PLAYBACK_POS + key, 0L)
+    }
+
+    fun setPlaybackPosition(context: Context, key: String, positionMs: Long) {
+        if (positionMs <= 0L) {
+            getPrefs(context).edit().remove(PREFIX_PLAYBACK_POS + key).apply()
+        } else {
+            getPrefs(context).edit().putLong(PREFIX_PLAYBACK_POS + key, positionMs).apply()
+        }
+    }
+
+    fun getAllPlaybackPositions(context: Context): Map<String, Long> {
+        val result = mutableMapOf<String, Long>()
+        val all = getPrefs(context).all
+        for ((k, v) in all) {
+            if (k.startsWith(PREFIX_PLAYBACK_POS) && v is Long) {
+                result[k.removePrefix(PREFIX_PLAYBACK_POS)] = v
+            }
+        }
+        return result
     }
 
     fun isGridView(context: Context): Boolean {

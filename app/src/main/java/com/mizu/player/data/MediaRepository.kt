@@ -28,6 +28,9 @@ object MediaRepository {
     var isGridView by mutableStateOf(true)
     var sortOption by mutableStateOf(SortOption.DATE_DESC)
 
+    // Reactive playback positions map for immediate UI updates & resume
+    val playbackPositions = androidx.compose.runtime.mutableStateMapOf<String, Long>()
+
     private var preferencesLoaded = false
 
     fun initPreferences(context: Context) {
@@ -35,7 +38,42 @@ object MediaRepository {
         isGridView = UserPreferences.isGridView(context)
         sortOption = UserPreferences.getSortOption(context)
         selectedTab = UserPreferences.getSelectedTab(context)
+        playbackPositions.clear()
+        playbackPositions.putAll(UserPreferences.getAllPlaybackPositions(context))
         preferencesLoaded = true
+    }
+
+    fun getSavedPosition(video: VideoItem): Long {
+        val key = UserPreferences.getVideoKey(video)
+        return playbackPositions[key] ?: 0L
+    }
+
+    fun savePlaybackPosition(context: Context, video: VideoItem, positionMs: Long, durationMs: Long = 0L) {
+        val key = UserPreferences.getVideoKey(video)
+        val totalDuration = if (durationMs > 0) durationMs else video.durationMs
+        val effectivePos = when {
+            totalDuration > 0 && positionMs >= totalDuration - 5000 -> 0L
+            totalDuration > 0 && (positionMs.toFloat() / totalDuration) >= 0.95f -> 0L
+            positionMs < 3000L -> 0L
+            else -> positionMs
+        }
+
+        if (effectivePos > 0) {
+            playbackPositions[key] = effectivePos
+        } else {
+            playbackPositions.remove(key)
+        }
+        UserPreferences.setPlaybackPosition(context, key, effectivePos)
+    }
+
+    fun getProgressFraction(video: VideoItem): Float {
+        val key = UserPreferences.getVideoKey(video)
+        val pos = playbackPositions[key] ?: return 0f
+        return if (video.durationMs > 0) {
+            (pos.toFloat() / video.durationMs).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
     }
 
     fun updateGridView(context: Context, isGrid: Boolean) {
