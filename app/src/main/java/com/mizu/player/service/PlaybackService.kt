@@ -331,7 +331,7 @@ class PlaybackService : MediaSessionService() {
 
             override fun onTimeChanged(currentTimeMs: Long, durationMs: Long) {
                 currentPositionMs = currentTimeMs
-                this@PlaybackService.durationMs = durationMs
+                PlaybackService.durationMs = durationMs
             }
 
             override fun onTracksChanged(audioTracks: List<AudioTrackInfo>, subtitleTracks: List<SubtitleTrackInfo>) {

@@ -24,10 +24,11 @@ class AudioFocusHelper(
 
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            val ctx = context ?: this@AudioFocusHelper.context
             when (intent?.action) {
                 AudioManager.ACTION_AUDIO_BECOMING_NOISY,
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
-                    DiagnosticLogger.log(context, "AudioFocusHelper", "Becoming noisy or BT disconnect -> pause")
+                    DiagnosticLogger.log(ctx, "AudioFocusHelper", "Becoming noisy or BT disconnect -> pause")
                     if (engine.isPlaying) {
                         engine.pause()
                     }
