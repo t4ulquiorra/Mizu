@@ -263,8 +263,8 @@ fun AppContent(
     var showSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(activeServiceVideo) {
-        if (activeServiceVideo != null && playingVideo == null) {
-            playingVideo = activeServiceVideo
+        playingVideo = activeServiceVideo
+        if (activeServiceVideo != null) {
             currentQueue = PlaybackService.playlist
             currentQueueIndex = PlaybackService.currentIndex
         }

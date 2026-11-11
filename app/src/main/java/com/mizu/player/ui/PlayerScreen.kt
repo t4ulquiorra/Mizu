@@ -1,11 +1,15 @@
 package com.mizu.player.ui
 
 import android.app.Activity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -124,9 +128,13 @@ fun PlayerScreen(
         handleClose()
     }
 
-    // Start playback service with queue on initial display
+    // Start playback service with queue on initial display if not already playing this item
     LaunchedEffect(video.id, playlist) {
-        PlaybackService.start(context, playlist, initialIndex)
+        val cur = PlaybackService.currentVideo
+        val isAlreadyPlayingThis = cur != null && (cur.id == video.id || cur.path == video.path) && PlaybackService.player != null
+        if (!isAlreadyPlayingThis) {
+            PlaybackService.start(context, playlist, initialIndex)
+        }
     }
 
     // Keep screen on while playing, release immediately when paused or closed
@@ -140,6 +148,8 @@ fun PlayerScreen(
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
+
+    var isControllerVisible by remember { mutableStateOf(true) }
 
     if (errorMessage != null) {
         // Clear error view with message and Back button
@@ -201,6 +211,9 @@ fun PlayerScreen(
                         setShowPreviousButton(true)
                         setShowSubtitleButton(false)
                         keepScreenOn = isPlaying
+                        setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+                            isControllerVisible = (visibility == View.VISIBLE)
+                        })
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -214,15 +227,23 @@ fun PlayerScreen(
                     view.useController = !isInPipMode
                     view.setShowSubtitleButton(false)
                     view.keepScreenOn = isPlaying
+                    view.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+                        isControllerVisible = (visibility == View.VISIBLE)
+                    })
                 },
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Top Control Bar: visible in full screen, hidden during Picture-in-Picture
-            if (!isInPipMode) {
+            // Top Control Bar: follows PlayerView controller visibility, hidden during Picture-in-Picture
+            val showOverlayControls = !isInPipMode && isControllerVisible
+            AnimatedVisibility(
+                visible = showOverlayControls,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopStart)
+            ) {
                 Row(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
                         .fillMaxWidth()
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -299,8 +320,8 @@ fun PlayerScreen(
                 }
             }
 
-            // Resume Banner: non-blocking, auto-hides after ~6s, hidden in PiP or starting at 0
-            if (!isInPipMode && showResumeBanner && savedPos > 3000L) {
+            // Resume Banner: follows controller visibility, non-blocking, auto-hides after ~6s, hidden in PiP or starting at 0
+            if (!isInPipMode && isControllerVisible && showResumeBanner && savedPos > 3000L) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

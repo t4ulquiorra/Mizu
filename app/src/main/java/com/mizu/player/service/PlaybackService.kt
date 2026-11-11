@@ -1,11 +1,14 @@
 package com.mizu.player.service
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -16,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -32,6 +36,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.mizu.player.MainActivity
+import com.mizu.player.R
 import com.mizu.player.data.MediaRepository
 import com.mizu.player.data.UserPreferences
 import com.mizu.player.model.VideoItem
@@ -42,6 +47,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -90,6 +96,8 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_PLAY_QUEUE = "com.mizu.player.action.PLAY_QUEUE"
         const val ACTION_STOP = "com.mizu.player.action.STOP"
         const val EXTRA_START_INDEX = "extra_start_index"
+        const val NOTIFICATION_ID = 1001
+        const val NOTIFICATION_CHANNEL_ID = "mizu_playback_channel"
 
         // Observable state for Compose UI & PiP
         var player by mutableStateOf<ExoPlayer?>(null)
@@ -478,8 +486,7 @@ class PlaybackService : MediaSessionService() {
             return null
         }
 
-        fun buildMediaItem(context: Context, video: VideoItem): MediaItem {
-            val artworkBytes = getThumbnailBytes(context, video)
+        fun buildMediaItem(context: Context, video: VideoItem, artworkBytes: ByteArray? = null): MediaItem {
             val metadata = MediaMetadata.Builder()
                 .setTitle(video.title)
                 .setDisplayTitle(video.title)
@@ -554,6 +561,8 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         mediaSession = session
+        addSession(session)
+        DiagnosticLogger.log(this, "PlaybackService.onCreate", "addSession called")
         exoPlayer = p
         player = p
 
@@ -571,6 +580,7 @@ class PlaybackService : MediaSessionService() {
                     if (savedPos > 3000L && (targetVideo.durationMs <= 0 || savedPos < targetVideo.durationMs - 5000L)) {
                         p.seekTo(savedPos)
                     }
+                    updateArtworkWindow(newIndex)
                 }
                 hasPrevious = p.hasPreviousMediaItem()
                 hasNext = p.hasNextMediaItem()
@@ -588,6 +598,7 @@ class PlaybackService : MediaSessionService() {
                         MediaRepository.savePlaybackPosition(applicationContext, v, 0L, dur)
                         if (!p.hasNextMediaItem()) {
                             isPlaying = false
+                            stopPlayback()
                         }
                     }
                 }
@@ -652,10 +663,59 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    private fun startForegroundWithPlaceholder() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val nm = getSystemService(NotificationManager::class.java)
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Playback",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Mizu video playback notification"
+                setShowBadge(false)
+            }
+            nm?.createNotificationChannel(channel)
+        }
+
+        val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, sessionActivityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val currentTitle = currentVideo?.title ?: "Playing Media"
+        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_pip_play)
+            .setContentTitle(currentTitle)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            DiagnosticLogger.log(this, "PlaybackService.startForeground", "success, id=$NOTIFICATION_ID")
+        } catch (e: Exception) {
+            DiagnosticLogger.log(this, "PlaybackService.startForeground_error", e.message ?: "error")
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         DiagnosticLogger.log(this, "PlaybackService.onStartCommand", "action=${intent?.action}, startId=$startId")
         when (intent?.action) {
             ACTION_PLAY_QUEUE -> {
+                startForegroundWithPlaceholder()
                 val targetIndex = intent.getIntExtra(EXTRA_START_INDEX, 0)
                 loadAndPlayQueue(targetIndex)
             }
@@ -671,14 +731,45 @@ class PlaybackService : MediaSessionService() {
         super.onUpdateNotification(session, startInForegroundRequired)
     }
 
+    private var artworkJob: Job? = null
+
+    private fun updateArtworkWindow(centerIndex: Int) {
+        artworkJob?.cancel()
+        artworkJob = serviceScope.launch(Dispatchers.IO) {
+            val targets = listOf(centerIndex, centerIndex - 1, centerIndex + 1)
+                .filter { it in playlist.indices }
+
+            for (idx in targets) {
+                val video = playlist.getOrNull(idx) ?: continue
+                val artworkBytes = getThumbnailBytes(applicationContext, video) ?: continue
+
+                withContext(Dispatchers.Main) {
+                    val p = exoPlayer ?: return@withContext
+                    if (idx < p.mediaItemCount) {
+                        val item = p.getMediaItemAt(idx)
+                        if (item.mediaMetadata.artworkData == null) {
+                            val newMetadata = item.mediaMetadata.buildUpon()
+                                .setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                                .build()
+                            val newItem = item.buildUpon()
+                                .setMediaMetadata(newMetadata)
+                                .build()
+                            if (idx != p.currentMediaItemIndex) {
+                                p.replaceMediaItem(idx, newItem)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun loadAndPlayQueue(startIndex: Int) {
-        DiagnosticLogger.log(this, "PlaybackService.loadAndPlayQueue", "startIndex=$startIndex")
+        DiagnosticLogger.log(this, "PlaybackService.loadAndPlayQueue", "startIndex=$startIndex, count=${playlist.size}")
         val p = exoPlayer ?: return
         if (playlist.isEmpty()) return
 
-        val mediaItems = playlist.map { buildMediaItem(applicationContext, it) }
         val safeIndex = startIndex.coerceIn(0, playlist.size - 1)
-
         val targetVideo = playlist[safeIndex]
         val savedPos = MediaRepository.getSavedPosition(targetVideo)
         val initialSeekPos = if (savedPos > 3000L && (targetVideo.durationMs <= 0 || savedPos < targetVideo.durationMs - 5000L)) {
@@ -687,12 +778,31 @@ class PlaybackService : MediaSessionService() {
             0L
         }
 
-        p.setMediaItems(mediaItems, safeIndex, initialSeekPos)
-        p.prepare()
-        p.playWhenReady = true
+        serviceScope.launch(Dispatchers.IO) {
+            // Fast: only load artwork for starting item so it has artwork right away
+            val startArtwork = getThumbnailBytes(applicationContext, targetVideo)
 
-        hasPrevious = p.hasPreviousMediaItem()
-        hasNext = p.hasNextMediaItem()
+            // Build all MediaItems on background dispatcher without extracting thumbnails for all items
+            val mediaItems = playlist.mapIndexed { i, video ->
+                buildMediaItem(
+                    applicationContext,
+                    video,
+                    artworkBytes = if (i == safeIndex) startArtwork else null
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                val activePlayer = exoPlayer ?: return@withContext
+                activePlayer.setMediaItems(mediaItems, safeIndex, initialSeekPos)
+                activePlayer.prepare()
+                activePlayer.playWhenReady = true
+
+                hasPrevious = activePlayer.hasPreviousMediaItem()
+                hasNext = activePlayer.hasNextMediaItem()
+
+                updateArtworkWindow(safeIndex)
+            }
+        }
     }
 
     private fun stopPlayback() {
@@ -705,7 +815,9 @@ class PlaybackService : MediaSessionService() {
         }
         p?.stop()
         isPlaying = false
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
         stopSelf()
     }
 
@@ -727,6 +839,11 @@ class PlaybackService : MediaSessionService() {
         } catch (_: Exception) {}
 
         serviceJob.cancel()
+        artworkJob?.cancel()
+
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
 
         val v = currentVideo
         val p = exoPlayer
@@ -735,9 +852,10 @@ class PlaybackService : MediaSessionService() {
             MediaRepository.savePlaybackPosition(applicationContext, v, p.currentPosition, dur)
         }
 
-        mediaSession?.run {
-            player.release()
-            release()
+        mediaSession?.let {
+            removeSession(it)
+            it.player.release()
+            it.release()
             mediaSession = null
         }
         exoPlayer = null
