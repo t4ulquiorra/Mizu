@@ -666,14 +666,9 @@ class PlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
-    override fun startForeground(id: Int, notification: Notification?) {
-        DiagnosticLogger.log(this, "PlaybackService.startForeground", "id=$id, notification=$notification")
-        super.startForeground(id, notification)
-    }
-
-    override fun startForeground(id: Int, notification: Notification?, foregroundServiceType: Int) {
-        DiagnosticLogger.log(this, "PlaybackService.startForegroundType", "id=$id, notification=$notification, type=$foregroundServiceType")
-        super.startForeground(id, notification, foregroundServiceType)
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        DiagnosticLogger.log(this, "PlaybackService.onUpdateNotification", "startInForegroundRequired=$startInForegroundRequired")
+        super.onUpdateNotification(session, startInForegroundRequired)
     }
 
     private fun loadAndPlayQueue(startIndex: Int) {

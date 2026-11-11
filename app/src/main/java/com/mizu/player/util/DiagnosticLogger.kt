@@ -92,12 +92,15 @@ object DiagnosticLogger {
                             ApplicationExitInfo.REASON_OTHER -> "OTHER"
                             ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "PERMISSION_CHANGE"
                             ApplicationExitInfo.REASON_SIGNALED -> "SIGNALED"
-                            ApplicationExitInfo.REASON_USER_ACTION -> "USER_ACTION"
+                            ApplicationExitInfo.REASON_USER_REQUESTED -> "USER_REQUESTED"
                             ApplicationExitInfo.REASON_USER_STOPPED -> "USER_STOPPED"
                             else -> "UNKNOWN (${reason.reason})"
                         }
                         val exitTime = dateFormat.format(Date(reason.timestamp))
-                        sb.append("  #$i: PID=${reason.pid}, Time=$exitTime, Reason=$reasonStr, SubReason=${reason.subReason}, Status=${reason.status}, Description=${reason.description}\n")
+                        val subReason = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            try { reason.subReason } catch (_: Throwable) { 0 }
+                        } else 0
+                        sb.append("  #$i: PID=${reason.pid}, Time=$exitTime, Reason=$reasonStr, SubReason=$subReason, Status=${reason.status}, Description=${reason.description}\n")
 
                         try {
                             reason.traceInputStream?.use { stream ->
