@@ -71,6 +71,7 @@ android {
             "-opt-in=androidx.media3.common.util.UnstableApi",
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
             "-Xskip-metadata-version-check"
         )
     }
@@ -136,7 +137,6 @@ dependencies {
 
     // NextLib
     implementation(libs.nextlib.media3ext)
-    implementation(libs.nextlib.mediainfo)
 
     // LibVLC
     implementation(libs.libvlc)

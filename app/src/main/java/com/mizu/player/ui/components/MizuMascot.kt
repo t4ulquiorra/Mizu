@@ -120,7 +120,7 @@ fun MizuMascot(
         // Smile
         val smilePath = Path().apply {
             moveTo(w * 0.44f, h * 0.72f)
-            quadraticBezierTo(
+            quadraticTo(
                 w * 0.50f, h * 0.80f,
                 w * 0.56f, h * 0.72f
             )

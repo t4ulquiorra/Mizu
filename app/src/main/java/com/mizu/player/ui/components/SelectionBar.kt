@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
@@ -99,7 +99,7 @@ fun SelectionBar(
                 }
                 IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = Icons.Default.PlaylistAdd,
+                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                         contentDescription = "Add to playlist",
                         tint = Ink
                     )
