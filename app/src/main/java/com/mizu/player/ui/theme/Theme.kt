@@ -24,7 +24,9 @@ data class MizuColors(
     val border: Color,
     val shadowColor: Color,
     val isDark: Boolean
-)
+) {
+    val text: Color get() = ink
+}
 
 val LightMizuColors = MizuColors(
     ink = Ink,

@@ -197,7 +197,7 @@ class MediaRepositoryImpl @Inject constructor(
                 )
             )
         } else {
-            val existing = playbackHistoryDao.getHistoryForVideo(videoId)
+            val existing = playbackHistoryDao.getByVideoId(videoId)
             if (existing != null) {
                 playbackHistoryDao.upsert(existing.copy(lastPosition = position, lastPlayedAt = now))
             }
