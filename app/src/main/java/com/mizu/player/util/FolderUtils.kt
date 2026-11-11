@@ -14,8 +14,8 @@ object FolderUtils {
         return when {
             trimmed == PRIMARY_STORAGE -> "Internal storage"
             trimmed.startsWith(PRIMARY_STORAGE) -> {
-                val rel = trimmed.substring(PRIMARY_STORAGE.length).trimStart('/')
-                "Internal storage / $rel"
+                val relParts = trimmed.substring(PRIMARY_STORAGE.length).split("/").filter { it.isNotEmpty() }
+                if (relParts.isEmpty()) "Internal storage" else "Internal storage / " + relParts.joinToString(" / ")
             }
             trimmed.matches(Regex("""^/storage/[A-Za-z0-9_-]+$""")) -> "SD card"
             trimmed.matches(Regex("""^/storage/[A-Za-z0-9_-]+/.*""")) -> {

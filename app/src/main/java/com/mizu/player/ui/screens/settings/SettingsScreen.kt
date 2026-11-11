@@ -164,13 +164,13 @@ fun SettingsScreen(
                         text = "Engine Selection",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Ink
+                        color = colors.text
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Auto picks Standard (ExoPlayer + FFmpeg) and switches to Compatibility (LibVLC) for legacy/exotic codecs or complex subtitles.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Ink.copy(alpha = 0.7f)
+                        color = colors.textMuted
                     )
                     Spacer(Modifier.height(10.dp))
                     Row(
@@ -212,12 +212,12 @@ fun SettingsScreen(
                                 text = "Resume playback",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Ink
+                                color = colors.text
                             )
                             Text(
                                 text = "Remember position and resume videos",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Ink.copy(alpha = 0.7f)
+                                color = colors.textMuted
                             )
                         }
                         Switch(
@@ -244,12 +244,12 @@ fun SettingsScreen(
                                 text = "Autoplay next media",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Ink
+                                color = colors.text
                             )
                             Text(
                                 text = "Play next item in folder or playlist",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Ink.copy(alpha = 0.7f)
+                                color = colors.textMuted
                             )
                         }
                         Switch(
@@ -273,13 +273,13 @@ fun SettingsScreen(
                         text = "Double Tap & Button Seek Duration",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Ink
+                        color = colors.text
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Configures both the double-tap seek gesture and on-screen seek buttons.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Ink.copy(alpha = 0.7f)
+                        color = colors.textMuted
                     )
                     Spacer(Modifier.height(10.dp))
                     Row(
@@ -304,7 +304,7 @@ fun SettingsScreen(
                         text = "Default Speed",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Ink
+                        color = colors.text
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -329,7 +329,7 @@ fun SettingsScreen(
                         text = "Theme Mode",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Ink
+                        color = colors.text
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -348,6 +348,12 @@ fun SettingsScreen(
                         )
                         NeuChip(
                             text = "Dark",
+                            selected = darkMode == "dark",
+                            onClick = { viewModel.setDarkMode("dark") }
+                        )
+                    }
+                }
+            }
                             selected = darkMode == "dark",
                             onClick = { viewModel.setDarkMode("dark") }
                         )

@@ -24,7 +24,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import com.mizu.player.util.WatchState
+import com.mizu.player.util.WatchStateUtils
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -73,10 +79,55 @@ fun VideosTab(
     var activeFilter by remember { mutableStateOf("ALL") }
     var sortMenuExpanded by remember { mutableStateOf(false) }
 
-    val filteredVideos = when (activeFilter) {
-        "IN_PROGRESS" -> videos.filter { it.lastPlayedPosition > 0 && it.lastPlayedPosition < (it.duration - 5000) }
-        "UNWATCHED" -> videos.filter { it.lastPlayedPosition == 0L }
-        else -> videos
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+
+    // Bug E: Reset scroll on filter or sort change
+    LaunchedEffect(sortOrder, activeFilter) {
+        gridState.scrollToItem(0)
+        listState.scrollToItem(0)
+    }
+
+    // Dynamic counts
+    val unwatchedCount = remember(videos) {
+        videos.count { WatchStateUtils.getWatchState(it.lastPlayedPosition, it.duration) == WatchState.UNWATCHED }
+    }
+    val inProgressCount = remember(videos) {
+        videos.count { WatchStateUtils.getWatchState(it.lastPlayedPosition, it.duration) == WatchState.IN_PROGRESS }
+    }
+    val watchedCount = remember(videos) {
+        videos.count { WatchStateUtils.getWatchState(it.lastPlayedPosition, it.duration) == WatchState.WATCHED }
+    }
+    val subtitledCount = remember(videos) {
+        videos.count { it.title.contains("sub", ignoreCase = true) || it.displayName.contains("sub", ignoreCase = true) }
+    }
+    val fourKCount = remember(videos) {
+        videos.count { it.width >= 3840 || it.height >= 2160 }
+    }
+    val hdrCount = remember(videos) {
+        videos.count { it.title.contains("hdr", ignoreCase = true) || it.displayName.contains("hdr", ignoreCase = true) }
+    }
+
+    val filteredVideos = remember(videos, activeFilter) {
+        when (activeFilter) {
+            "UNWATCHED" -> videos.filter {
+                WatchStateUtils.getWatchState(it.lastPlayedPosition, it.duration) == WatchState.UNWATCHED
+            }
+            "IN_PROGRESS" -> videos.filter {
+                WatchStateUtils.getWatchState(it.lastPlayedPosition, it.duration) == WatchState.IN_PROGRESS
+            }
+            "WATCHED" -> videos.filter {
+                WatchStateUtils.getWatchState(it.lastPlayedPosition, it.duration) == WatchState.WATCHED
+            }
+            "SUBTITLED" -> videos.filter {
+                it.title.contains("sub", ignoreCase = true) || it.displayName.contains("sub", ignoreCase = true)
+            }
+            "4K" -> videos.filter { it.width >= 3840 || it.height >= 2160 }
+            "HDR" -> videos.filter {
+                it.title.contains("hdr", ignoreCase = true) || it.displayName.contains("hdr", ignoreCase = true)
+            }
+            else -> videos
+        }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -88,24 +139,57 @@ fun VideosTab(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Filters
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Horizontal scrollable filter chips
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 NeuChip(
                     text = "All (${videos.size})",
                     selected = activeFilter == "ALL",
                     onClick = { activeFilter = "ALL" }
                 )
                 NeuChip(
-                    text = "Unwatched",
+                    text = "Unwatched ($unwatchedCount)",
                     selected = activeFilter == "UNWATCHED",
                     onClick = { activeFilter = "UNWATCHED" }
                 )
                 NeuChip(
-                    text = "In Progress",
+                    text = "In Progress ($inProgressCount)",
                     selected = activeFilter == "IN_PROGRESS",
                     onClick = { activeFilter = "IN_PROGRESS" }
                 )
+                NeuChip(
+                    text = "Watched ($watchedCount)",
+                    selected = activeFilter == "WATCHED",
+                    onClick = { activeFilter = "WATCHED" }
+                )
+                if (subtitledCount > 0) {
+                    NeuChip(
+                        text = "Subtitled ($subtitledCount)",
+                        selected = activeFilter == "SUBTITLED",
+                        onClick = { activeFilter = "SUBTITLED" }
+                    )
+                }
+                if (fourKCount > 0) {
+                    NeuChip(
+                        text = "4K ($fourKCount)",
+                        selected = activeFilter == "4K",
+                        onClick = { activeFilter = "4K" }
+                    )
+                }
+                if (hdrCount > 0) {
+                    NeuChip(
+                        text = "HDR ($hdrCount)",
+                        selected = activeFilter == "HDR",
+                        onClick = { activeFilter = "HDR" }
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             // View toggle & Sort
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -204,6 +288,7 @@ fun VideosTab(
         } else if (viewMode == ViewMode.GRID) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 160.dp),
+                state = gridState,
                 contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -232,6 +317,7 @@ fun VideosTab(
             }
         } else {
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize()

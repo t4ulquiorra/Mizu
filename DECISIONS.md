@@ -91,4 +91,29 @@ This document records key non-obvious technical and design choices made during t
 
 #### I. Hardware-Accelerated Emulator CI Storage Synchronization
 - **Root Cause:** On Android 14 (API 34), external storage (`/sdcard`) requires storage daemon and user unlock initialization. Executing `adb push` immediately after `adb wait-for-device` produced `Operation not permitted`.
-- **Fix:** In `.github/workflows/build.yml`, added wait loop for `sys.boot_completed == 1`, enabled `adb root`, and added an active storage writability probe before pushing test media. Ensured test screenshots and logcats are captured regardless of test outcome.
+- **Fix:** In `.github/workflows/build.yml`, added wait loop for `sys.boot_completed == 1`, enabled `adb root`, and added an active storage writability probe before pushing test media. Ensured test screenshots and logcats are captured regardless of test outcome. Also encapsulated emulator shell execution into `tools/run_emulator_tests.sh` to prevent GitHub Actions multi-line shell evaluation failures.
+
+---
+
+### 9. Milestone F2 & F3: Architecture, Polish & Hardening
+
+#### A. Dedicated Folder Route & Navigation (Bugs B & C)
+- **Implementation:** Added `folder?path={path}&name={name}` route in `MainActivity.kt` and created `FolderDetailScreen`. Clicking a folder card in `FoldersTab` transitions to this dedicated screen, displaying sanitized storage path headers, total video counts and duration, natural-order sorting, view toggling, watch state filters, and selection mode. Pressing back pops the back stack cleanly to the Folders tab.
+
+#### B. High-Performance Thumbnail Pipeline (Bug A)
+- **Implementation:** Built custom Coil `MediaThumbnailFetcher` in `data/thumbnail/`. On API 29+, it calls `ContentResolver.loadThumbnail(uri, Size(512, 384), null)` for fast OS-cached decoding. For fallback, it uses `MediaMetadataRetriever` targeted at 10% of duration (never 0 ms to avoid initial black frames). In `FolderCard`, the 4 newest videos by `dateModified` form the mosaic preview.
+
+#### C. Live Filter Chips & Scroll Reset (Bugs D & E)
+- **Implementation:** Added horizontal scrollable filter chips in `VideosTab` and `FolderDetailScreen`: All, Unwatched, In Progress, Watched, Subtitled, 4K, HDR, with dynamic live counts. Wired `LaunchedEffect(sortOrder, activeFilter)` to reset `LazyVerticalGrid` and `LazyColumn` scroll positions to item 0 on change.
+
+#### D. Playlists Detail Screen & Multi-Select Integration (Bug H)
+- **Implementation:** Created `PlaylistDetailScreen` with "Play All" and "Shuffle" actions, item removal, and playlist deletion. Exposed `getPlaylistItems` and `removeFromPlaylist` via `LibraryViewModel`.
+
+#### E. Audio Sub-tabs & Library Inclusivity (Bugs I & J)
+- **Implementation:** Added dynamic live counts to Tracks, Albums, Artists, and Folders sub-tabs in `AudioTab`. Verified media scanner queries `MediaStore.Audio.Media.EXTERNAL_CONTENT_URI` without `IS_MUSIC != 0` restriction, discovering all local audio formats.
+
+#### F. Player UI Polish & Speed Panel (Bugs P, Q, T)
+- **Implementation:** Added custom typed speed text field with range validation (0.1x to 8.0x) and preset chips (up to 3.0x). Added floating seek time bubble when dragging the progress scrubber. Displayed clean title with marquee scroll and parent folder name in the top bar.
+
+#### G. Dark Mode Contrast Polish (Bug S)
+- **Implementation:** Replaced hardcoded `Ink` references with theme-aware `colors.text` and `colors.textMuted` in `SettingsScreen` and `VideoTile` to ensure contrast compliance in both Light and Night modes.

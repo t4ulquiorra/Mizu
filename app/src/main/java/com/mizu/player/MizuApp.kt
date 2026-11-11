@@ -4,6 +4,7 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
+import com.mizu.player.data.thumbnail.MediaThumbnailFetcher
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.mizu.player.util.PlaybackLog
@@ -27,6 +28,7 @@ class MizuApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {
+                add(MediaThumbnailFetcher.Factory(this@MizuApp))
                 add(VideoFrameDecoder.Factory())
             }
             .memoryCache {

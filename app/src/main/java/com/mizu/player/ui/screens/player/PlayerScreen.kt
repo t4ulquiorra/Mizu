@@ -290,17 +290,24 @@ fun PlayerScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = playbackState.title.ifEmpty { "Playing Media" },
+                            text = FormatUtils.cleanMediaTitle(playbackState.title.ifEmpty { "Playing Media" }),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black,
                             color = Color.White,
                             maxLines = 1,
                             modifier = Modifier.basicMarquee()
                         )
+                        val folderSub = remember(mediaUri) {
+                            val p = mediaUri.path ?: ""
+                            val parent = p.substringBeforeLast('/', "").substringAfterLast('/')
+                            if (parent.isNotEmpty() && parent != "0" && parent != "emulated") parent else if (isVideo) "Video Playback" else "Audio Playback"
+                        }
                         Text(
-                            text = if (isVideo) "Video Playback" else "Audio Playback",
+                            text = folderSub,
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -405,6 +412,27 @@ fun PlayerScreen(
                             .padding(navBarPadding)
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
+                        // Floating seek time bubble when scrubbing
+                        if (isUserSeeking && playbackState.duration > 0) {
+                            val targetMs = (sliderPosition * playbackState.duration).toLong()
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(bottom = 6.dp)
+                                    .clip(RoundedCornerShape(NeuTokens.ButtonRadius))
+                                    .background(Sun)
+                                    .border(NeuTokens.BorderWidth, Ink, RoundedCornerShape(NeuTokens.ButtonRadius))
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = FormatUtils.formatDuration(targetMs),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    color = Ink
+                                )
+                            }
+                        }
+
                         // Time & Scrubber Row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -494,6 +522,10 @@ fun PlayerScreen(
 
         // Neubrutalist Playback Speed Panel (0.1x to 8.0x)
         if (showSpeedDialog) {
+            var typedSpeed by remember(playbackState.playbackSpeed) {
+                mutableStateOf(String.format(Locale.US, "%.2f", playbackState.playbackSpeed))
+            }
+
             AlertDialog(
                 onDismissRequest = { showSpeedDialog = false },
                 containerColor = colors.paper,
@@ -509,7 +541,11 @@ fun PlayerScreen(
 
                         Slider(
                             value = playbackState.playbackSpeed,
-                            onValueChange = { viewModel.setSpeed((Math.round(it * 20) / 20f).coerceIn(0.1f, 8.0f)) },
+                            onValueChange = {
+                                val s = (Math.round(it * 20) / 20f).coerceIn(0.1f, 8.0f)
+                                viewModel.setSpeed(s)
+                                typedSpeed = String.format(Locale.US, "%.2f", s)
+                            },
                             valueRange = 0.1f..8.0f,
                             colors = SliderDefaults.colors(
                                 thumbColor = Sun,
@@ -518,17 +554,41 @@ fun PlayerScreen(
                             )
                         )
 
+                        // Typed speed input
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = typedSpeed,
+                                onValueChange = {
+                                    typedSpeed = it
+                                    val parsed = it.toFloatOrNull()
+                                    if (parsed != null && parsed in 0.1f..8.0f) {
+                                        viewModel.setSpeed(parsed)
+                                    }
+                                },
+                                label = { Text("Custom Speed (0.1 - 8.0)") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
                         // Common preset chips
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f).forEach { speed ->
                                 NeuChip(
                                     text = "${speed}x",
                                     selected = playbackState.playbackSpeed == speed,
                                     onClick = {
                                         viewModel.setSpeed(speed)
+                                        typedSpeed = String.format(Locale.US, "%.2f", speed)
                                     }
                                 )
                             }

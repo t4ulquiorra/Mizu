@@ -120,6 +120,16 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun getPlaylistItems(playlistId: Long): kotlinx.coroutines.flow.Flow<List<PlaylistItem>> {
+        return playlistRepository.getPlaylistItems(playlistId)
+    }
+
+    fun removeFromPlaylist(itemId: Long) {
+        viewModelScope.launch {
+            playlistRepository.removeFromPlaylist(itemId)
+        }
+    }
+
     fun deletePlaylist(playlistId: Long) {
         viewModelScope.launch {
             playlistRepository.deletePlaylist(playlistId)

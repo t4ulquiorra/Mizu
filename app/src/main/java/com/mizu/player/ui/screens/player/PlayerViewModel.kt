@@ -49,14 +49,18 @@ class PlayerViewModel @Inject constructor(
     private var currentVideoId: Long = 0L
     private var stateJob: Job? = null
 
+    private var lastSavedTime = 0L
+
     private fun observeActiveEngine() {
         stateJob?.cancel()
         stateJob = viewModelScope.launch {
             activeEngine.playbackState.collect { state ->
                 _playbackState.value = state
 
-                // Update position in database periodically
-                if (currentVideoId != 0L && state.currentPosition > 0) {
+                // Update position in database periodically (every 5 seconds)
+                val now = System.currentTimeMillis()
+                if (currentVideoId != 0L && state.currentPosition > 0 && now - lastSavedTime >= 5000L) {
+                    lastSavedTime = now
                     mediaRepository.updatePlaybackPosition(currentVideoId, state.currentPosition)
                 }
 
@@ -93,6 +97,11 @@ class PlayerViewModel @Inject constructor(
         currentVideoId = uri.hashCode().toLong()
 
         viewModelScope.launch {
+            val matching = mediaRepository.getVideoByUri(uri).first()
+            if (matching != null) {
+                currentVideoId = matching.id
+            }
+
             val preferredEngine = preferencesManager.playerEngine.first()
             val selectedEngine = resolveEngine(uri, preferredEngine)
 
@@ -104,8 +113,12 @@ class PlayerViewModel @Inject constructor(
             attachedSurfaceView?.let { activeEngine.attachSurfaceView(it) }
             attachedSubtitleView?.let { activeEngine.attachSubtitleView(it) }
 
+            val resumePos = if (matching != null && matching.lastPlayedPosition > 3000L && matching.lastPlayedPosition < (matching.duration - 5000L)) {
+                matching.lastPlayedPosition
+            } else 0L
+
             val defaultSpd = preferencesManager.defaultSpeed.first()
-            activeEngine.prepare(uri, title, 0L)
+            activeEngine.prepare(uri, title, resumePos)
             if (defaultSpd != 1.0f) {
                 activeEngine.setPlaybackSpeed(defaultSpd)
             }
@@ -248,6 +261,12 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         stateJob?.cancel()
+        val pos = _playbackState.value.currentPosition
+        if (currentVideoId != 0L && pos > 0) {
+            viewModelScope.launch {
+                mediaRepository.updatePlaybackPosition(currentVideoId, pos)
+            }
+        }
         activeEngine.release()
     }
 }

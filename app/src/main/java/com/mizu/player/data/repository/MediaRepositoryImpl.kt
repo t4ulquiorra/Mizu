@@ -182,12 +182,12 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updatePlaybackPosition(videoId: Long, position: Long) {
-        val video = _videosFlow.value.find { it.id == videoId }
+        val video = _videosFlow.value.find { it.id == videoId || it.uri.hashCode().toLong() == videoId }
         val now = System.currentTimeMillis()
         if (video != null) {
             playbackHistoryDao.upsert(
                 PlaybackHistoryEntity(
-                    videoId = videoId,
+                    videoId = video.id,
                     uri = video.uri.toString(),
                     title = video.title,
                     duration = video.duration,
@@ -196,6 +196,11 @@ class MediaRepositoryImpl @Inject constructor(
                     folderPath = video.folderPath
                 )
             )
+        } else {
+            val existing = playbackHistoryDao.getHistoryForVideo(videoId)
+            if (existing != null) {
+                playbackHistoryDao.upsert(existing.copy(lastPosition = position, lastPlayedAt = now))
+            }
         }
     }
 

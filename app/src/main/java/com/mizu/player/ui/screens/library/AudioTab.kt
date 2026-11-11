@@ -160,6 +160,10 @@ fun AudioTab(
 
     var selectedSubTab by remember { mutableStateOf("TRACKS") }
 
+    val albumsCount = remember(audioList) { audioList.map { it.album }.filter { it.isNotBlank() }.distinct().size }
+    val artistsCount = remember(audioList) { audioList.map { it.artist }.filter { it.isNotBlank() }.distinct().size }
+    val foldersCount = remember(audioList) { audioList.map { it.folderPath }.filter { it.isNotBlank() }.distinct().size }
+
     Column(modifier = modifier.fillMaxSize()) {
         // Sub-tabs: Tracks, Albums, Artists, Folders
         Row(
@@ -174,17 +178,17 @@ fun AudioTab(
                 onClick = { selectedSubTab = "TRACKS" }
             )
             NeuChip(
-                text = "Albums",
+                text = "Albums ($albumsCount)",
                 selected = selectedSubTab == "ALBUMS",
                 onClick = { selectedSubTab = "ALBUMS" }
             )
             NeuChip(
-                text = "Artists",
+                text = "Artists ($artistsCount)",
                 selected = selectedSubTab == "ARTISTS",
                 onClick = { selectedSubTab = "ARTISTS" }
             )
             NeuChip(
-                text = "Folders",
+                text = "Folders ($foldersCount)",
                 selected = selectedSubTab == "FOLDERS",
                 onClick = { selectedSubTab = "FOLDERS" }
             )

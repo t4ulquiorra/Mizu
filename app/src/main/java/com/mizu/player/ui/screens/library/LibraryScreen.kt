@@ -61,6 +61,8 @@ fun LibraryScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAbout: () -> Unit,
+    onNavigateToFolder: (String, String) -> Unit = { _, _ -> },
+    onNavigateToPlaylist: (Long, String) -> Unit = { _, _ -> },
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -195,8 +197,7 @@ fun LibraryScreen(
                     0 -> FoldersTab(
                         folders = folders,
                         onFolderClick = { folder ->
-                            // Switch to videos tab filtered or we can open folder
-                            selectedTabIndex = 1
+                            onNavigateToFolder(folder.path, folder.name)
                         }
                     )
                     1 -> VideosTab(
@@ -235,7 +236,7 @@ fun LibraryScreen(
                         playlists = playlists,
                         onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
                         onPlaylistClick = { playlist ->
-                            // Open playlist or play
+                            onNavigateToPlaylist(playlist.id, playlist.name)
                         },
                         onDeletePlaylist = { id -> viewModel.deletePlaylist(id) }
                     )
