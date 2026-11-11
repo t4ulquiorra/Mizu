@@ -271,101 +271,108 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         DiagnosticLogger.log(this, "PlaybackService.onCreate")
 
-        val vlcEngine = VlcPlayerEngine(this)
-        playerEngine = vlcEngine
-        engine = vlcEngine
+        try {
+            val vlcEngine = VlcPlayerEngine(this)
+            playerEngine = vlcEngine
+            engine = vlcEngine
 
-        val focusHelper = AudioFocusHelper(this, vlcEngine)
-        audioFocusHelper = focusHelper
-        focusHelper.registerNoisyReceiver()
+            val focusHelper = AudioFocusHelper(this, vlcEngine)
+            audioFocusHelper = focusHelper
+            focusHelper.registerNoisyReceiver()
 
-        val adapter = VlcMediaSessionAdapter(this, vlcEngine)
-        sessionAdapter = adapter
+            val adapter = VlcMediaSessionAdapter(this, vlcEngine)
+            sessionAdapter = adapter
 
-        val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val sessionActivityPendingIntent = PendingIntent.getActivity(
-            this, 0, sessionActivityIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+            val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val sessionActivityPendingIntent = PendingIntent.getActivity(
+                this, 0, sessionActivityIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
-        val session = MediaSession.Builder(this, adapter)
-            .setSessionActivity(sessionActivityPendingIntent)
-            .build()
+            val session = MediaSession.Builder(this, adapter)
+                .setSessionActivity(sessionActivityPendingIntent)
+                .build()
 
-        mediaSession = session
-        addSession(session)
-        DiagnosticLogger.log(this, "PlaybackService.onCreate", "MediaSession registered with libVLC adapter")
+            mediaSession = session
+            addSession(session)
+            DiagnosticLogger.log(this, "PlaybackService.onCreate", "MediaSession registered with libVLC adapter")
 
-        vlcEngine.addListener(object : PlayerEngineListener {
-            override fun onPlaybackStateChanged(state: Int) {
-                hasPrevious = vlcEngine.hasPrevious()
-                hasNext = vlcEngine.hasNext()
-                val v = currentVideo
-                if (v != null) {
-                    val dur = if (vlcEngine.durationMs > 0) vlcEngine.durationMs else v.durationMs
-                    if (state == Player.STATE_ENDED) {
-                        MediaRepository.savePlaybackPosition(applicationContext, v, 0L, dur)
-                        if (!vlcEngine.hasNext()) {
-                            isPlaying = false
-                            stopPlayback()
+            vlcEngine.addListener(object : PlayerEngineListener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    hasPrevious = vlcEngine.hasPrevious()
+                    hasNext = vlcEngine.hasNext()
+                    val v = currentVideo
+                    if (v != null) {
+                        val dur = if (vlcEngine.durationMs > 0) vlcEngine.durationMs else v.durationMs
+                        if (state == Player.STATE_ENDED) {
+                            MediaRepository.savePlaybackPosition(applicationContext, v, 0L, dur)
+                            if (!vlcEngine.hasNext()) {
+                                isPlaying = false
+                                stopPlayback()
+                            }
                         }
                     }
                 }
-            }
 
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-                hasPrevious = vlcEngine.hasPrevious()
-                hasNext = vlcEngine.hasNext()
-                if (playing) {
-                    audioFocusHelper?.requestAudioFocus()
-                } else {
-                    currentVideo?.let { v ->
-                        val dur = if (vlcEngine.durationMs > 0) vlcEngine.durationMs else v.durationMs
-                        MediaRepository.savePlaybackPosition(applicationContext, v, vlcEngine.currentPositionMs, dur)
+                override fun onIsPlayingChanged(playing: Boolean) {
+                    isPlaying = playing
+                    hasPrevious = vlcEngine.hasPrevious()
+                    hasNext = vlcEngine.hasNext()
+                    if (playing) {
+                        audioFocusHelper?.requestAudioFocus()
+                    } else {
+                        currentVideo?.let { v ->
+                            val dur = if (vlcEngine.durationMs > 0) vlcEngine.durationMs else v.durationMs
+                            MediaRepository.savePlaybackPosition(applicationContext, v, vlcEngine.currentPositionMs, dur)
+                        }
                     }
                 }
-            }
 
-            override fun onTimeChanged(currentTimeMs: Long, durationMs: Long) {
-                currentPositionMs = currentTimeMs
-                PlaybackService.durationMs = durationMs
-            }
-
-            override fun onTracksChanged(audioTracks: List<AudioTrackInfo>, subtitleTracks: List<SubtitleTrackInfo>) {
-                availableAudioTracks = audioTracks
-                availableSubtitleTracks = subtitleTracks
-            }
-
-            override fun onMediaItemTransition(video: VideoItem, index: Int) {
-                currentVideo = video
-                currentIndex = index
-                hasPrevious = vlcEngine.hasPrevious()
-                hasNext = vlcEngine.hasNext()
-                errorMessage = null
-                currentNotice = null
-            }
-
-            override fun onError(errorMessage: String, canFallback: Boolean) {
-                DiagnosticLogger.log(applicationContext, "PlaybackService.onError", "msg=$errorMessage, canFallback=$canFallback")
-                PlaybackService.errorMessage = errorMessage
-                if (!canFallback) {
-                    isPlaying = false
+                override fun onTimeChanged(currentTimeMs: Long, durationMs: Long) {
+                    currentPositionMs = currentTimeMs
+                    PlaybackService.durationMs = durationMs
                 }
-            }
 
-            override fun onNotice(notice: String) {
-                currentNotice = notice
-                serviceScope.launch {
-                    delay(4000)
-                    if (currentNotice == notice) {
-                        currentNotice = null
+                override fun onTracksChanged(audioTracks: List<AudioTrackInfo>, subtitleTracks: List<SubtitleTrackInfo>) {
+                    availableAudioTracks = audioTracks
+                    availableSubtitleTracks = subtitleTracks
+                }
+
+                override fun onMediaItemTransition(video: VideoItem, index: Int) {
+                    currentVideo = video
+                    currentIndex = index
+                    hasPrevious = vlcEngine.hasPrevious()
+                    hasNext = vlcEngine.hasNext()
+                    errorMessage = null
+                    currentNotice = null
+                }
+
+                override fun onError(errorMessage: String, canFallback: Boolean) {
+                    DiagnosticLogger.log(applicationContext, "PlaybackService.onError", "msg=$errorMessage, canFallback=$canFallback")
+                    PlaybackService.errorMessage = errorMessage
+                    if (!canFallback) {
+                        isPlaying = false
                     }
                 }
-            }
-        })
+
+                override fun onNotice(notice: String) {
+                    currentNotice = notice
+                    serviceScope.launch {
+                        delay(4000)
+                        if (currentNotice == notice) {
+                            currentNotice = null
+                        }
+                    }
+                }
+            })
+        } catch (t: Throwable) {
+            DiagnosticLogger.log(this, "PlaybackService.onCreate_error", "Failed to create PlayerEngine: ${t.message}")
+            playerEngine = null
+            engine = null
+            errorMessage = "This video can't be played"
+        }
 
         // Periodic 2-second position snapshot
         serviceScope.launch {
@@ -438,7 +445,13 @@ class PlaybackService : MediaSessionService() {
             ACTION_PLAY_QUEUE -> {
                 startForegroundWithPlaceholder()
                 val targetIndex = intent.getIntExtra(EXTRA_START_INDEX, 0)
-                playerEngine?.loadQueue(playlist, targetIndex)
+                val eng = playerEngine
+                if (eng != null) {
+                    eng.loadQueue(playlist, targetIndex)
+                } else {
+                    DiagnosticLogger.log(this, "PlaybackService.onStartCommand", "Engine is null; displaying unplayable error")
+                    errorMessage = "This video can't be played"
+                }
             }
             ACTION_STOP -> {
                 stopPlayback()

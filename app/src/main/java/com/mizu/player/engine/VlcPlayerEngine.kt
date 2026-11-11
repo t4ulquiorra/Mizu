@@ -59,34 +59,66 @@ class VlcPlayerEngine(private val context: Context) : PlayerEngine {
     private var attachedLayout: VLCVideoLayout? = null
     private var isBuffering: Boolean = false
 
-    init {
-        val options = ArrayList<String>().apply {
-            add("--audio-time-stretch") // Pitch-correct playback for 0.25x to 4x speed
-            add("--sub-autodetect-file")
-            add("--sub-autodetect-fuzzy=2")
+    companion object {
+        fun createLibVlcInstance(context: Context): LibVLC {
+            // Minimal known-good option set from official LibVLC Android samples and VLC for Android.
+            // Verified against options in libvlc.so (VLC 3.x line used by libvlc-all).
+            val primaryOptions = arrayListOf(
+                "--audio-time-stretch",
+                "--sub-autodetect-file"
+            )
+            val minimalOptions = arrayListOf(
+                "--audio-time-stretch"
+            )
+            val bareOptions = arrayListOf<String>()
 
-            // Load user subtitle styling preferences
-            val subSize = UserPreferences.getSubtitleFontSize(context)
-            val subColor = UserPreferences.getSubtitleTextColor(context)
-            val subOutline = UserPreferences.getSubtitleOutlineColor(context)
-            val subMargin = UserPreferences.getSubtitleBottomMargin(context)
-            val forceStyle = UserPreferences.isForceCustomSubtitleStyle(context)
+            // 1. Primary Attempt: Known-good audio time stretch and subtitle autodetection
+            try {
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "Attempting LibVLC init with primary options: $primaryOptions")
+                val lib = LibVLC(context, primaryOptions)
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "LibVLC initialized successfully (primary options: $primaryOptions, fallback: NONE)")
+                return lib
+            } catch (t: Throwable) {
+                DiagnosticLogger.log(
+                    context,
+                    "VlcPlayerEngine.Startup",
+                    "Primary options failed (${t.message}) with options: $primaryOptions. Retrying with minimal options: $minimalOptions"
+                )
+            }
 
-            add("--freetype-rel-fontsize=$subSize")
-            add("--freetype-color=$subColor")
-            add("--freetype-outline-color=$subOutline")
-            add("--freetype-outline-thickness=2")
-            add("--freetype-shadow-color=0x80000000")
-            add("--freetype-shadow-offset=2")
-            add("--freetype-yoffset=$subMargin")
+            // 2. Fallback Attempt: Minimal options (audio time stretch only)
+            try {
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "Attempting LibVLC init with minimal options: $minimalOptions")
+                val lib = LibVLC(context, minimalOptions)
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "LibVLC initialized successfully (fallback: MINIMAL_OPTIONS, options: $minimalOptions)")
+                return lib
+            } catch (t: Throwable) {
+                DiagnosticLogger.log(
+                    context,
+                    "VlcPlayerEngine.Startup",
+                    "Minimal options failed (${t.message}) with options: $minimalOptions. Retrying with bare options: []"
+                )
+            }
 
-            if (forceStyle) {
-                // Ignore embedded ASS styling and enforce clean readable style
-                add("--no-sub-autodetect-fuzzy")
+            // 3. Fallback Attempt: Bare options (empty list)
+            try {
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "Attempting LibVLC init with bare options: []")
+                val lib = LibVLC(context, bareOptions)
+                DiagnosticLogger.log(context, "VlcPlayerEngine.Startup", "LibVLC initialized successfully (fallback: BARE_OPTIONS, options: [])")
+                return lib
+            } catch (t: Throwable) {
+                DiagnosticLogger.log(
+                    context,
+                    "VlcPlayerEngine.Startup",
+                    "ALL LibVLC options failed. Tested: [primary: $primaryOptions, minimal: $minimalOptions, bare: []]. Error: ${t.message}"
+                )
+                throw t
             }
         }
+    }
 
-        libVLC = LibVLC(context, options)
+    init {
+        libVLC = createLibVlcInstance(context)
         mediaPlayer = MediaPlayer(libVLC)
         setupEventListener()
     }
