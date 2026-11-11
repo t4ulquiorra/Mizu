@@ -1,5 +1,6 @@
 package com.mizu.player.service
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -9,6 +10,7 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.util.Size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,6 +35,7 @@ import com.mizu.player.MainActivity
 import com.mizu.player.data.MediaRepository
 import com.mizu.player.data.UserPreferences
 import com.mizu.player.model.VideoItem
+import com.mizu.player.util.DiagnosticLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -111,9 +114,11 @@ class PlaybackService : MediaSessionService() {
             private set
 
         fun start(context: Context, videos: List<VideoItem>, startIndex: Int) {
+            val target = videos.getOrNull(startIndex)
+            DiagnosticLogger.log(context, "PlaybackService.start", "count=${videos.size}, startIndex=$startIndex, video=${target?.title}")
             playlist = videos
             currentIndex = startIndex.coerceIn(0, (videos.size - 1).coerceAtLeast(0))
-            currentVideo = videos.getOrNull(currentIndex)
+            currentVideo = target
             errorMessage = null
 
             val intent = Intent(context, PlaybackService::class.java).apply {
@@ -124,6 +129,7 @@ class PlaybackService : MediaSessionService() {
         }
 
         fun stop(context: Context) {
+            DiagnosticLogger.log(context, "PlaybackService.stop", "requested")
             val intent = Intent(context, PlaybackService::class.java).apply {
                 action = ACTION_STOP
             }
@@ -517,6 +523,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        DiagnosticLogger.log(this, "PlaybackService.onCreate")
 
         // 1. Configure audio attributes for media playback with system audio focus
         val audioAttributes = AudioAttributes.Builder()
@@ -570,6 +577,7 @@ class PlaybackService : MediaSessionService() {
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                DiagnosticLogger.log(applicationContext, "PlaybackService.onPlaybackStateChanged", "state=$playbackState")
                 hasPrevious = p.hasPreviousMediaItem()
                 hasNext = p.hasNextMediaItem()
 
@@ -586,6 +594,7 @@ class PlaybackService : MediaSessionService() {
             }
 
             override fun onIsPlayingChanged(playing: Boolean) {
+                DiagnosticLogger.log(applicationContext, "PlaybackService.onIsPlayingChanged", "playing=$playing")
                 isPlaying = playing
                 hasPrevious = p.hasPreviousMediaItem()
                 hasNext = p.hasNextMediaItem()
@@ -600,6 +609,7 @@ class PlaybackService : MediaSessionService() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                DiagnosticLogger.log(applicationContext, "PlaybackService.onPlayerError", Log.getStackTraceString(error))
                 val v = currentVideo
                 if (v != null) {
                     val isMissing = v.path.isNotEmpty() && !File(v.path).exists()
@@ -643,6 +653,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        DiagnosticLogger.log(this, "PlaybackService.onStartCommand", "action=${intent?.action}, startId=$startId")
         when (intent?.action) {
             ACTION_PLAY_QUEUE -> {
                 val targetIndex = intent.getIntExtra(EXTRA_START_INDEX, 0)
@@ -655,7 +666,18 @@ class PlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    override fun startForeground(id: Int, notification: Notification?) {
+        DiagnosticLogger.log(this, "PlaybackService.startForeground", "id=$id, notification=$notification")
+        super.startForeground(id, notification)
+    }
+
+    override fun startForeground(id: Int, notification: Notification?, foregroundServiceType: Int) {
+        DiagnosticLogger.log(this, "PlaybackService.startForegroundType", "id=$id, notification=$notification, type=$foregroundServiceType")
+        super.startForeground(id, notification, foregroundServiceType)
+    }
+
     private fun loadAndPlayQueue(startIndex: Int) {
+        DiagnosticLogger.log(this, "PlaybackService.loadAndPlayQueue", "startIndex=$startIndex")
         val p = exoPlayer ?: return
         if (playlist.isEmpty()) return
 
@@ -679,6 +701,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun stopPlayback() {
+        DiagnosticLogger.log(this, "PlaybackService.stopPlayback", "invoked")
         val v = currentVideo
         val p = exoPlayer
         if (v != null && p != null) {
@@ -697,11 +720,13 @@ class PlaybackService : MediaSessionService() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
+        DiagnosticLogger.log(this, "PlaybackService.onTaskRemoved")
         stopPlayback()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        DiagnosticLogger.log(this, "PlaybackService.onDestroy")
         try {
             unregisterReceiver(screenOffReceiver)
         } catch (_: Exception) {}

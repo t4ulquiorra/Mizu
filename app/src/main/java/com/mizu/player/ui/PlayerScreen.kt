@@ -65,6 +65,7 @@ import com.mizu.player.model.VideoItem
 import com.mizu.player.service.MizuAudioTrack
 import com.mizu.player.service.MizuSubtitleTrack
 import com.mizu.player.service.PlaybackService
+import com.mizu.player.util.DiagnosticLogger
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -85,6 +86,15 @@ fun PlayerScreen(
     val isPlaying = PlaybackService.isPlaying
     val errorMessage = PlaybackService.errorMessage
     val currentVid = PlaybackService.currentVideo ?: video
+
+    DiagnosticLogger.log(context, "PlayerScreen.render", "video=${video.title}, currentVid=${currentVid.title}, isInPipMode=$isInPipMode, isPlaying=$isPlaying")
+
+    DisposableEffect(video.id) {
+        DiagnosticLogger.log(context, "PlayerScreen.mounted", "video=${video.title}")
+        onDispose {
+            DiagnosticLogger.log(context, "PlayerScreen.disposed", "video=${video.title}")
+        }
+    }
 
     var showAudioPicker by remember { mutableStateOf(false) }
     var showSubtitlePicker by remember { mutableStateOf(false) }

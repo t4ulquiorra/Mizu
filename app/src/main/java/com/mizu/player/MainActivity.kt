@@ -45,6 +45,7 @@ import com.mizu.player.ui.PermissionHelper
 import com.mizu.player.ui.PermissionScreen
 import com.mizu.player.ui.PlayerScreen
 import com.mizu.player.ui.SettingsScreen
+import com.mizu.player.util.DiagnosticLogger
 
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
@@ -77,6 +78,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DiagnosticLogger.init(applicationContext)
+        DiagnosticLogger.log(this, "MainActivity.onCreate", "intent=$intent")
         MediaRepository.initPreferences(this)
 
         // Register PiP action broadcast receiver
@@ -108,7 +111,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        DiagnosticLogger.log(this, "MainActivity.onStart")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        DiagnosticLogger.log(this, "MainActivity.onResume")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        DiagnosticLogger.log(this, "MainActivity.onPause")
+    }
+
     private fun handlePipModeChange(inPip: Boolean) {
+        DiagnosticLogger.log(this, "MainActivity.handlePipModeChange", "inPip=$inPip")
         isInPipMode = inPip
     }
 
@@ -119,11 +138,13 @@ class MainActivity : ComponentActivity() {
     ) {
         @Suppress("DEPRECATION")
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        DiagnosticLogger.log(this, "MainActivity.onPictureInPictureModeChanged", "isInPip=$isInPictureInPictureMode")
         handlePipModeChange(isInPictureInPictureMode)
     }
 
     override fun onStop() {
         super.onStop()
+        DiagnosticLogger.log(this, "MainActivity.onStop", "isInPipMode=$isInPipMode, isFinishing=$isFinishing")
         // Stop playback only if user explicitly closed the PiP window via the cross (X) button, which finishes the activity
         if (isInPipMode && isFinishing) {
             PlaybackService.stop(this)
@@ -194,6 +215,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        DiagnosticLogger.log(this, "MainActivity.onUserLeaveHint", "isPlayingVideo=$isPlayingVideo")
         if (isPlayingVideo && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 val params = buildPipParams(
@@ -208,6 +230,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        DiagnosticLogger.log(this, "MainActivity.onDestroy", "isFinishing=$isFinishing")
         try {
             unregisterReceiver(pipReceiver)
         } catch (_: Exception) {}
@@ -264,6 +287,7 @@ fun AppContent(
 
     // Inform activity whether video playback is currently active
     LaunchedEffect(playingVideo) {
+        DiagnosticLogger.log(context, "AppContent.playingVideoChanged", "playingVideo=${playingVideo?.title} (null=${playingVideo == null})")
         onVideoPlayingStateChange(playingVideo != null)
     }
 
