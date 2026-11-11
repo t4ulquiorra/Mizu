@@ -9,7 +9,8 @@ import com.mizu.player.data.local.entity.PlaybackHistoryEntity
 import com.mizu.player.data.scanner.MediaScanner
 import com.mizu.player.domain.model.AudioItem
 import com.mizu.player.domain.model.FolderInfo
-import com.mizu.player.domain.model.SortOrder
+import com.mizu.player.util.FolderUtils
+import com.mizu.player.util.NaturalOrderComparator
 import com.mizu.player.domain.model.VideoItem
 import com.mizu.player.domain.repository.MediaRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -89,8 +90,8 @@ class MediaRepositoryImpl @Inject constructor(
     override fun getAudioTracks(sortOrder: SortOrder): Flow<List<AudioItem>> {
         return _audioFlow.map { audioList ->
             when (sortOrder) {
-                SortOrder.NAME_ASC -> audioList.sortedBy { it.title.lowercase() }
-                SortOrder.NAME_DESC -> audioList.sortedByDescending { it.title.lowercase() }
+                SortOrder.NAME_ASC -> audioList.sortedWith { a, b -> NaturalOrderComparator.compare(a.title, b.title) }
+                SortOrder.NAME_DESC -> audioList.sortedWith { a, b -> NaturalOrderComparator.compare(b.title, a.title) }
                 SortOrder.DATE_ASC -> audioList.sortedBy { it.dateAdded }
                 SortOrder.DATE_DESC -> audioList.sortedByDescending { it.dateAdded }
                 SortOrder.SIZE_ASC -> audioList.sortedBy { it.size }
@@ -105,17 +106,18 @@ class MediaRepositoryImpl @Inject constructor(
         return combine(_videosFlow, _audioFlow) { videos, audio ->
             val videoGroups = videos.groupBy { it.folderPath }
             val audioGroups = audio.groupBy { it.folderPath }
-            val allFolderPaths = (videoGroups.keys + audioGroups.keys).filter { it.isNotEmpty() }.toSet()
+            val allFolderPaths = (videoGroups.keys + audioGroups.keys).filter { it.isNotEmpty() }.toSet().toList()
+            val disambiguatedNames = FolderUtils.disambiguateFolderNames(allFolderPaths)
 
-            allFolderPaths.map { folderPath ->
+            allFolderPaths.mapNotNull { folderPath ->
                 val folderVideos = videoGroups[folderPath] ?: emptyList()
                 val folderAudio = audioGroups[folderPath] ?: emptyList()
-                val name = folderVideos.firstOrNull()?.folderName
-                    ?: folderAudio.firstOrNull()?.folderName
-                    ?: folderPath.substringAfterLast('/')
+                if (folderVideos.isEmpty() && folderAudio.isEmpty()) return@mapNotNull null
 
-                val thumbnails = folderVideos.take(4).map { it.uri }
-                val lastMod = folderVideos.maxOfOrNull { it.dateModified } ?: 0L
+                val name = disambiguatedNames[folderPath] ?: folderPath.substringAfterLast('/')
+                // 4 newest videos for the mosaic preview
+                val thumbnails = folderVideos.sortedByDescending { it.dateModified }.take(4).map { it.uri }
+                val lastMod = (folderVideos.map { it.dateModified } + folderAudio.map { it.dateAdded }).maxOrNull() ?: 0L
 
                 FolderInfo(
                     path = folderPath,
@@ -126,7 +128,7 @@ class MediaRepositoryImpl @Inject constructor(
                     lastModified = lastMod,
                     isNew = false
                 )
-            }.sortedBy { it.name.lowercase() }
+            }.sortedWith { a, b -> NaturalOrderComparator.compare(a.name, b.name) }
         }
     }
 
@@ -204,8 +206,8 @@ class MediaRepositoryImpl @Inject constructor(
 
     private fun sortVideos(videos: List<VideoItem>, sortOrder: SortOrder): List<VideoItem> {
         return when (sortOrder) {
-            SortOrder.NAME_ASC -> videos.sortedBy { it.title.lowercase() }
-            SortOrder.NAME_DESC -> videos.sortedByDescending { it.title.lowercase() }
+            SortOrder.NAME_ASC -> videos.sortedWith { a, b -> NaturalOrderComparator.compare(a.title, b.title) }
+            SortOrder.NAME_DESC -> videos.sortedWith { a, b -> NaturalOrderComparator.compare(b.title, a.title) }
             SortOrder.DATE_ASC -> videos.sortedBy { it.dateModified }
             SortOrder.DATE_DESC -> videos.sortedByDescending { it.dateModified }
             SortOrder.SIZE_ASC -> videos.sortedBy { it.size }

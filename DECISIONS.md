@@ -80,3 +80,15 @@ This document records key non-obvious technical and design choices made during t
 
 #### G. WCAG 2.1 AA Theme Contrast Compliance (Section 1.4)
 - **Implementation:** Evaluated and proved all Light and Dark theme token pairs achieve >= 4.5:1 contrast ratios through automated JVM unit tests (`ThemeContrastTest.kt`). Redesigned the dark palette to use a deep indigo-ink background (`#1A1830`), raised indigo surfaces (`#262344`), and cream text (`#FFF6E3`).
+
+#### H. Pure Logic Unit Test Suite & Natural Order Sorting
+- **Implementation:** Added comprehensive JVM unit tests covering:
+  - `NaturalOrderComparatorTest`: Alphanumeric natural order sorting (e.g. `Episode 1`, `Episode 2`, `Episode 10`), case-insensitivity, and numerical chunk parsing.
+  - `WatchStateTest`: Unwatched (< 3%), In Progress (3% to 95%), and Watched (>= 95%) state boundaries and percentage calculation.
+  - `FolderGroupingTest`: Storage path sanitization (`Internal storage` and `SD card` friendly paths) and duplicate folder disambiguation (`Anime (Movies)` vs `Anime (Downloads)`).
+  - `SubtitleUtilsTest`: SRT timestamp parsing to milliseconds, HTML/ASS tag stripping, and BOM/UTF-8/Latin-1 charset detection.
+  - `FormatUtilsTest`: Release tag / junk pattern stripping, title cleaning, middle ellipsis truncation (`start…end`), duration and file size formatting.
+
+#### I. Hardware-Accelerated Emulator CI Storage Synchronization
+- **Root Cause:** On Android 14 (API 34), external storage (`/sdcard`) requires storage daemon and user unlock initialization. Executing `adb push` immediately after `adb wait-for-device` produced `Operation not permitted`.
+- **Fix:** In `.github/workflows/build.yml`, added wait loop for `sys.boot_completed == 1`, enabled `adb root`, and added an active storage writability probe before pushing test media. Ensured test screenshots and logcats are captured regardless of test outcome.

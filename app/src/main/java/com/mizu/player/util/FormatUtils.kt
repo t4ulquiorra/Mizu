@@ -34,18 +34,20 @@ object FormatUtils {
             }
         }
 
-        // Replace periods and underscores with spaces, but keep decimal points in numbers
-        title = title.replace(Regex("""(?<=[a-zA-Z])\.(?=[a-zA-Z0-9])|(?<=[0-9])\.(?=[a-zA-Z])"""), " ")
-        title = title.replace('_', ' ')
+        // Remove square bracket tags at start (like [SubsPlease])
+        title = title.replace(Regex("""^\[[^\]]+\]\s*"""), "")
 
-        // Remove square bracket tags that match junk or release groups at start/end
-        title = title.replace(Regex("""^\[[^\]]+\]\s*"""), "") // leading release group like [SubsPlease]
+        // Replace periods and underscores with spaces
+        title = title.replace('.', ' ')
+        title = title.replace('_', ' ')
 
         // Strip release tags
         for (pattern in JUNK_PATTERNS) {
             title = title.replace(pattern, "")
         }
 
+        // Strip release group at the end, e.g. -FLUX or -YTS or -RARBG
+        title = title.replace(Regex("""-\s*[A-Za-z0-9]+$"""), "")
         // Remove trailing hyphen or leftover symbols
         title = title.replace(Regex("""\s+-\s*$"""), "")
         title = title.replace(Regex("""\[\s*\]|\(\s*\)"""), "")

@@ -65,6 +65,6 @@ class FormatUtilsTest {
         val longTitle = "Cowboy Bebop Extra Long Episode Name 24 Final Battle"
         val shortened = FormatUtils.middleEllipsis(longTitle, 25)
         assertEquals(25, shortened.length)
-        assertEquals("Cowboy Bebo…ttle", shortened)
+        assertEquals("Cowboy Bebop…Final Battle", shortened)
     }
 }
