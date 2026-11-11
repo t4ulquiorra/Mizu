@@ -363,6 +363,218 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // Subtitle Appearance Section
+            item {
+                var subSize by remember { mutableStateOf(UserPreferences.getSubtitleFontSize(context)) }
+                var subColor by remember { mutableStateOf(UserPreferences.getSubtitleTextColor(context)) }
+                var subMargin by remember { mutableStateOf(UserPreferences.getSubtitleBottomMargin(context)) }
+                var forceStyle by remember { mutableStateOf(UserPreferences.isForceCustomSubtitleStyle(context)) }
+
+                Column {
+                    Text(
+                        text = "Subtitle Appearance",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Configure text size, color, margin and styling for rendered subtitles.",
+                        fontSize = 13.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF13161F))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Font size
+                        Text("Font Size", fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(Pair(14, "Small"), Pair(18, "Normal"), Pair(22, "Large")).forEach { (sz, label) ->
+                                Button(
+                                    onClick = {
+                                        subSize = sz
+                                        UserPreferences.setSubtitleFontSize(context, sz)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (subSize == sz) Color(0xFF3B82F6) else Color(0xFF1E222D)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(label, fontSize = 12.sp, color = Color.White)
+                                }
+                            }
+                        }
+
+                        // Text color
+                        Text("Text Color", fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(Pair("0xFFFFFF", "White"), Pair("0xFFFF00", "Yellow"), Pair("0x00FFFF", "Cyan")).forEach { (col, label) ->
+                                Button(
+                                    onClick = {
+                                        subColor = col
+                                        UserPreferences.setSubtitleTextColor(context, col)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (subColor == col) Color(0xFF3B82F6) else Color(0xFF1E222D)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(label, fontSize = 12.sp, color = Color.White)
+                                }
+                            }
+                        }
+
+                        // Bottom margin
+                        Text("Bottom Margin", fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(Pair(12, "Compact"), Pair(24, "Standard"), Pair(48, "Elevated")).forEach { (m, label) ->
+                                Button(
+                                    onClick = {
+                                        subMargin = m
+                                        UserPreferences.setSubtitleBottomMargin(context, m)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (subMargin == m) Color(0xFF3B82F6) else Color(0xFF1E222D)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(label, fontSize = 12.sp, color = Color.White)
+                                }
+                            }
+                        }
+
+                        // Toggle: Force Custom Style
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Force custom styling",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Override embedded ASS styles and force clean white/yellow outline subtitles.",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Switch(
+                                checked = forceStyle,
+                                onCheckedChange = { checked ->
+                                    forceStyle = checked
+                                    UserPreferences.setForceCustomSubtitleStyle(context, checked)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF3B82F6),
+                                    uncheckedThumbColor = Color(0xFF94A3B8),
+                                    uncheckedTrackColor = Color(0xFF1E222D)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // About & Open-Source Licenses Section
+            item {
+                var showLicenseDialog by remember { mutableStateOf(false) }
+
+                Column {
+                    Text(
+                        text = "About Mizu",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF13161F))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Mizu Video Player v1.0",
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Playback Engine: LibVLC Android (LGPL v2.1)\nHigh-performance hardware & software decoding for all media containers and codecs.",
+                            fontSize = 12.5.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Button(
+                            onClick = { showLicenseDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E222D)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Open-Source Licenses", fontSize = 13.sp, color = Color(0xFF3B82F6))
+                        }
+                    }
+                }
+
+                if (showLicenseDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showLicenseDialog = false },
+                        containerColor = Color(0xFF1E222D),
+                        title = {
+                            Text("Open-Source Licenses", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        },
+                        text = {
+                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                                item {
+                                    Text(
+                                        text = "LibVLC Android (org.videolan.android:libvlc-all)\n" +
+                                                "License: GNU Lesser General Public License (LGPL) v2.1\n" +
+                                                "Copyright © VideoLAN and VLC authors.\n\n" +
+                                                "This application uses LibVLC as a shared library dynamically linked under the LGPL v2.1 license. " +
+                                                "LibVLC source code is available at https://code.videolan.org/videolan/vlc-android and https://www.videolan.org/vlc/download-sources.html.\n\n" +
+                                                "Jetpack Media3\n" +
+                                                "License: Apache License 2.0\n" +
+                                                "Copyright © The Android Open Source Project.",
+                                        color = Color(0xFFCBD5E1),
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = { showLicenseDialog = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                            ) {
+                                Text("Close", color = Color.White)
+                            }
+                        }
+                    )
+                }
+            }
         }
     }
 

@@ -64,13 +64,12 @@ class MainActivity : ComponentActivity() {
     private val pipReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_PIP_CONTROL) {
-                val p = PlaybackService.player ?: return
                 when (intent.getStringExtra(EXTRA_CONTROL)) {
-                    CONTROL_PREV -> if (p.hasPreviousMediaItem()) p.seekToPreviousMediaItem()
+                    CONTROL_PREV -> PlaybackService.previous()
                     CONTROL_PLAY_PAUSE -> {
-                        if (p.isPlaying) p.pause() else p.play()
+                        if (PlaybackService.isPlaying) PlaybackService.pause() else PlaybackService.play()
                     }
-                    CONTROL_NEXT -> if (p.hasNextMediaItem()) p.seekToNextMediaItem()
+                    CONTROL_NEXT -> PlaybackService.next()
                 }
             }
         }

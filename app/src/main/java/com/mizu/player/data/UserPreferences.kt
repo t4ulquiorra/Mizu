@@ -139,4 +139,70 @@ object UserPreferences {
     fun setSubtitlesOffByDefault(context: Context, off: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SUBTITLES_OFF_BY_DEFAULT, off).apply()
     }
+
+    // Subtitle Appearance
+    private const val KEY_SUBTITLE_FONT_SIZE = "sub_font_size"
+    private const val KEY_SUBTITLE_TEXT_COLOR = "sub_text_color"
+    private const val KEY_SUBTITLE_OUTLINE_COLOR = "sub_outline_color"
+    private const val KEY_SUBTITLE_BOTTOM_MARGIN = "sub_bottom_margin"
+    private const val KEY_FORCE_CUSTOM_SUB_STYLE = "force_custom_sub_style"
+    private const val PREFIX_BLACKLIST_AUDIO = "bl_audio_"
+    private const val PREFIX_BLACKLIST_SUB = "bl_sub_"
+
+    fun getSubtitleFontSize(context: Context): Int {
+        return getPrefs(context).getInt(KEY_SUBTITLE_FONT_SIZE, 18)
+    }
+
+    fun setSubtitleFontSize(context: Context, size: Int) {
+        getPrefs(context).edit().putInt(KEY_SUBTITLE_FONT_SIZE, size).apply()
+    }
+
+    fun getSubtitleTextColor(context: Context): String {
+        return getPrefs(context).getString(KEY_SUBTITLE_TEXT_COLOR, "0xFFFFFF") ?: "0xFFFFFF"
+    }
+
+    fun setSubtitleTextColor(context: Context, colorHex: String) {
+        getPrefs(context).edit().putString(KEY_SUBTITLE_TEXT_COLOR, colorHex).apply()
+    }
+
+    fun getSubtitleOutlineColor(context: Context): String {
+        return getPrefs(context).getString(KEY_SUBTITLE_OUTLINE_COLOR, "0x000000") ?: "0x000000"
+    }
+
+    fun setSubtitleOutlineColor(context: Context, colorHex: String) {
+        getPrefs(context).edit().putString(KEY_SUBTITLE_OUTLINE_COLOR, colorHex).apply()
+    }
+
+    fun getSubtitleBottomMargin(context: Context): Int {
+        return getPrefs(context).getInt(KEY_SUBTITLE_BOTTOM_MARGIN, 24)
+    }
+
+    fun setSubtitleBottomMargin(context: Context, marginDp: Int) {
+        getPrefs(context).edit().putInt(KEY_SUBTITLE_BOTTOM_MARGIN, marginDp).apply()
+    }
+
+    fun isForceCustomSubtitleStyle(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_FORCE_CUSTOM_SUB_STYLE, false)
+    }
+
+    fun setForceCustomSubtitleStyle(context: Context, force: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_FORCE_CUSTOM_SUB_STYLE, force).apply()
+    }
+
+    // Failing Track Blacklists
+    fun blacklistAudioTrack(context: Context, videoKey: String, trackId: String) {
+        getPrefs(context).edit().putBoolean("$PREFIX_BLACKLIST_AUDIO${videoKey}_$trackId", true).apply()
+    }
+
+    fun isAudioTrackBlacklisted(context: Context, videoKey: String, trackId: String): Boolean {
+        return getPrefs(context).getBoolean("$PREFIX_BLACKLIST_AUDIO${videoKey}_$trackId", false)
+    }
+
+    fun blacklistSubtitleTrack(context: Context, videoKey: String, trackId: String) {
+        getPrefs(context).edit().putBoolean("$PREFIX_BLACKLIST_SUB${videoKey}_$trackId", true).apply()
+    }
+
+    fun isSubtitleTrackBlacklisted(context: Context, videoKey: String, trackId: String): Boolean {
+        return getPrefs(context).getBoolean("$PREFIX_BLACKLIST_SUB${videoKey}_$trackId", false)
+    }
 }

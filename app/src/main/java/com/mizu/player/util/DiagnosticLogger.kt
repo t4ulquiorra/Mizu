@@ -55,6 +55,27 @@ object DiagnosticLogger {
         }
     }
 
+    fun logFailsafeEvent(
+        context: Context,
+        error: String,
+        codec: String = "",
+        container: String = "",
+        audioTrack: String = "",
+        subtitleTrack: String = "",
+        fallbackStep: Int,
+        fixedByStep: Int? = null
+    ) {
+        val details = buildString {
+            append("error=$error, fallbackStep=$fallbackStep")
+            if (codec.isNotEmpty()) append(", codec=$codec")
+            if (container.isNotEmpty()) append(", container=$container")
+            if (audioTrack.isNotEmpty()) append(", audio=$audioTrack")
+            if (subtitleTrack.isNotEmpty()) append(", sub=$subtitleTrack")
+            if (fixedByStep != null) append(", RESOLVED_BY_STEP=$fixedByStep")
+        }
+        log(context, if (fixedByStep != null) "FAILSAFE_RESOLVED" else "FAILSAFE_RETRY", details)
+    }
+
     fun init(context: Context) {
         // 1. Setup Global Uncaught Exception Handler
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
