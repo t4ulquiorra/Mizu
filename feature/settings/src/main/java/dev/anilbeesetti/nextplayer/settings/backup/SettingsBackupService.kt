@@ -62,7 +62,7 @@ class SettingsBackupService(
             content = codec.parse(content),
             applicationPreferences = preferencesRepository.applicationPreferences.value,
             playerPreferences = preferencesRepository.playerPreferences.value,
-            networkConnections = null,
+            networkConnections = emptyList(),
         )
         preferencesRepository.updateApplicationPreferences { imported.applicationPreferences }
         preferencesRepository.updatePlayerPreferences { imported.playerPreferences }
