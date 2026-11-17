@@ -17,7 +17,7 @@
     <string name="settings_import_invalid">Could not read this file, or it contains no supported JSON settings</string>
     <string name="app_name" translatable="false">Mizu</string>
     <string name="credits_title">Welcome to Mizu</string>
-    <string name="credits_attribution">Mizu is based on the open-source Mizu by Anil Beesetti (GPL-3.0). Not affiliated or endorsed.</string>
+    <string name="credits_attribution">Mizu is based on the open-source Next Player by Anil Beesetti (GPL-3.0). Not affiliated or endorsed.</string>
     <string name="source_code">Source Code</string>
     <string name="about_description">Version, support, credits</string>
     <string name="about_name">About</string>

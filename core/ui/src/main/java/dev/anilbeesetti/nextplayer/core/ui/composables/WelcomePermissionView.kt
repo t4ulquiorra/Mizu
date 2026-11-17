@@ -1,10 +1,7 @@
 package dev.anilbeesetti.nextplayer.core.ui.composables
 
 import android.Manifest
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -41,8 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import dev.anilbeesetti.nextplayer.core.common.extensions.hasStorageAccess
+import dev.anilbeesetti.nextplayer.core.common.extensions.openAllFilesAccessSettings
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 
@@ -82,23 +79,7 @@ fun WelcomePermissionView(
 
     val requestFullAccess = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                data = "package:${context.packageName}".toUri()
-            }
-            try {
-                context.startActivity(intent)
-            } catch (e: ActivityNotFoundException) {
-                try {
-                    val fallback = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                    context.startActivity(fallback)
-                } catch (e2: Exception) {
-                    // Fall back to application details settings
-                    val appDetails = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = "package:${context.packageName}".toUri()
-                    }
-                    context.startActivity(appDetails)
-                }
-            }
+            context.openAllFilesAccessSettings()
         } else {
             permissionsLauncher.launch(
                 arrayOf(

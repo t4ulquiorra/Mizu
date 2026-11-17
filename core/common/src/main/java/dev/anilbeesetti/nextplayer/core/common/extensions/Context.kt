@@ -17,10 +17,12 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmapOrNull
+import androidx.core.net.toUri
 import androidx.core.text.isDigitsOnly
 import java.io.BufferedInputStream
 import java.io.File
@@ -119,6 +121,30 @@ fun Context.hasPartialMediaAccess(): Boolean {
         return hasPartial && !hasFullVideo && !hasFullStorageAccess()
     }
     return false
+}
+
+/**
+ * Opens all files access settings for this app, with fallbacks.
+ */
+fun Context.openAllFilesAccessSettings() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+            data = "package:$packageName".toUri()
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Throwable) {
+            try {
+                val fallback = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                startActivity(fallback)
+            } catch (_: Throwable) {
+                val appDetails = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = "package:$packageName".toUri()
+                }
+                startActivity(appDetails)
+            }
+        }
+    }
 }
 
 /**

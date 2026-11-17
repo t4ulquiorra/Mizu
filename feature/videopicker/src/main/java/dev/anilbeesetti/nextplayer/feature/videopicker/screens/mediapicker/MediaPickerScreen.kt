@@ -1,8 +1,5 @@
 package dev.anilbeesetti.nextplayer.feature.videopicker.screens.mediapicker
 
-import android.content.Intent
-import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -92,6 +89,7 @@ import com.google.accompanist.permissions.shouldShowRationale
 import dev.anilbeesetti.nextplayer.core.common.extensions.hasPartialMediaAccess
 import dev.anilbeesetti.nextplayer.core.common.extensions.hasStorageAccess
 import dev.anilbeesetti.nextplayer.core.common.extensions.isTelevision
+import dev.anilbeesetti.nextplayer.core.common.extensions.openAllFilesAccessSettings
 import dev.anilbeesetti.nextplayer.core.common.storagePermission
 import dev.anilbeesetti.nextplayer.core.domain.MediaHolder
 import dev.anilbeesetti.nextplayer.core.media.services.MediaOperationsService
@@ -506,21 +504,7 @@ internal fun MediaPickerScreenContent(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 8.dp)
                                             .clickable {
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                                    val intent = Intent(
-                                                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                                    ).apply {
-                                                        data = "package:${context.packageName}".toUri()
-                                                    }
-                                                    try {
-                                                        context.startActivity(intent)
-                                                    } catch (e: Exception) {
-                                                        val fallback = Intent(
-                                                            Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION,
-                                                        )
-                                                        context.startActivity(fallback)
-                                                    }
-                                                }
+                                                context.openAllFilesAccessSettings()
                                             },
                                         color = MaterialTheme.colorScheme.tertiaryContainer,
                                         shape = RoundedCornerShape(8.dp),

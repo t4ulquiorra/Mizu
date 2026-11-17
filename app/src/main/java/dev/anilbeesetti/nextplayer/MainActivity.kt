@@ -164,7 +164,10 @@ class MainActivity : FragmentActivity() {
                             onDismissRequest = { viewModel.dismissCreditsDialog() },
                             title = { Text(text = "Welcome to Mizu") },
                             text = {
-                                Text(text = "Mizu is based on the open-source Next Player by Anil Beesetti (GPL-3.0). Not affiliated or endorsed.")
+                                Text(
+                                    text = "Mizu is based on the open-source Next Player by " +
+                                        "Anil Beesetti (GPL-3.0). Not affiliated or endorsed.",
+                                )
                             },
                             confirmButton = {
                                 TextButton(onClick = { viewModel.dismissCreditsDialog() }) {

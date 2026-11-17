@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -148,7 +146,8 @@ private fun AboutPreferencesScreenContent(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = "Mizu is based on the open-source Next Player by Anil Beesetti (GPL-3.0). Not affiliated or endorsed.",
+                    text = "Mizu is based on the open-source Next Player by Anil Beesetti " +
+                        "(GPL-3.0). Not affiliated or endorsed.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp),
