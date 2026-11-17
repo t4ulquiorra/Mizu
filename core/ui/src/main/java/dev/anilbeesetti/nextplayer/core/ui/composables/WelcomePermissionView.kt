@@ -98,9 +98,15 @@ fun WelcomePermissionView(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(
+                    horizontal = 24.dp,
+                    vertical = 32.dp,
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(
+                space = 20.dp,
+                alignment = Alignment.CenterVertically,
+            ),
         ) {
             // App glyph & header
             Box(
@@ -108,7 +114,11 @@ fun WelcomePermissionView(
                     .size(68.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer)
-                    .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = CircleShape,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -156,7 +166,10 @@ fun WelcomePermissionView(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 ),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                border = BorderStroke(
+                    width = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                ),
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -202,7 +215,10 @@ fun WelcomePermissionView(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
-                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                border = BorderStroke(
+                    width = 1.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                ),
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),

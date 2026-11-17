@@ -33,7 +33,10 @@ class SettingsBackupService(
                 playerPreferences = preferencesRepository.playerPreferences.value,
                 networkConnections = null,
             ).toByteArray(Charsets.UTF_8)
-            context.contentResolver.openOutputStream(uri, "w")?.use { output ->
+            context.contentResolver.openOutputStream(
+                uri,
+                "w",
+            )?.use { output ->
                 output.write(bytes)
             } ?: error("Unable to open output stream for $uri")
         }
@@ -48,7 +51,11 @@ class SettingsBackupService(
                 val count = input.read(buffer)
                 if (count < 0) break
                 require(output.size() + count <= MAX_BACKUP_BYTES)
-                output.write(buffer, 0, count)
+                output.write(
+                    buffer,
+                    0,
+                    count,
+                )
             }
             output.toByteArray().decodeToString(throwOnInvalidSequence = true)
                 .removePrefix("\uFEFF")
