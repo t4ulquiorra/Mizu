@@ -17,7 +17,6 @@ class TopLevelNavigationTest {
             listOf(
                 TopLevelDestination.MEDIA,
                 TopLevelDestination.PLAYLISTS,
-                TopLevelDestination.NETWORK,
                 TopLevelDestination.MORE,
             ),
             TopLevelDestination.entries,
@@ -63,7 +62,7 @@ class TopLevelNavigationTest {
         stacks.getValue(
             TopLevelDestination.PLAYLISTS.route,
         ).add(element = PlaylistDetailRoute(playlistId = 7))
-        state.switchTo(TopLevelDestination.NETWORK.route)
+        state.switchTo(TopLevelDestination.MORE.route)
 
         state.openPlaylist(playlistId = 42)
         state.openPlaylist(playlistId = 42)

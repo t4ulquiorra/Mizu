@@ -58,8 +58,13 @@ val Context.isTelevision: Boolean
  * or READ_EXTERNAL_STORAGE on older platforms.
  */
 fun Context.hasStorageAccess(): Boolean {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
-        return true
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val isManager = try {
+            Environment.isExternalStorageManager()
+        } catch (_: Throwable) {
+            false
+        }
+        if (isManager) return true
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val hasVideo = ContextCompat.checkSelfPermission(
@@ -87,7 +92,11 @@ fun Context.hasStorageAccess(): Boolean {
  */
 fun Context.hasFullStorageAccess(): Boolean {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        Environment.isExternalStorageManager()
+        try {
+            Environment.isExternalStorageManager()
+        } catch (_: Throwable) {
+            false
+        }
     } else {
         ContextCompat.checkSelfPermission(
             this,
