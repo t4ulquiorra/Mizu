@@ -90,8 +90,8 @@ fun Context.hasStorageAccess(): Boolean {
 /**
  * Returns true if the app has full all-files storage access.
  */
-fun Context.hasFullStorageAccess(): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+fun Context.hasFullStorageAccess(): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         try {
             Environment.isExternalStorageManager()
         } catch (_: Throwable) {
@@ -103,7 +103,6 @@ fun Context.hasFullStorageAccess(): Boolean {
             Manifest.permission.READ_EXTERNAL_STORAGE,
         ) == PackageManager.PERMISSION_GRANTED
     }
-}
 
 /**
  * Returns true if the app only has partial/selected media access on Android 14+.
