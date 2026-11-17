@@ -14,9 +14,10 @@ android {
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        applicationId = "dev.anilbeesetti.nextplayer"
-        versionCode = 78
-        versionName = "0.21.0"
+        applicationId = "com.mizu.player"
+        val runNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.getOrElse(1)
+        versionCode = 1000 + runNumber
+        versionName = "0.1.$runNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
     }
@@ -36,6 +37,24 @@ android {
         targetCompatibility = JavaVersion.toVersion(libs.versions.android.jvm.get().toInt())
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = System.getenv("KEYSTORE_FILE")
+            if (keystoreFile != null && file(keystoreFile).exists()) {
+                storeFile = file(keystoreFile)
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+        getByName("debug") {
+            storeFile = file("${project.rootDir}/app/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = true
@@ -44,6 +63,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning?.storeFile != null) {
+                signingConfig = releaseSigning
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
 
         getByName("debug") {
@@ -56,15 +81,6 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = ".release"
             matchingFallbacks.add("release")
-        }
-    }
-
-    signingConfigs {
-        getByName("debug") {
-            storeFile = file("${project.rootDir}/app/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
         }
     }
 
@@ -116,7 +132,6 @@ dependencies {
     implementation(project(":core:media"))
     implementation(project(":core:model"))
     implementation(project(":core:ui"))
-    implementation(project(":feature:network"))
     implementation(project(":feature:playlist"))
     implementation(project(":feature:videopicker"))
     implementation(project(":feature:player"))
@@ -142,7 +157,6 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
 
     implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
 
     // Koin
     implementation(libs.koin.android)

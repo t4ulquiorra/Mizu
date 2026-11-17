@@ -1,0 +1,183 @@
+name: Mizu CI Build & Verify
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, Lint & Release APKs
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_FILE: /tmp/keystore.jks
+      KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+          gradle-home-cache-cleanup: true
+
+      - name: Decode Release Keystore
+        if: env.KEYSTORE_PASSWORD != ''
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > /tmp/keystore.jks
+
+      - name: Run Local Unit Tests
+        run: ./gradlew test --stacktrace
+
+      - name: Lint Checks
+        run: ./gradlew ktlintCheck
+
+      - name: Assemble Release and Debug APKs
+        run: ./gradlew assembleRelease assembleDebug --stacktrace
+
+      - name: Assert 100% Offline Manifest (No INTERNET Permission)
+        run: |
+          echo "=== Checking manifests for forbidden network permissions ==="
+          FORBIDDEN=$(grep -r -i "permission.INTERNET" app/src/main/AndroidManifest.xml app/build/intermediates/merged_manifest* | grep -v 'tools:node="remove"' || true)
+          if [ -n "$FORBIDDEN" ]; then
+            echo "ERROR: Found active INTERNET permission in manifest:"
+            echo "$FORBIDDEN"
+            exit 1
+          fi
+          RELEASE_MANIFESTS=$(find app/build -name "AndroidManifest.xml" -path "*release*")
+          for m in $RELEASE_MANIFESTS; do
+            if grep -q "android.permission.INTERNET" "$m"; then
+              echo "ERROR: android.permission.INTERNET found in release manifest $m"
+              exit 1
+            fi
+          done
+          echo "Verified: Merged manifests are 100% offline. Zero network permissions."
+
+      - name: Upload Release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mizu-release-apks
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Upload Debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mizu-debug-apks
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Build Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: '**/build/reports'
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          TAG_NAME="v0.1.${{ github.run_number }}"
+          echo "Publishing release $TAG_NAME..."
+          # Collect release APKs with arm64-v8a first
+          APK_FILES=()
+          [ -f app/build/outputs/apk/release/app-arm64-v8a-release.apk ] && APK_FILES+=(app/build/outputs/apk/release/app-arm64-v8a-release.apk)
+          [ -f app/build/outputs/apk/release/app-armeabi-v7a-release.apk ] && APK_FILES+=(app/build/outputs/apk/release/app-armeabi-v7a-release.apk)
+          [ -f app/build/outputs/apk/release/app-x86_64-release.apk ] && APK_FILES+=(app/build/outputs/apk/release/app-x86_64-release.apk)
+          [ -f app/build/outputs/apk/release/app-universal-release.apk ] && APK_FILES+=(app/build/outputs/apk/release/app-universal-release.apk)
+
+          gh release create "$TAG_NAME" \
+            "${APK_FILES[@]}" \
+            --title "Mizu $TAG_NAME" \
+            --notes "Automated signed release for run #${{ github.run_number }}. 100% offline, zero network permissions." \
+            --prerelease || echo "Release creation skipped or tag exists."
+
+  emulator-tests:
+    name: Hardware-Accelerated Emulator Tests (API 34 x86_64)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      KEYSTORE_FILE: /tmp/keystore.jks
+      KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Enable KVM Hardware Virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+
+      - name: Generate Multi-Track Test Media
+        run: ./tools/generate_test_media.sh /tmp/mizu_test_media
+
+      - name: Decode Keystore for Upgrade Test
+        if: env.KEYSTORE_PASSWORD != ''
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > /tmp/keystore.jks
+
+      - name: Assemble Release APK for Upgrade Test
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Run Instrumented Tests on Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6a
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./tools/run_emulator_tests.sh
+
+      - name: Upload UI Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: ui-screenshots/
+
+      - name: Upload Instrumentation Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-reports
+          path: |
+            **/build/reports/androidTests
+            **/build/outputs/androidTest-results

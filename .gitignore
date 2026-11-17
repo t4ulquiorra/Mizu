@@ -47,6 +47,7 @@ vendor/
 .kotlin
 .junie
 docs/*
+!docs/AUDIT.md
 !docs/agents/
 .superpowers
 .koda

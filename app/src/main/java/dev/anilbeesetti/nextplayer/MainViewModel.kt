@@ -27,6 +27,14 @@ class MainViewModel(private val preferencesRepository: PreferencesRepository) :
 
     // Application preferences are observed only; this view model has no input actions.
     override fun onAction(action: Nothing) = Unit
+
+    fun dismissCreditsDialog() {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(hasSeenCreditsDialog = true)
+            }
+        }
+    }
 }
 
 sealed interface MainActivityUiState {

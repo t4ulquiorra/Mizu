@@ -1,5 +1,6 @@
 package dev.anilbeesetti.nextplayer.core.common.extensions
 
+import android.Manifest
 import android.app.UiModeManager
 import android.content.ContentResolver
 import android.content.ContentUris
@@ -18,6 +19,7 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
 import android.util.TypedValue
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmapOrNull
 import androidx.core.text.isDigitsOnly
 import java.io.BufferedInputStream
@@ -49,6 +51,68 @@ val Context.isTelevision: Boolean
         isTelevisionCache = isTv
         isTv
     }
+
+/**
+ * Returns true if the app has permission to access media or storage.
+ * Checks MANAGE_EXTERNAL_STORAGE on Android 11+, READ_MEDIA_VIDEO on Android 13+,
+ * or READ_EXTERNAL_STORAGE on older platforms.
+ */
+fun Context.hasStorageAccess(): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+        return true
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val hasVideo = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_MEDIA_VIDEO,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasVideo) return true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val hasPartial = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (hasPartial) return true
+        }
+        return false
+    }
+    return ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.READ_EXTERNAL_STORAGE,
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+/**
+ * Returns true if the app has full all-files storage access.
+ */
+fun Context.hasFullStorageAccess(): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+}
+
+/**
+ * Returns true if the app only has partial/selected media access on Android 14+.
+ */
+fun Context.hasPartialMediaAccess(): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val hasPartial = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasFullVideo = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_MEDIA_VIDEO,
+        ) == PackageManager.PERMISSION_GRANTED
+        return hasPartial && !hasFullVideo && !hasFullStorageAccess()
+    }
+    return false
+}
 
 /**
  * get path from uri

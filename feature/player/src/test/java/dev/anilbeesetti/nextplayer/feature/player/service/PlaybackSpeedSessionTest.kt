@@ -17,9 +17,6 @@ import dev.anilbeesetti.nextplayer.core.data.repository.MediaRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.PreferencesRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.fake.FakeMediaRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.fake.FakePreferencesRepository
-import dev.anilbeesetti.nextplayer.core.media.network.NetworkClientFactory
-import dev.anilbeesetti.nextplayer.core.media.network.NetworkConnectionResolver
-import dev.anilbeesetti.nextplayer.core.media.network.datasource.NetworkSessions
 import dev.anilbeesetti.nextplayer.core.media.network.datasource.NextDataSourceFactory
 import dev.anilbeesetti.nextplayer.feature.player.utils.PlayerApi
 import kotlinx.coroutines.CompletableDeferred
@@ -79,15 +76,7 @@ class PlaybackSpeedSessionTest {
                     }
                     single { ImageLoader.Builder(RuntimeEnvironment.getApplication()).build() }
                     single {
-                        NextDataSourceFactory(
-                            RuntimeEnvironment.getApplication(),
-                            sessions = NetworkSessions(
-                                resolver = NetworkConnectionResolver { null },
-                                clientFactory = NetworkClientFactory {
-                                    error(message = "No network playback in this test")
-                                },
-                            ),
-                        )
+                        NextDataSourceFactory(RuntimeEnvironment.getApplication())
                     }
                 },
             )

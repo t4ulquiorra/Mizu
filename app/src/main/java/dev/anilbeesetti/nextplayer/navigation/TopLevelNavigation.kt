@@ -101,7 +101,6 @@ import dev.anilbeesetti.nextplayer.core.ui.components.thenIf
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.feature.more.navigation.MoreRoute
-import dev.anilbeesetti.nextplayer.feature.network.navigation.NetworkRoute
 import dev.anilbeesetti.nextplayer.feature.playlist.navigation.PlaylistListRoute
 import dev.anilbeesetti.nextplayer.feature.videopicker.navigation.MediaPickerRoute
 
@@ -126,12 +125,6 @@ enum class TopLevelDestination(
         NextIcons.Playlist,
         R.string.playlists,
         TopLevelFabKey.PLAYLISTS,
-    ),
-    NETWORK(
-        NetworkRoute,
-        NextIcons.Network,
-        R.string.network,
-        TopLevelFabKey.NETWORK,
     ),
     MORE(
         MoreRoute,

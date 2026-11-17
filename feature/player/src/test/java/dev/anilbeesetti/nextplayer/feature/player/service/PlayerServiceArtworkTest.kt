@@ -8,9 +8,6 @@ import androidx.media3.session.MediaSession
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.data.repository.PreferencesRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.fake.FakePreferencesRepository
-import dev.anilbeesetti.nextplayer.core.media.network.NetworkClientFactory
-import dev.anilbeesetti.nextplayer.core.media.network.NetworkConnectionResolver
-import dev.anilbeesetti.nextplayer.core.media.network.datasource.NetworkSessions
 import dev.anilbeesetti.nextplayer.core.media.network.datasource.NextDataSourceFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -52,15 +49,7 @@ class PlayerServiceArtworkTest {
                     single<CoroutineScope>(named(DiQualifiers.APPLICATION_SCOPE)) { scope }
                     single<PreferencesRepository> { FakePreferencesRepository() }
                     single {
-                        NextDataSourceFactory(
-                            RuntimeEnvironment.getApplication(),
-                            sessions = NetworkSessions(
-                                resolver = NetworkConnectionResolver { null },
-                                clientFactory = NetworkClientFactory {
-                                    error("No network playback")
-                                },
-                            ),
-                        )
+                        NextDataSourceFactory(RuntimeEnvironment.getApplication())
                     }
                 },
             )

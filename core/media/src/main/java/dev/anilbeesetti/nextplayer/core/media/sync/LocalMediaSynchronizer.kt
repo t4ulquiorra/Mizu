@@ -9,6 +9,7 @@ import androidx.core.net.toUri
 import coil3.ImageLoader
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.common.extensions.getStorageVolumes
+import dev.anilbeesetti.nextplayer.core.common.extensions.hasStorageAccess
 import dev.anilbeesetti.nextplayer.core.common.extensions.scanPaths
 import dev.anilbeesetti.nextplayer.core.common.extensions.scanStorage
 import dev.anilbeesetti.nextplayer.core.common.storagePermission
@@ -61,11 +62,7 @@ class LocalMediaSynchronizer(
         mediaSyncingJob?.cancel()
     }
 
-    private fun Context.hasStoragePermission(): Boolean = ContextCompat.checkSelfPermission(
-        this,
-        storagePermission,
-    ) ==
-        PackageManager.PERMISSION_GRANTED
+    private fun Context.hasStoragePermission(): Boolean = hasStorageAccess()
 
     private suspend fun updateMedia(media: List<MediaVideo>) = withContext(Dispatchers.Default) {
         if (!context.hasStoragePermission()) return@withContext

@@ -1,5 +1,8 @@
 package dev.anilbeesetti.nextplayer.feature.videopicker.screens.mediapicker
 
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,11 +82,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import dev.anilbeesetti.nextplayer.core.common.extensions.hasPartialMediaAccess
+import dev.anilbeesetti.nextplayer.core.common.extensions.hasStorageAccess
 import dev.anilbeesetti.nextplayer.core.common.extensions.isTelevision
 import dev.anilbeesetti.nextplayer.core.common.storagePermission
 import dev.anilbeesetti.nextplayer.core.domain.MediaHolder
@@ -171,14 +178,36 @@ internal fun MediaPickerScreenContent(
         Modifier
     }
     val permissionState = rememberPermissionState(permission = storagePermission)
-    var wasPermissionGranted by remember { mutableStateOf(permissionState.status.isGranted) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var hasStoragePermission by remember {
+        mutableStateOf(context.hasStorageAccess() || permissionState.status.isGranted)
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val currentAccess = context.hasStorageAccess() || permissionState.status.isGranted
+                if (currentAccess && !hasStoragePermission) {
+                    hasStoragePermission = true
+                    onAction(MediaPickerAction.OnPermissionAccepted)
+                } else if (currentAccess) {
+                    hasStoragePermission = true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(permissionState.status.isGranted) {
-        val isPermissionGranted = permissionState.status.isGranted
-        if (isPermissionGranted && !wasPermissionGranted) {
+        if (permissionState.status.isGranted && !hasStoragePermission) {
+            hasStoragePermission = true
             onAction(MediaPickerAction.OnPermissionAccepted)
+        } else if (permissionState.status.isGranted) {
+            hasStoragePermission = true
         }
-        wasPermissionGranted = isPermissionGranted
     }
     val lazyGridState = rememberLazyGridState()
     val selectVideoFileLauncher = rememberLauncherForActivityResult(
@@ -424,12 +453,15 @@ internal fun MediaPickerScreenContent(
                 )
                 .background(MaterialTheme.colorScheme.background),
         ) {
-            if (!permissionState.status.isGranted) {
+            if (!hasStoragePermission && !permissionState.status.isGranted) {
                 PermissionMissingView(
-                    isGranted = permissionState.status.isGranted,
+                    isGranted = false,
                     showRationale = permissionState.status.shouldShowRationale,
                     permission = permissionState.permission,
-                    launchPermissionRequest = { permissionState.launchPermissionRequest() },
+                    launchPermissionRequest = {
+                        hasStoragePermission = true
+                        onAction(MediaPickerAction.OnPermissionAccepted)
+                    },
                 ) {}
                 return@Scaffold
             }
@@ -438,7 +470,19 @@ internal fun MediaPickerScreenContent(
                 }
 
                 is DataState.Loading -> {
-                    CenterCircularProgressBar()
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        CenterCircularProgressBar()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = stringResource(R.string.scanning_library),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
 
                 is DataState.Success -> {
@@ -455,22 +499,57 @@ internal fun MediaPickerScreenContent(
                         ) {
                             NoVideosFound(contentPadding = updatedScaffoldPadding)
                         } else {
-                            MediaView(
-                                recentlyPlayedVideo = state.recentlyPlayedVideo,
-                                recentlyPlayedFolder = state.recentlyPlayedFolder,
-                                mediaHolder = mediaHolder,
-                                preferences = state.preferences,
-                                onFolderClick = {
-                                    onAction(MediaPickerAction.OnFolderClick(folderPath = it))
-                                },
-                                onVideoClick = {
-                                    onAction(MediaPickerAction.OnPlayVideo(uri = it))
-                                },
-                                selectionManager = selectionManager,
-                                lazyGridState = lazyGridState,
-                                focusState = focusState,
-                                contentPadding = updatedScaffoldPadding,
-                            )
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                if (context.hasPartialMediaAccess()) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                            .clickable {
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                                    val intent = Intent(
+                                                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                                    ).apply {
+                                                        data = "package:${context.packageName}".toUri()
+                                                    }
+                                                    try {
+                                                        context.startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        val fallback = Intent(
+                                                            Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION,
+                                                        )
+                                                        context.startActivity(fallback)
+                                                    }
+                                                }
+                                            },
+                                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                                        shape = RoundedCornerShape(8.dp),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.limited_access_banner),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            modifier = Modifier.padding(12.dp),
+                                        )
+                                    }
+                                }
+                                MediaView(
+                                    recentlyPlayedVideo = state.recentlyPlayedVideo,
+                                    recentlyPlayedFolder = state.recentlyPlayedFolder,
+                                    mediaHolder = mediaHolder,
+                                    preferences = state.preferences,
+                                    onFolderClick = {
+                                        onAction(MediaPickerAction.OnFolderClick(folderPath = it))
+                                    },
+                                    onVideoClick = {
+                                        onAction(MediaPickerAction.OnPlayVideo(uri = it))
+                                    },
+                                    selectionManager = selectionManager,
+                                    lazyGridState = lazyGridState,
+                                    focusState = focusState,
+                                    contentPadding = updatedScaffoldPadding,
+                                )
                         }
                     }
                     if (isTv) {

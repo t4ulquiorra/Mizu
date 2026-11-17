@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
@@ -68,11 +72,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import kotlinx.coroutines.launch
 
-private const val GITHUB_URL = "https://github.com/anilbeesetti/nextplayer"
-private const val GITHUB_SPONSORS_URL = "https://github.com/sponsors/anilbeesetti"
-private const val KOFI_URL = "https://ko-fi.com/anilbeesetti"
-private const val PAYPAL_URL = "https://paypal.me/AnilBeesetti"
-private const val UPI_ID = "anilbeesetti10@oksbi"
+private const val GITHUB_URL = "https://github.com/t4ulquiorra/Mizu"
 
 @Composable
 fun AboutPreferencesScreen(viewModel: AboutPreferencesViewModel) {
@@ -138,75 +138,20 @@ private fun AboutPreferencesScreenContent(
                 },
                 onLibrariesClick = { onAction(AboutPreferencesAction.OpenLibraries) },
             )
-            ListSectionTitle(text = stringResource(id = R.string.donate))
-            Column(
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            Spacer(modifier = Modifier.height(16.dp))
+            ListSectionTitle(text = "Credits")
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.github_sponsors),
-                    description = stringResource(
-                        R.string.support_the_developer_on,
-                        stringResource(R.string.github_sponsors),
-                    ),
-                    icon = ImageVector.vectorResource(R.drawable.ic_github),
-                    onClick = {
-                        uriHandler.openUriOrShowToast(
-                            uri = GITHUB_SPONSORS_URL,
-                            context = context,
-                        )
-                    },
-                    isFirstItem = true,
-                )
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.kofi),
-                    description = stringResource(
-                        R.string.support_the_developer_on,
-                        stringResource(R.string.kofi),
-                    ),
-                    icon = ImageVector.vectorResource(R.drawable.ic_kofi),
-                    onClick = {
-                        uriHandler.openUriOrShowToast(
-                            uri = KOFI_URL,
-                            context = context,
-                        )
-                    },
-                )
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.paypal),
-                    description = stringResource(
-                        R.string.support_the_developer_on,
-                        stringResource(R.string.paypal),
-                    ),
-                    icon = ImageVector.vectorResource(R.drawable.ic_paypal),
-                    onClick = {
-                        uriHandler.openUriOrShowToast(
-                            uri = PAYPAL_URL,
-                            context = context,
-                        )
-                    },
-                )
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.upi),
-                    description = UPI_ID,
-                    icon = ImageVector.vectorResource(R.drawable.ic_upi),
-                    onClick = {
-                        scope.launch {
-                            clipboard.setClipEntry(
-                                clipEntry = ClipEntry(
-                                    ClipData.newPlainText(
-                                        "text",
-                                        UPI_ID,
-                                    ),
-                                ),
-                            )
-                            Toast.makeText(
-                                context,
-                                "copied to clipboard",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    },
-                    isLastItem = true,
+                Text(
+                    text = "Mizu is based on the open-source Next Player by Anil Beesetti (GPL-3.0). Not affiliated or endorsed.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
                 )
             }
         }
@@ -297,18 +242,10 @@ fun AboutApp(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = appVersion,
+                        text = "v$appVersion",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.by,
-                            stringResource(R.string.app_developer),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -352,7 +289,7 @@ fun AboutApp(
                     modifier = Modifier.size(24.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(R.string.github))
+                Text(text = "Source code")
             }
         }
     }

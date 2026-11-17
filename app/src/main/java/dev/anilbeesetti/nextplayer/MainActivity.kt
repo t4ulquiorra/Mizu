@@ -27,9 +27,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -79,7 +82,6 @@ import dev.anilbeesetti.nextplayer.navigation.mediaNavGraph
 import dev.anilbeesetti.nextplayer.navigation.moreNavGraph
 import dev.anilbeesetti.nextplayer.navigation.navigationTransition
 import dev.anilbeesetti.nextplayer.navigation.navigationTransitionModifier
-import dev.anilbeesetti.nextplayer.navigation.networkNavGraph
 import dev.anilbeesetti.nextplayer.navigation.openPlaylist
 import dev.anilbeesetti.nextplayer.navigation.playlistNavGraph
 import dev.anilbeesetti.nextplayer.navigation.rememberTopLevelNavState
@@ -156,6 +158,22 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.surfaceContainer,
                 ) {
+                    val successState = state as? MainActivityUiState.Success
+                    if (successState != null && !successState.preferences.hasSeenCreditsDialog) {
+                        AlertDialog(
+                            onDismissRequest = { viewModel.dismissCreditsDialog() },
+                            title = { Text(text = "Welcome to Mizu") },
+                            text = {
+                                Text(text = "Mizu is based on the open-source Next Player by Anil Beesetti (GPL-3.0). Not affiliated or endorsed.")
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { viewModel.dismissCreditsDialog() }) {
+                                    Text(text = "Got it")
+                                }
+                            },
+                        )
+                    }
+
                     val navState = rememberTopLevelNavState()
 
                     LaunchedEffect(key1 = pendingPlaylistId) {
@@ -169,9 +187,6 @@ class MainActivity : FragmentActivity() {
                     val playlistStack = navState.backStacks.getValue(
                         TopLevelDestination.PLAYLISTS.route,
                     )
-                    val networkStack = navState.backStacks.getValue(
-                        TopLevelDestination.NETWORK.route,
-                    )
                     val moreStack = navState.backStacks.getValue(TopLevelDestination.MORE.route)
 
                     val provider = entryProvider {
@@ -182,10 +197,6 @@ class MainActivity : FragmentActivity() {
                         playlistNavGraph(
                             context = this@MainActivity,
                             backStack = playlistStack,
-                        )
-                        networkNavGraph(
-                            context = this@MainActivity,
-                            backStack = networkStack,
                         )
                         moreNavGraph(
                             context = this@MainActivity,
