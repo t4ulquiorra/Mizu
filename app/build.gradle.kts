@@ -15,7 +15,10 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         applicationId = "com.mizu.player"
-        val runNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.getOrElse(1)
+        val runNumber = providers
+            .environmentVariable("GITHUB_RUN_NUMBER")
+            .map { it.toInt() }
+            .getOrElse(1)
         versionCode = 1000 + runNumber
         versionName = "0.1.$runNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
