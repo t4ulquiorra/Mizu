@@ -44,10 +44,7 @@ import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 
 @Composable
-fun WelcomePermissionView(
-    onPermissionGranted: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun WelcomePermissionView(onPermissionGranted: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -66,10 +63,12 @@ fun WelcomePermissionView(
                 Manifest.permission.READ_MEDIA_AUDIO,
                 Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
             )
+
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
                 Manifest.permission.READ_MEDIA_VIDEO,
                 Manifest.permission.READ_MEDIA_AUDIO,
             )
+
             else -> arrayOf(
                 Manifest.permission.READ_EXTERNAL_STORAGE,
             )
