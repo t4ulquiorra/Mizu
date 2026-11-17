@@ -6,15 +6,9 @@ import android.content.pm.ProviderInfo
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import dev.anilbeesetti.nextplayer.core.data.repository.NetworkConnectionRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.fake.FakePreferencesRepository
-import dev.anilbeesetti.nextplayer.core.media.network.keys.SshKeyStore
-import dev.anilbeesetti.nextplayer.core.media.network.keys.StagedSshKey
-import dev.anilbeesetti.nextplayer.core.model.NetworkConnection
 import java.io.File
 import java.io.FileNotFoundException
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,18 +27,6 @@ class SettingsBackupServiceTest {
     private val service = SettingsBackupService(
         context = RuntimeEnvironment.getApplication(),
         preferencesRepository = preferences,
-        networkConnectionRepository = object : NetworkConnectionRepository {
-            override fun getConnections(): Flow<List<NetworkConnection>> = flowOf(emptyList())
-            override suspend fun getConnection(id: Long): NetworkConnection? = null
-            override suspend fun upsert(connection: NetworkConnection): Long = error("Not used")
-            override suspend fun delete(id: Long) = Unit
-        },
-        sshKeyStore = object : SshKeyStore {
-            override suspend fun stage(uri: Uri): StagedSshKey = error("Not used")
-            override fun resolve(fileName: String): File = error("Not used")
-            override suspend fun commit(fileName: String): String = error("Not used")
-            override suspend fun delete(fileName: String) = Unit
-        },
     )
 
     @Test
