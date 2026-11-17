@@ -550,6 +550,7 @@ internal fun MediaPickerScreenContent(
                                     focusState = focusState,
                                     contentPadding = updatedScaffoldPadding,
                                 )
+                            }
                         }
                     }
                     if (isTv) {
