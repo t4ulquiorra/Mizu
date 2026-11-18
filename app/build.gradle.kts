@@ -48,13 +48,23 @@ android {
             keyPassword = "android"
         }
 
-        val keystorePath = providers.environmentVariable("RELEASE_KEYSTORE_PATH").orNull
+        val env = providers.environmentVariable("RELEASE_KEYSTORE_PATH")
+        val keystorePath = env.orNull
         if (keystorePath != null && file(keystorePath).exists()) {
             create("release") {
                 storeFile = file(keystorePath)
-                storePassword = providers.environmentVariable("RELEASE_KEYSTORE_PASSWORD").orNull ?: ""
-                keyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS").orNull ?: "mizu"
-                keyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD").orNull ?: ""
+                storePassword =
+                    providers
+                        .environmentVariable("RELEASE_KEYSTORE_PASSWORD")
+                        .orNull ?: ""
+                keyAlias =
+                    providers
+                        .environmentVariable("RELEASE_KEY_ALIAS")
+                        .orNull ?: "mizu"
+                keyPassword =
+                    providers
+                        .environmentVariable("RELEASE_KEY_PASSWORD")
+                        .orNull ?: ""
             }
         }
     }
@@ -67,7 +77,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.findByName("release")
+            signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
         }
 
         getByName("debug") {
