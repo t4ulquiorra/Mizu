@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class MainViewModel(private val preferencesRepository: PreferencesRepository) :
-    MviViewModel<MainActivityUiState, Nothing>() {
+    MviViewModel<MainActivityUiState, MainAction>() {
 
     private val stateInternal =
         MutableStateFlow<MainActivityUiState>(value = MainActivityUiState.Loading)
@@ -25,8 +25,21 @@ class MainViewModel(private val preferencesRepository: PreferencesRepository) :
         }
     }
 
-    // Application preferences are observed only; this view model has no input actions.
-    override fun onAction(action: Nothing) = Unit
+    override fun onAction(action: MainAction) {
+        when (action) {
+            MainAction.DismissWelcomeAttribution -> {
+                viewModelScope.launch {
+                    preferencesRepository.updateApplicationPreferences {
+                        it.copy(hasSeenWelcomeAttribution = true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+sealed interface MainAction {
+    object DismissWelcomeAttribution : MainAction
 }
 
 sealed interface MainActivityUiState {

@@ -3,6 +3,7 @@ package dev.anilbeesetti.nextplayer.settings.screens.appearance
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.viewModelScope
 import dev.anilbeesetti.nextplayer.core.data.repository.PreferencesRepository
+import dev.anilbeesetti.nextplayer.core.model.AppSkin
 import dev.anilbeesetti.nextplayer.core.model.ApplicationPreferences
 import dev.anilbeesetti.nextplayer.core.model.ThemeConfig
 import dev.anilbeesetti.nextplayer.core.ui.base.MviViewModel
@@ -51,6 +52,16 @@ class AppearancePreferencesViewModel(
 
             is AppearancePreferencesEvent.ToggleUseHighContrastDarkTheme ->
                 toggleUseHighContrastDarkTheme()
+
+            is AppearancePreferencesEvent.UpdateAppSkin -> updateAppSkin(action.appSkin)
+        }
+    }
+
+    private fun updateAppSkin(appSkin: AppSkin) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(appSkin = appSkin)
+            }
         }
     }
 
@@ -111,6 +122,7 @@ sealed interface AppearancePreferencesEvent {
     data class UpdateThemeConfig(val themeConfig: ThemeConfig) : AppearancePreferencesEvent
     data object ToggleUseDynamicColors : AppearancePreferencesEvent
     data object ToggleUseHighContrastDarkTheme : AppearancePreferencesEvent
+    data class UpdateAppSkin(val appSkin: AppSkin) : AppearancePreferencesEvent
 }
 
 sealed interface AppearancePreferenceDialog {

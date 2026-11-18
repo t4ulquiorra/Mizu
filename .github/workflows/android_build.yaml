@@ -4,9 +4,13 @@ on:
   push:
     branches: [ main ]
   pull_request:
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,8 +32,23 @@ jobs:
           validate-wrappers: true
           gradle-home-cache-cleanup: true
 
-      - name: Build Project with gradle
+      - name: Decode Release Keystore
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > /tmp/mizu-release.jks
+        env:
+          HAS_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
+
+      - name: Build Debug APK
         run: ./gradlew assembleDebug
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+        env:
+          RELEASE_KEYSTORE_PATH: /tmp/mizu-release.jks
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
       - name: Run Local Tests
         run: ./gradlew test
@@ -37,32 +56,17 @@ jobs:
       - name: Lint Checks
         run: ./gradlew ktlintCheck
 
-        # Upload all build artifacts in separate steps. This can be shortened once https://github.com/actions/upload-artifact/pull/354 is merged.
-      - name: Upload artifact nextplayer-universal-debug.apk
+      - name: Upload Release APKs
         uses: actions/upload-artifact@v7
         with:
-          name: nextplayer-universal-debug.apk
-          path: ./app/build/outputs/apk/debug/app-universal-debug.apk
-      - name: Upload artifact nextplayer-arm64-v8a-debug.apk
+          name: mizu-release-apks
+          path: ./app/build/outputs/apk/release/*.apk
+
+      - name: Upload Debug APKs
         uses: actions/upload-artifact@v7
         with:
-          name: nextplayer-arm64-v8a-debug.apk
-          path: ./app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
-      - name: Upload artifact nextplayer-armeabi-v7a-debug.apk
-        uses: actions/upload-artifact@v7
-        with:
-          name: nextplayer-armeabi-v7a-debug.apk
-          path: ./app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
-      - name: Upload artifact nextplayer-x86_64-debug.apk
-        uses: actions/upload-artifact@v7
-        with:
-          name: nextplayer-x86_64-debug.apk
-          path: ./app/build/outputs/apk/debug/app-x86_64-debug.apk
-      - name: Upload artifact nextplayer-x86-debug.apk
-        uses: actions/upload-artifact@v7
-        with:
-          name: nextplayer-x86-debug.apk
-          path: ./app/build/outputs/apk/debug/app-x86-debug.apk
+          name: mizu-debug-apks
+          path: ./app/build/outputs/apk/debug/*.apk
 
       - name: Upload build reports
         if: always()
@@ -70,6 +74,21 @@ jobs:
         with:
           name: build-reports
           path: '**/build/reports'
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.21.${{ github.run_number }}
+          name: Mizu v0.21.${{ github.run_number }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ./app/build/outputs/apk/release/*.apk
+            ./app/build/outputs/apk/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   instrumentation:
     name: Instrumentation tests (Google ATD API 35)

@@ -6,6 +6,8 @@ import kotlinx.serialization.Serializable
 data class ApplicationPreferences(
     val sortBy: Sort.By = Sort.By.TITLE,
     val sortOrder: Sort.Order = Sort.Order.ASCENDING,
+    val appSkin: AppSkin = AppSkin.NEUBRUTALISM,
+    val hasSeenWelcomeAttribution: Boolean = false,
     val themeConfig: ThemeConfig = ThemeConfig.SYSTEM,
     val useHighContrastDarkTheme: Boolean = false,
     val useDynamicColors: Boolean = true,

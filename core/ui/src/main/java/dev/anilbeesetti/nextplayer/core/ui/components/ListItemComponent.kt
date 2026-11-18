@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
+import dev.anilbeesetti.nextplayer.core.ui.theme.neoShadow
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -44,7 +46,12 @@ fun NextSegmentedListItem(
     onLongClick: (() -> Unit)? = null,
     interactionSource: MutableInteractionSource? = null,
 ) {
-    val overrideShape = MaterialTheme.shapes.large
+    val mizuStyle = LocalMizuStyle.current
+    val overrideShape = if (mizuStyle.isNeubrutalism) {
+        mizuStyle.shape
+    } else {
+        MaterialTheme.shapes.large
+    }
 
     val focusInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isFocused by focusInteractionSource.collectIsFocusedAsState()
@@ -58,10 +65,28 @@ fun NextSegmentedListItem(
             .zIndex(zIndex = if (isFocused) 1f else 0f)
             .scale(scale = focusScale)
             .then(
+                other = if (mizuStyle.isNeubrutalism) {
+                    Modifier.neoShadow(
+                        offset = mizuStyle.shadowOffset,
+                        shadowColor = mizuStyle.shadowColor,
+                        cornerRadius = mizuStyle.cornerRadius,
+                        enabled = true,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .then(
                 other = if (isFocused) {
                     Modifier.border(
                         width = 2.dp,
                         color = MaterialTheme.colorScheme.primary,
+                        shape = overrideShape,
+                    )
+                } else if (mizuStyle.isNeubrutalism) {
+                    Modifier.border(
+                        width = mizuStyle.borderWidth,
+                        color = mizuStyle.borderColor,
                         shape = overrideShape,
                     )
                 } else {

@@ -1,6 +1,5 @@
 package dev.anilbeesetti.nextplayer.settings.screens.about
 
-import android.content.ClipData
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.core.RepeatMode
@@ -36,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,8 +44,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
@@ -66,13 +62,9 @@ import dev.anilbeesetti.nextplayer.core.ui.components.rememberTvListFocusRequest
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusDown
 import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
-import kotlinx.coroutines.launch
 
-private const val GITHUB_URL = "https://github.com/anilbeesetti/nextplayer"
-private const val GITHUB_SPONSORS_URL = "https://github.com/sponsors/anilbeesetti"
-private const val KOFI_URL = "https://ko-fi.com/anilbeesetti"
-private const val PAYPAL_URL = "https://paypal.me/AnilBeesetti"
-private const val UPI_ID = "anilbeesetti10@oksbi"
+private const val GITHUB_URL = "https://github.com/t4ulquiorra/Mizu"
+private const val UPSTREAM_URL = "https://github.com/anilbeesetti/nextplayer"
 
 @Composable
 fun AboutPreferencesScreen(viewModel: AboutPreferencesViewModel) {
@@ -94,8 +86,6 @@ private fun AboutPreferencesScreenContent(
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
 
     val listFocusRequester = rememberTvListFocusRequester()
     Scaffold(
@@ -138,74 +128,21 @@ private fun AboutPreferencesScreenContent(
                 },
                 onLibrariesClick = { onAction(AboutPreferencesAction.OpenLibraries) },
             )
-            ListSectionTitle(text = stringResource(id = R.string.donate))
+            ListSectionTitle(text = stringResource(id = R.string.credits))
             Column(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
-                    title = stringResource(R.string.github_sponsors),
-                    description = stringResource(
-                        R.string.support_the_developer_on,
-                        stringResource(R.string.github_sponsors),
-                    ),
+                    title = "Next Player",
+                    description = stringResource(id = R.string.mizu_credits_summary),
                     icon = ImageVector.vectorResource(R.drawable.ic_github),
                     onClick = {
                         uriHandler.openUriOrShowToast(
-                            uri = GITHUB_SPONSORS_URL,
+                            uri = UPSTREAM_URL,
                             context = context,
                         )
                     },
                     isFirstItem = true,
-                )
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.kofi),
-                    description = stringResource(
-                        R.string.support_the_developer_on,
-                        stringResource(R.string.kofi),
-                    ),
-                    icon = ImageVector.vectorResource(R.drawable.ic_kofi),
-                    onClick = {
-                        uriHandler.openUriOrShowToast(
-                            uri = KOFI_URL,
-                            context = context,
-                        )
-                    },
-                )
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.paypal),
-                    description = stringResource(
-                        R.string.support_the_developer_on,
-                        stringResource(R.string.paypal),
-                    ),
-                    icon = ImageVector.vectorResource(R.drawable.ic_paypal),
-                    onClick = {
-                        uriHandler.openUriOrShowToast(
-                            uri = PAYPAL_URL,
-                            context = context,
-                        )
-                    },
-                )
-                ClickablePreferenceItem(
-                    title = stringResource(R.string.upi),
-                    description = UPI_ID,
-                    icon = ImageVector.vectorResource(R.drawable.ic_upi),
-                    onClick = {
-                        scope.launch {
-                            clipboard.setClipEntry(
-                                clipEntry = ClipEntry(
-                                    ClipData.newPlainText(
-                                        "text",
-                                        UPI_ID,
-                                    ),
-                                ),
-                            )
-                            Toast.makeText(
-                                context,
-                                "copied to clipboard",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    },
                     isLastItem = true,
                 )
             }
@@ -303,10 +240,7 @@ fun AboutApp(
                         fontSize = 12.sp,
                     )
                     Text(
-                        text = stringResource(
-                            R.string.by,
-                            stringResource(R.string.app_developer),
-                        ),
+                        text = "by t4ulquiorra",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

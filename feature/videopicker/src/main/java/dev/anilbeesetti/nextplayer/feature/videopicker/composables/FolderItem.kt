@@ -46,6 +46,7 @@ import dev.anilbeesetti.nextplayer.core.model.Folder
 import dev.anilbeesetti.nextplayer.core.model.MediaLayoutMode
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.components.NextSegmentedListItem
+import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 
 @Composable
@@ -127,11 +128,17 @@ private fun FolderListItem(
         onClick = onClick,
         onLongClick = onLongClick,
         leadingContent = {
+            val mizuStyle = LocalMizuStyle.current
+            val folderIconTint = if (mizuStyle.isNeubrutalism) {
+                mizuStyle.accentFolder
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
             Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                 Icon(
                     imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
                     contentDescription = "",
-                    tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tint = folderIconTint,
                     modifier = Modifier
                         .width(
                             width = min(
@@ -255,6 +262,12 @@ private fun FolderGridItem(
         onClick = onClick,
         onLongClick = onLongClick,
         content = {
+            val mizuStyle = LocalMizuStyle.current
+            val folderIconTint = if (mizuStyle.isNeubrutalism) {
+                mizuStyle.accentFolder
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
             Column(
                 modifier = modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -264,7 +277,7 @@ private fun FolderGridItem(
                     Icon(
                         imageVector = ImageVector.vectorResource(id = R.drawable.folder_thumb),
                         contentDescription = "",
-                        tint = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        tint = folderIconTint,
                         modifier = Modifier
                             .width(
                                 width = min(

@@ -10,7 +10,11 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import dev.anilbeesetti.nextplayer.core.model.AppSkin
 
 private val lightScheme = lightColorScheme(
     primary = primaryLight,
@@ -245,9 +249,46 @@ fun NextPlayerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     highContrastDarkTheme: Boolean = false,
     dynamicColor: Boolean = true,
+    appSkin: AppSkin = AppSkin.NEUBRUTALISM,
     content: @Composable () -> Unit,
 ) {
+    val mizuStyle = remember(
+        appSkin,
+        darkTheme,
+    ) {
+        getMizuStyle(
+            skin = appSkin,
+            isDark = darkTheme,
+        )
+    }
+
     val colorScheme = when {
+        appSkin == AppSkin.NEUBRUTALISM -> {
+            if (darkTheme) {
+                darkScheme.copy(
+                    primary = MizuAqua,
+                    secondary = MizuSunYellow,
+                    tertiary = MizuLime,
+                    background = MizuPaperDark,
+                    surface = MizuSurfaceDark,
+                    surfaceContainer = MizuSurfaceDark,
+                    surfaceContainerLow = MizuPaperDark,
+                    surfaceContainerHigh = MizuSurfaceDark,
+                )
+            } else {
+                lightScheme.copy(
+                    primary = Color(0xFF007A87),
+                    secondary = Color(0xFF8B6B00),
+                    tertiary = Color(0xFF386B00),
+                    background = MizuPaperLight,
+                    surface = Color.White,
+                    surfaceContainer = Color(0xFFF9F3EA),
+                    surfaceContainerLow = MizuPaperLight,
+                    surfaceContainerHigh = Color.White,
+                )
+            }
+        }
+
         dynamicColor && supportsDynamicTheming() -> {
             val context = LocalContext.current
             when {
@@ -288,12 +329,14 @@ fun NextPlayerTheme(
         else -> lightScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        motionScheme = MotionScheme.expressive(),
-        content = content,
-    )
+    CompositionLocalProvider(LocalMizuStyle provides mizuStyle) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            motionScheme = MotionScheme.expressive(),
+            content = content,
+        )
+    }
 }
 
 @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)

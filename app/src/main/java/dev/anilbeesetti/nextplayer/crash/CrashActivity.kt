@@ -55,6 +55,7 @@ import dev.anilbeesetti.nextplayer.BuildConfig
 import dev.anilbeesetti.nextplayer.MainActivity
 import dev.anilbeesetti.nextplayer.MainActivityUiState
 import dev.anilbeesetti.nextplayer.MainViewModel
+import dev.anilbeesetti.nextplayer.core.model.AppSkin
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
@@ -105,10 +106,16 @@ class CrashActivity : ComponentActivity() {
                 )
             }
 
+            val currentSkin = when (val s = state) {
+                MainActivityUiState.Loading -> AppSkin.NEUBRUTALISM
+                is MainActivityUiState.Success -> s.preferences.appSkin
+            }
+
             NextPlayerTheme(
                 darkTheme = shouldUseDarkTheme,
                 highContrastDarkTheme = shouldUseHighContrastDarkTheme(state = state),
                 dynamicColor = shouldUseDynamicTheming(state = state),
+                appSkin = currentSkin,
             ) {
                 val clipboard = LocalClipboard.current
                 CrashScreen(

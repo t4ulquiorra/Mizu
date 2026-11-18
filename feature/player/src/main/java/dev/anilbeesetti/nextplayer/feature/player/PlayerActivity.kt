@@ -242,6 +242,7 @@ class PlayerActivity : ComponentActivity() {
                 NextPlayerTheme(
                     darkTheme = true,
                     dynamicColor = preferences.useDynamicColors,
+                    appSkin = preferences.appSkin,
                 ) {
                     MediaPlayerScreen(
                         viewModel = viewModel,
