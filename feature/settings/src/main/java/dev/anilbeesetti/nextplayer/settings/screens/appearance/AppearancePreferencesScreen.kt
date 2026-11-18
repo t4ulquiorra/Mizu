@@ -230,6 +230,27 @@ private fun SkinPreviewCard(
 ) {
     val isNeo = skin == AppSkin.NEUBRUTALISM
     val shape = if (isNeo) RoundedCornerShape(10.dp) else RoundedCornerShape(16.dp)
+    val borderWidth = if (isNeo || isSelected) 2.dp else 1.dp
+    val borderColor = when {
+        isNeo -> Color(0xFF111111)
+        isSelected -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
+    val cardBackground = if (isNeo) {
+        Color(0xFFFFF8EE)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    val titleColor = if (isNeo) {
+        Color(0xFF111111)
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val subtitleColor = if (isNeo) {
+        Color(0xFF444444)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Box(
         modifier = modifier
@@ -246,24 +267,12 @@ private fun SkinPreviewCard(
                 },
             )
             .border(
-                width = if (isNeo) 2.dp else if (isSelected) 2.dp else 1.dp,
-                color = if (isNeo) {
-                    Color(0xFF111111)
-                } else if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.outlineVariant
-                },
+                width = borderWidth,
+                color = borderColor,
                 shape = shape,
             )
             .clip(shape = shape)
-            .background(
-                color = if (isNeo) {
-                    Color(0xFFFFF8EE)
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-            )
+            .background(color = cardBackground)
             .clickable(onClick = onClick)
             .padding(12.dp),
     ) {
@@ -354,16 +363,12 @@ private fun SkinPreviewCard(
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.Bold,
                 ),
-                color = if (isNeo) Color(0xFF111111) else MaterialTheme.colorScheme.onSurface,
+                color = titleColor,
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isNeo) {
-                    Color(0xFF444444)
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                color = subtitleColor,
                 maxLines = 2,
             )
 
