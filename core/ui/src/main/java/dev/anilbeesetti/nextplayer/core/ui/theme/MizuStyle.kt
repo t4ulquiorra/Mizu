@@ -61,8 +61,7 @@ data class MizuStyle(
 
 val LocalMizuStyle = staticCompositionLocalOf { MizuStyle() }
 
-fun getMizuStyle(skin: AppSkin, isDark: Boolean): MizuStyle =
-    if (skin == AppSkin.NEUBRUTALISM) {
+fun getMizuStyle(skin: AppSkin, isDark: Boolean): MizuStyle = if (skin == AppSkin.NEUBRUTALISM) {
         if (isDark) {
             MizuStyle(
                 skin = skin,
