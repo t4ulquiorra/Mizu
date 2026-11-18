@@ -1,0 +1,43 @@
+---
+description: Layout, spacing, touch target, and hierarchy rules for Jetpack Compose UI
+globs: **/*.kt
+---
+
+# Mizu UI & Layout Rules
+
+Adhere strictly to these spatial layout, alignment, and Compose architecture guidelines across all UI components and screens.
+
+## 1. The 2× Proximity & Spacing Law (`better-layout`)
+- Group elements with whitespace first, background shapes second, and separator lines last.
+- The gap between two distinct groups must be **at least double (2×)** the gap inside a single group.
+  - Internal item spacing (title to subtitle): `4.dp` or `8.dp`
+  - Gap between distinct items/cards: `16.dp` minimum.
+- Eliminate hairline horizontal dividers between cards; let negative space and card boundaries define separation.
+
+## 2. Touch Target Floor & Ergonomics (`mobile-design`)
+- Every interactive element (buttons, chips, list items, icons) must have a minimum hit area of **48×48dp**.
+- Adjacent touch targets must maintain at least **8dp** of spacing to prevent accidental touches.
+- Destructive actions (Delete, Clear) must never sit near natural thumb resting zones or right next to high-frequency buttons.
+
+## 3. Compose Modifier Ordering Standard
+Always chain modifiers in this exact sequence to ensure correct hit boundaries, clipping, and shadows:
+```kotlin
+Modifier
+    .fillMaxWidth()                  // 1. Structural constraints
+    .neoShadow(...)                  // 2. Outer drop shadow
+    .border(...)                     // 3. Structural boundary / ink stroke
+    .clip(shape)                     // 4. Shape clipping
+    .background(color)               // 5. Background fill
+    .clickable(...)                  // 6. Interaction (covers full outer bounds)
+    .padding(internalPadding)        // 7. Internal content inset
+```
+
+## 4. Concentric Corner Radii (`better-ui`)
+- When nesting rounded elements inside a card with padding `P`:
+  `R_outer = R_inner + P`
+- Keep corner radii mathematically concentric to avoid awkward visual dissonance.
+
+## 5. Tablet & Adaptive Layouts (Xiaomi Pad 6)
+- Compact (< 600dp width): Bottom navigation bar, 1-column list or 2-column video grid.
+- Expanded (> 840dp width): Navigation rail, adaptive grid (`GridCells.Adaptive(minSize = 220.dp)`), and master/detail split where appropriate.
+- Always apply `WindowInsets.safeDrawing` or `safeContent` to avoid camera cutouts and gesture bars.
