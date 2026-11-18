@@ -1,0 +1,73 @@
+---
+description: Activity/Process lifecycle, ViewModel scoping, and WorkManager background execution — fully Jetpack/AOSP-native.
+alwaysApply: true
+---
+
+# App lifecycle & background execution
+
+**Primary source:** the Activity/Fragment lifecycle, `ProcessLifecycleOwner`
+for app-wide foreground/background transitions, and WorkManager for
+deferrable/guaranteed background work — all Jetpack/AOSP-native. No
+third-party layer is needed here.
+
+## App lifecycle
+
+- Observe `ProcessLifecycleOwner.get().lifecycle` for app-wide
+  foreground/background transitions (analogous to iOS's `ScenePhase`)
+  instead of tracking `onResume`/`onPause` across every Activity
+  individually.
+- **On moving to background:** persist any in-flight user input (draft
+  state) via the `core/persistence` layer, and stop any polling/timers
+  that don't need to run off-screen.
+- **On returning to foreground:** re-validate the session token is not
+  expired (`security-baseline-mobile.mdc`) before resuming a screen that
+  shows authenticated data — do not assume a token is still valid just
+  because the process didn't fully die.
+- Handle **process death** explicitly: `ViewModel`'s `SavedStateHandle`
+  restores simple UI state (selected tab, form field values); anything
+  more (session validity, cached data) is re-derived from
+  `core/persistence`/`AuthRepository` on recreation, not assumed to
+  survive.
+
+## `ViewModel` scoping
+
+- `ViewModel`s are scoped to the Activity/Navigation-destination that
+  owns the screen — they survive configuration changes automatically
+  but are cleared on navigation away, per `architecture-udf-state.mdc`.
+- Do not hold a `ViewModel` reference longer than its natural scope (e.g.
+  in a singleton) to "cache" its state — use `core/persistence` or a
+  repository for state that should outlive a screen.
+
+## Background execution (WorkManager)
+
+- Register deferrable/guaranteed background work (periodic sync, retry
+  of a failed upload) as a `WorkRequest` via WorkManager — not a
+  `Service` with a manually managed lifecycle, and not a bare coroutine
+  launched from an Activity that will be destroyed.
+- Every `WorkRequest` declares explicit `Constraints` (network required,
+  battery-not-low, etc.) so the system can defer work appropriately
+  under Doze/App Standby rather than the app fighting the OS's power
+  management.
+- Background work goes through the same `core` services
+  (`ApiClient`, `AppDatabase`) as foreground work via Hilt's
+  `HiltWorkerFactory` — no separate background-only networking path.
+- Use `enqueueUniqueWork`/`enqueueUniquePeriodicWork` with an explicit
+  policy (`KEEP`/`REPLACE`) for anything that must not be scheduled twice
+  — e.g. triggering a sync `WorkRequest` from an FCM data message
+  (`push-notifications.mdc`).
+
+## Anti-patterns
+
+- **A long-running foreground `Service` used as a substitute for
+  WorkManager** for work that isn't actually user-visible/immediate.
+- **Assuming background time is unlimited** — always design for
+  Doze/App Standby deferring work, and for the process being killed
+  entirely.
+- **Storing tokens or PII in `SavedStateHandle`** — see
+  `security-baseline-mobile.mdc`.
+
+## Related rules
+
+- **Security/session validity:** `security-baseline-mobile.mdc`
+- **Persistence:** `persistence-room.mdc`
+- **Push (triggering WorkManager from FCM):** `push-notifications.mdc`

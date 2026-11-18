@@ -41,6 +41,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.rememberRestorableFocusSta
 import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusGroup
 import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusItem
 import dev.anilbeesetti.nextplayer.core.ui.extensions.plus
+import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
 import dev.anilbeesetti.nextplayer.feature.videopicker.state.SelectionManager
 import dev.anilbeesetti.nextplayer.feature.videopicker.state.rememberSelectionManager
 import kotlin.math.abs
@@ -70,17 +71,20 @@ fun MediaView(
 
     val context = LocalContext.current
     val isTv = remember { context.isTelevision }
-    val folderMinWidth = if (isTv) 160.dp else 90.dp
-    val videoMinWidth = if (isTv) 240.dp else 130.dp
 
     BoxWithConstraints {
+        val mizuStyle = LocalMizuStyle.current
+        val isTabletOrTv = isTv || this.maxWidth > 600.dp
+        val folderMinWidth = if (isTabletOrTv) 140.dp else 90.dp
+        val videoMinWidth = if (isTabletOrTv) 200.dp else 130.dp
+
         val contentHorizontalPadding = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 8.dp
-            MediaLayoutMode.GRID -> 8.dp
+            MediaLayoutMode.LIST -> if (mizuStyle.isNeubrutalism) 12.dp else 8.dp
+            MediaLayoutMode.GRID -> if (mizuStyle.isNeubrutalism) 12.dp else 8.dp
         }
         val itemSpacing = when (preferences.mediaLayoutMode) {
-            MediaLayoutMode.LIST -> 2.dp
-            MediaLayoutMode.GRID -> 2.dp
+            MediaLayoutMode.LIST -> if (mizuStyle.isNeubrutalism) 10.dp else 2.dp
+            MediaLayoutMode.GRID -> if (mizuStyle.isNeubrutalism) 12.dp else 2.dp
         }
         val maxWidth = this.maxWidth - (contentHorizontalPadding * 2) - itemSpacing
         val maxFolders = (maxWidth / folderMinWidth).toInt().coerceAtLeast(minimumValue = 1)

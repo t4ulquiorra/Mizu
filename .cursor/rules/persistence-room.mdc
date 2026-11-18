@@ -1,0 +1,88 @@
+---
+description: Room as the default local persistence — Jetpack's own persistence library. Direct analog of iOS's SwiftData default.
+alwaysApply: true
+---
+
+# Persistence
+
+**Primary source:** Room — Jetpack's own official persistence library,
+providing compile-time-verified SQL and first-class `Flow`/`suspend`
+integration with Kotlin Coroutines.
+
+**Community layer:** none needed for the default path. Direct on-disk
+SQLite access (or a different ORM) requires an ADR
+(`android-adr.mdc` trigger #3) — there is no legitimate reason to bypass
+Room for a greenfield app.
+
+## Default: Room
+
+```kotlin
+@Entity(tableName = "cached_system_status")
+data class CachedSystemStatus(
+    @PrimaryKey val id: String = "current",
+    val isHealthy: Boolean,
+    val updatedAt: Long,
+)
+
+@Dao
+interface SystemStatusDao {
+    @Query("SELECT * FROM cached_system_status WHERE id = 'current'")
+    fun observe(): Flow<CachedSystemStatus?>
+
+    @Upsert
+    suspend fun upsert(status: CachedSystemStatus)
+}
+
+@Database(entities = [CachedSystemStatus::class], version = 1)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun systemStatusDao(): SystemStatusDao
+}
+```
+
+- One `AppDatabase` per app, provided as a `@Singleton` through a Hilt
+  module — never constructed ad hoc inside a `ViewModel` or composable.
+- `@Dao` interfaces live in `core/persistence/`, not inside `feature/` —
+  a feature accesses persistence through a repository-style service, not
+  by querying `@Dao` types directly from a `ViewModel`.
+
+## Caching vs source of truth
+
+- Room is a **cache/local mirror** of server state by default, not the
+  system of record — the backend API (`networking-api-client.mdc`) is
+  the source of truth unless a feature is explicitly offline-first by
+  product requirement.
+- Repository methods expose a `Flow` from the DAO so the UI can show
+  cached data immediately, then refresh from `ApiClient` — never block
+  the UI on a network round trip if a reasonable cached value exists.
+
+## Migrations
+
+- Every schema change ships an explicit `Migration` object — **never**
+  `fallbackToDestructiveMigration()` in a shipped app, which silently
+  deletes user data on upgrade.
+- Room's schema export (`room.schemaLocation` build config) is committed
+  to version control so migrations can be tested against real prior
+  schemas.
+
+## Encryption (cross-reference)
+
+- If a table stores sensitive data, encrypt the database file per
+  `security-baseline-mobile.mdc`'s current guidance (SQLCipher with a
+  Keystore-derived passphrase) — **do not** store tokens or credentials
+  in Room at all; those belong in DataStore + Keystore
+  (`security-baseline-mobile.mdc`), not a general-purpose database.
+
+## Testing
+
+- Unit tests use an in-memory Room database
+  (`Room.inMemoryDatabaseBuilder(...).build()`) — never the real on-disk
+  database.
+- Migration tests use Room's `MigrationTestHelper` against exported
+  schema JSON files, not a live device upgrade.
+
+## Related rules
+
+- **DI:** `dependency-injection-hilt.mdc`
+- **Networking (source of truth):** `networking-api-client.mdc`
+- **Security (tokens never in Room):** `security-baseline-mobile.mdc`
+- **ADR triggers:** `android-adr.mdc`

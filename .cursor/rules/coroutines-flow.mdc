@@ -1,0 +1,87 @@
+---
+description: Kotlin Coroutines, structured concurrency, and Flow/StateFlow — fully Kotlin/Jetpack-native, no third-party layer.
+alwaysApply: true
+---
+
+# Coroutines & Flow
+
+**Primary source:** Kotlin Coroutines and structured concurrency
+(Kotlin/JetBrains language feature) plus Android's own coroutines-on-Android
+guidance (`developer.android.com/kotlin/coroutines`). No third-party
+layer is needed or wanted here — this is language/platform-level, not
+library-level.
+
+## Structured concurrency
+
+- Use `suspend` functions and coroutine builders (`launch`, `async`) — no
+  callback-based APIs or raw `Thread`/`Executor` usage in new code.
+- Launch coroutines from a **scope that matches their lifetime**:
+  `viewModelScope` for `ViewModel`-owned work, `lifecycleScope` only for
+  UI-transient work that must not outlive the Activity/Fragment,
+  `rememberCoroutineScope()` for composable-triggered one-off work.
+- **Never launch a coroutine in `GlobalScope`** — it has no structured
+  lifetime and leaks work past the screen/process that started it.
+- Prefer `coroutineScope { }`/`supervisorScope { }` for a small number of
+  known concurrent children; a `Flow` operator (`flatMapMerge`, etc.) for
+  a dynamic collection of work items.
+
+## Dispatchers
+
+- Inject `CoroutineDispatcher`s (`Dispatchers.IO`, `Dispatchers.Default`)
+  via Hilt rather than hardcoding `Dispatchers.IO` inline in every
+  `core` service — this is what makes dispatcher substitution in tests
+  (`StandardTestDispatcher`) possible without touching production code.
+- Network/disk calls run on `Dispatchers.IO`; CPU-bound work
+  (parsing, sorting large lists) on `Dispatchers.Default`; **never** on
+  `Dispatchers.Main`.
+
+## Flow and StateFlow
+
+- Expose observable state as `StateFlow<UiState>` from `ViewModel`s
+  (`architecture-udf-state.mdc`), not `LiveData` in new code — `LiveData`
+  is Android-lifecycle-bound and does not compose as cleanly with
+  suspend/Flow-based `core` services.
+- When a `StateFlow` is derived from an upstream `Flow` (e.g. a Room
+  query or a repository stream), use the `stateIn` operator with
+  **`SharingStarted.WhileSubscribed(5000)`** — Google's own documented
+  policy — so the upstream flow stops when no screen is observing it, but
+  survives brief configuration-change gaps.
+- For simple cases with no upstream stream, a plain
+  `MutableStateFlow` exposed as an immutable `StateFlow` is acceptable —
+  do not force the `stateIn` pattern where there's nothing upstream to
+  share.
+
+## Cancellation
+
+- Structured concurrency means child coroutines are cancelled
+  automatically when their scope is cancelled (screen leaves composition,
+  `ViewModel` is cleared) — design cancellation-sensitive work (network
+  calls, file I/O) to respect `ensureActive()`/cooperative cancellation
+  rather than ignoring `CancellationException`.
+- **Never catch and swallow `CancellationException`** in a generic
+  `catch (e: Exception)` block — rethrow it, or use `runCatching` +
+  explicit `CancellationException` re-throw, so cancellation still
+  propagates correctly.
+
+## Testing
+
+- Use `kotlinx-coroutines-test`'s `runTest` + inject a
+  `StandardTestDispatcher`/`UnconfinedTestDispatcher` for deterministic
+  unit tests — never `Thread.sleep()` to wait for async work in tests.
+- Use Turbine (`app.cash.turbine`) to assert on `Flow`/`StateFlow`
+  emissions in unit tests rather than manually collecting into a list.
+
+## Anti-patterns
+
+- **`GlobalScope.launch { }`** anywhere in application code.
+- **`LiveData` for new `ViewModel` state** instead of `StateFlow`.
+- **Hardcoded `Dispatchers.IO`** inline in a `core` service instead of an
+  injected dispatcher — makes the service untestable with a controlled
+  test dispatcher.
+- **Swallowing `CancellationException`** in a broad catch block.
+
+## Related rules
+
+- **Architecture:** `architecture-udf-state.mdc`
+- **DI (dispatcher injection):** `dependency-injection-hilt.mdc`
+- **Networking:** `networking-api-client.mdc`

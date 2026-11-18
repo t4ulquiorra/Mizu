@@ -1,0 +1,78 @@
+---
+description: Navigation Compose + App Links + App Actions/Shortcuts as the entry-point model — fully Google-native.
+alwaysApply: true
+---
+
+# Navigation & deep linking
+
+**Primary source:** Jetpack Navigation Compose with a typed route,
+Android App Links (`autoVerify` intent filters), and App
+Actions/App Shortcuts for launcher/Assistant entry points — all
+Google-native APIs. No third-party layer is needed here.
+
+## Typed route model
+
+Every flow's navigable destinations are a `Serializable`/`@Serializable`
+sealed type — not raw string routes with manually interpolated
+arguments:
+
+```kotlin
+@Serializable
+sealed interface AppRoute {
+    @Serializable data object Login : AppRoute
+    @Serializable data object SystemStatus : AppRoute
+}
+```
+
+- One `NavHost` for the app, driven by the typed `AppRoute` sealed
+  type — never a raw string route built with manual string
+  concatenation for anything beyond the simplest static case.
+- Navigating means calling `navController.navigate(AppRoute.SystemStatus)`
+  — type-checked at compile time, not a string that can typo at runtime.
+
+## App Links (Android's Universal Links equivalent)
+
+- Declare `autoVerify="true"` intent filters in the manifest for the
+  app's Android App Links domain; **verify** the Digital Asset Links
+  file is correctly hosted — an unverified App Link silently falls back
+  to a disambiguation dialog instead of opening the app directly.
+- Resolve incoming deep link URIs into an `AppRoute` in **one place**
+  (the `NavHost`'s deep link handling, or a dedicated resolver called
+  from there) — not per-feature URI parsing scattered across the
+  codebase.
+- Test both "cold start with a pending deep link" and "already running,
+  link arrives while foregrounded" — not just the happy warm-start case.
+- If the deep link targets an authenticated screen and the user isn't
+  logged in, route to `Login` first and replay the original destination
+  after successful auth — do not silently drop the deep link.
+
+## App Actions / Shortcuts
+
+- Expose key actions (e.g. "check system status") as a static or dynamic
+  App Shortcut (`ShortcutManagerCompat`) so they're reachable from the
+  launcher's long-press menu without a separate integration per surface.
+- An App Action's/Shortcut's target resolves to the same typed
+  `AppRoute` the UI uses — it does not duplicate business logic.
+- Only expose shortcuts for actions that make sense without the app's
+  full UI context — not every screen needs one.
+
+## Testing
+
+- Route-resolution logic (URI → `AppRoute`) is pure and unit-testable
+  without an emulator.
+- The critical "cold start with a pending deep link" path gets one
+  instrumented test using an explicit launch `Intent` with the deep link
+  URI.
+
+## Anti-patterns
+
+- **String-keyed navigation** (`navController.navigate("detail/$id")`)
+  parsed back out of a string, instead of a typed, serializable route.
+- **Deep link parsing duplicated per feature** instead of one resolver.
+- **An App Shortcut/Action that reimplements a service call** instead of
+  delegating to the same `core` service the UI uses.
+
+## Related rules
+
+- **Architecture (typed state driving navigation):** `architecture-udf-state.mdc`
+- **App lifecycle (process death / restored nav state):** `app-lifecycle-background.mdc`

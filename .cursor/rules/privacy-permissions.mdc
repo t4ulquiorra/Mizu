@@ -1,0 +1,73 @@
+---
+description: Runtime permissions API + Play Console Data Safety declarations — Google-mandated for Play Store submission.
+alwaysApply: true
+---
+
+# Privacy & permissions
+
+**Primary source:** Android's runtime permissions API
+(`ActivityResultContracts.RequestPermission`), the `POST_NOTIFICATIONS`
+permission (Android 13+), and Play Console's **Data Safety** section —
+all Google-native and, for Data Safety, Google-**mandated** for Play
+Store submission. No third-party layer replaces any of these.
+
+## Play Console Data Safety
+
+- Every app submission declares, in Play Console, what data types are
+  collected, whether they're shared with third parties, and why — this
+  is Android's analog to iOS's `PrivacyInfo.xcprivacy` manifest, except
+  declared through the Play Console UI/API rather than a file shipped in
+  the binary.
+- **Every third-party SDK added to the app** (Retrofit/OkHttp collects
+  nothing on their own, but Sentry/PostHog/Firebase do) must be
+  accounted for in the Data Safety form — check this as part of the ADR
+  for adding any new third-party SDK (`android-adr.mdc` trigger #3), not
+  after Play Console submission is rejected or flagged.
+- Keep the Data Safety declaration in sync with actual behavior as
+  features change — a stale declaration is a Play Store policy risk, not
+  just a compliance nicety.
+
+## Runtime permission requests
+
+- Request a permission (location, camera, storage, contacts,
+  microphone, notifications) **only at the moment the user takes an
+  action that needs it** — never speculatively at launch or on a
+  settings screen the user hasn't visited.
+- Every permission has a clear in-app rationale shown before the system
+  dialog when `shouldShowRequestPermissionRationale` is true — explain
+  **why in product terms**, not a generic "this app needs access to your
+  camera."
+- After a permission is permanently denied ("don't ask again"), do not
+  keep re-triggering the system dialog — offer a path to the app's
+  system settings screen with context on why, if the feature is still
+  relevant to the user's current action.
+- Permission state is read through a `core` service wrapper, not queried
+  ad hoc from multiple features, so there is one place that knows the
+  current state and whether re-prompting is appropriate.
+
+## Target SDK and permission behavior changes
+
+- Android's permission model changes meaningfully release to release
+  (scoped storage, `POST_NOTIFICATIONS`, one-time permissions,
+  background location restrictions). Bumping `targetSdk`
+  (`android-adr.mdc` trigger #5) is not a "just recompile" change — it
+  can change the app's actual runtime permission behavior. Test the
+  permission flows explicitly after any `targetSdk` bump, not just
+  before Play Store's mandatory-target-SDK deadlines force it.
+
+## Anti-patterns
+
+- **Requesting location/camera/contacts access on first launch** before
+  the user has done anything that needs it.
+- **A generic or missing in-app rationale** before the system permission
+  dialog.
+- **Adding a third-party SDK without updating the Play Console Data
+  Safety declaration** before shipping.
+- **Ignoring `targetSdk` bump implications** on existing permission
+  flows.
+
+## Related rules
+
+- **Push notification permission specifically:** `push-notifications.mdc`
+- **New SDK ADR trigger:** `android-adr.mdc`
+- **Product analytics vendor:** `product-analytics.mdc`

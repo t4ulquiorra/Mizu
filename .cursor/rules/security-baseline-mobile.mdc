@@ -1,0 +1,100 @@
+---
+description: Jetpack DataStore + Keystore-backed encryption (Tink), BiometricPrompt, and network security config — the current (2026) baseline. Explicitly NOT EncryptedSharedPreferences.
+alwaysApply: true
+---
+
+# Security baseline
+
+**Primary source:** Jetpack DataStore, the Android Keystore system, and
+`BiometricPrompt` — all Jetpack/AOSP-native. A third-party crypto or auth
+SDK beyond Google's own Tink library requires an ADR
+(`android-adr.mdc` trigger #3).
+
+## Do not follow outdated tutorials: EncryptedSharedPreferences is deprecated
+
+Many tutorials and even some current blog posts still recommend
+`EncryptedSharedPreferences`. As of the AndroidX Security library's
+1.1.0-alpha series, it is in **maintenance mode** — no new features, and
+it sits on top of the older, deprecated Security Crypto library. **Do
+not use it in new code.**
+
+## Default: DataStore + Keystore-backed encryption
+
+- Store session tokens and any sensitive key-value data in **Jetpack
+  DataStore** with a custom `Serializer` that encrypts the byte stream
+  using an AES-256-GCM keyset from **Google Tink**
+  (`androidx.security.crypto` / `com.google.crypto.tink`), where the
+  Tink keyset itself is wrapped by a key that never leaves the hardware-
+  backed Android Keystore (`AndroidKeysetManager`).
+- This gets the same Keystore-backed AEAD encryption
+  `EncryptedSharedPreferences` provided, but on DataStore's `Flow`-based,
+  coroutine-native API — which matters once the rest of the app
+  correctly treats auth state as a stream (`coroutines-flow.mdc`) rather
+  than a value polled on demand.
+- `TokenStore` (a `core/security` service) is the single place that
+  reads/writes the encrypted DataStore — `AuthRepository` and
+  `networking-api-client.mdc`'s `AuthInterceptor` consume it through that
+  service, not by touching DataStore/Tink directly from multiple places.
+- On logout (including the forced logout triggered by
+  `TokenAuthenticator`'s failure path), the token is cleared from
+  DataStore immediately — not just cleared from in-memory state.
+
+## Structured/relational sensitive data
+
+- If a feature needs encrypted structured storage beyond simple
+  key-value tokens, use **Room with SQLCipher** (a `SupportFactory` with
+  a Keystore-derived passphrase) rather than storing sensitive data in
+  plain Room tables — see `persistence-room.mdc`'s cross-reference.
+- Never hardcode a database passphrase; derive it dynamically from the
+  Keystore at launch.
+
+## Biometric authentication
+
+- Use `BiometricPrompt` with a `CryptoObject` binding for gating
+  sensitive operations (unlocking the app, confirming a sensitive
+  action) — binding the biometric success to a cryptographic operation
+  ensures the underlying key is only usable after verification, not just
+  a boolean "did the fingerprint match" check.
+- Always provide a fallback (device PIN/pattern, or the app's own
+  credential flow) for devices/users without biometrics enrolled.
+- Biometric gating is a **local unlock check**, not a substitute for
+  server-side session validation — a biometric pass does not itself
+  refresh or validate the underlying session token.
+
+## Network security
+
+- Ship with a Network Security Config that disallows plain-text HTTP by
+  default (`android:usesCleartextTraffic="false"`, the modern default
+  since Android 9) — do not add a cleartext exception or a custom trust
+  anchor without an ADR carrying an expiry date
+  (`android-adr.mdc` trigger #7).
+- Certificate pinning (via OkHttp's `CertificatePinner`) is optional and
+  ADR-gated, not a day-0 default — most apps don't need it and it adds
+  real operational risk (pin rotation) that must be weighed
+  deliberately.
+
+## Build hardening
+
+- R8 (code shrinking + obfuscation) is enabled for release builds by
+  default in the foundation scaffold — do not disable it to "simplify
+  debugging" a release build; use a debuggable release variant instead
+  if needed.
+
+## Anti-patterns
+
+- **`EncryptedSharedPreferences`** in new code — see above.
+- **Tokens or credentials in plain `SharedPreferences`, Room, or a plain
+  file.**
+- **Logging a token or password**, even partially, even at `Timber.d`
+  level.
+- **A cleartext HTTP exception** added to silence a network security
+  config warning instead of fixing the underlying non-HTTPS endpoint.
+- **Biometric check as the only gate on a sensitive action**, with no
+  server-side validation backing it.
+
+## Related rules
+
+- **Networking (token injection/refresh):** `networking-api-client.mdc`
+- **Persistence (encrypted Room via SQLCipher):** `persistence-room.mdc`
+- **Privacy permissions:** `privacy-permissions.mdc`
+- **Logging (never log secrets):** `logging-observability.mdc`

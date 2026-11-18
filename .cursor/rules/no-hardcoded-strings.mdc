@@ -1,0 +1,51 @@
+---
+description: Android string resources (strings.xml) + Compose stringResource() for all user-facing copy — fully Google-native, no third-party layer.
+globs: "**/*.kt"
+---
+
+# Localization (no hardcoded strings)
+
+**Primary source:** Android string resources (`res/values/strings.xml`
+and locale-qualified variants) plus Compose's `stringResource()`/
+`pluralStringResource()` — Google's native localization tooling, with
+Android Studio's built-in translation editor. No third-party layer is
+needed here.
+
+## Rule
+
+- **Every user-facing string** — labels, button text, error messages,
+  content descriptions — goes through `stringResource(R.string.key)` (or
+  the `Context.getString()` equivalent outside Compose) backed by
+  `strings.xml`. No raw string literals in composables or `ViewModel`s
+  for anything a user sees.
+- Developer-facing strings — log messages (`logging-observability.mdc`),
+  internal identifiers, analytics event names (`product-analytics.mdc`)
+  — are **not** localized; do not route those through `strings.xml`.
+- Group related strings in `strings.xml` by feature (a
+  `strings_login.xml`, `strings_systemstatus.xml` split is fine at small
+  scale via Android's multi-file resource merging) so translators and
+  reviewers can find context — consolidate if files proliferate
+  awkwardly.
+
+## Pluralization and variables
+
+- Use Android's `<plurals>` resource + `pluralStringResource()` instead
+  of hand-rolled `if (count == 1) "item" else "items"` conditionals
+  scattered through composables.
+- Interpolated values use `strings.xml`'s positional format specifiers
+  (`%1$s`, `%2$d`) with a comment describing what the placeholder
+  represents — not string concatenation.
+
+## Anti-patterns
+
+- **`Text("Log in")`** with a raw literal instead of
+  `Text(stringResource(R.string.login_title))`.
+- **String concatenation to build a sentence**
+  (`"Hello, " + name + "!"`) instead of a single format string with a
+  placeholder — breaks for languages with different word order.
+- **Hardcoded plural logic** instead of Android's `<plurals>` resource.
+
+## Related rules
+
+- **Composable composition:** `compose-composition.mdc`
+- **Accessibility (content descriptions, also localized):** `design-tokens-accessibility.mdc`

@@ -1,6 +1,7 @@
 package dev.anilbeesetti.nextplayer.feature.videopicker.composables
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
@@ -53,6 +55,7 @@ import dev.anilbeesetti.nextplayer.core.model.isNew
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.components.NextSegmentedListItem
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
@@ -297,10 +300,33 @@ private fun ThumbnailView(
             value = video.isNew(thresholdDays = preferences.newVideoThresholdDays)
         }
     }
+    val mizuStyle = LocalMizuStyle.current
+    val thumbShape = if (mizuStyle.isNeubrutalism) {
+        RoundedCornerShape(6.dp)
+    } else {
+        MaterialTheme.shapes.small
+    }
     Box(
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
+            .clip(shape = thumbShape)
+            .then(
+                other = if (mizuStyle.isNeubrutalism) {
+                    Modifier.border(
+                        width = 1.5.dp,
+                        color = mizuStyle.borderColor,
+                        shape = thumbShape,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .background(
+                color = if (mizuStyle.isNeubrutalism) {
+                    Color(0xFFEBE6DC)
+                } else {
+                    MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                },
+            )
             .aspectRatio(ratio = 16f / 10f),
     ) {
         Icon(

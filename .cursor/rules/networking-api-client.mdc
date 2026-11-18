@@ -1,0 +1,109 @@
+---
+description: One real Retrofit + OkHttp-backed API client — auth injection, correlation id, timing log, typed errors, token-refresh via Authenticator. No ad-hoc HTTP calls at call sites.
+alwaysApply: true
+---
+
+# Networking / API client
+
+**Primary source:** OkHttp — the de facto universal HTTP engine
+underneath both Retrofit and Ktor's Android engine. Neither Retrofit nor
+Ktor is a Jetpack/Google-first-party library; this is the one layer where
+Android has no first-party option, same as iOS.
+
+**Community layer:** Retrofit + OkHttp (Interceptor + Authenticator) as
+the production-composition layer — matches Google's own "Now in Android"
+sample app's networking stack. Do not hand-roll an equivalent wrapper
+around raw OkHttp. Ktor is an ADR-gated alternative
+(`android-adr.mdc` trigger #3) for Kotlin Multiplatform requirements.
+
+## One client, not scattered calls
+
+Every network call in the app goes through a single `ApiClient`
+Retrofit interface, injected via Hilt (`dependency-injection-hilt.mdc`).
+No feature constructs its own `OkHttpClient`/`Retrofit` instance or calls
+`okHttpClient.newCall(...)` directly.
+
+```kotlin
+interface ApiClient {
+    @GET("system-status")
+    suspend fun getSystemStatus(): SystemStatusResponse
+}
+```
+
+## Live composition
+
+```kotlin
+val okHttpClient = OkHttpClient.Builder()
+    .addInterceptor(AuthInterceptor(tokenStore))
+    .addInterceptor(CorrelationIdInterceptor())
+    .addInterceptor(LoggingInterceptor(logger))
+    .authenticator(TokenAuthenticator(authRepository))
+    .build()
+```
+
+- **`AuthInterceptor`** injects `Authorization: Bearer <token>` from the
+  current session token (`security-baseline-mobile.mdc` for
+  DataStore/Keystore-backed storage).
+- **`CorrelationIdInterceptor`** injects an `X-Correlation-Id` header,
+  sourced from the same correlation id used by logging
+  (`logging-observability.mdc`) — so a single id ties a user action to
+  both the client-side log and the request the backend receives.
+- **`LoggingInterceptor`** logs method, path, status, and duration around
+  every request through the app's `AppLogger` — never `Log.d`/`println`
+  directly.
+- **`TokenAuthenticator`** (OkHttp's `Authenticator`, not a generic
+  `Interceptor` — this is the API purpose-built for 401 handling)
+  refreshes the token exactly once per concurrent burst of 401s (guard
+  with a `Mutex`, never a blocking lock, per `coroutines-flow.mdc`), then
+  retries the original request. On refresh failure, it triggers
+  `AuthRepository`'s logout path — call sites never handle 401
+  individually.
+
+## Typed errors
+
+```kotlin
+sealed class ApiError : Exception() {
+    data object Unauthorized : ApiError()
+    data class Network(val cause: Throwable) : ApiError()
+    data class Decoding(val cause: Throwable) : ApiError()
+    data class Server(val statusCode: Int, val body: String?) : ApiError()
+}
+```
+
+- The `ApiClient` wrapper (a thin `Repository`-style class, not the raw
+  Retrofit interface itself) maps every OkHttp/Retrofit failure into
+  `ApiError` — `ViewModel`s and other services never inspect raw
+  `HttpException`/`IOException` cases.
+
+## Endpoint definition
+
+- One Retrofit interface per upstream service/feature, grouped the same
+  way `project-structure-gradle.mdc` groups `core`/`feature` modules.
+- Request/response DTOs are pure data classes with a serialization
+  annotation (Moshi or kotlinx.serialization, pick one per ADR and stay
+  consistent) — no networking logic on the DTO itself.
+
+## Testing
+
+- `MockApiClient`/a fake `Repository` implementation (in the test source
+  set) returns a fixed `Result`/sealed value per test — no real network
+  calls in unit tests.
+- `TokenAuthenticator`'s single-flight behavior gets its own unit test
+  simulating concurrent 401s to prove only one refresh call fires.
+
+## Anti-patterns
+
+- **A second `OkHttpClient`/`Retrofit` instance constructed inside a
+  feature** instead of the shared Hilt-provided one.
+- **Handling 401 locally in a `ViewModel`** instead of relying on
+  `TokenAuthenticator` + `AuthRepository`'s centralized logout.
+- **Business logic inside an `Interceptor`** — interceptors stay focused
+  on cross-cutting networking concerns (auth, correlation id, logging),
+  not domain logic.
+
+## Related rules
+
+- **DI:** `dependency-injection-hilt.mdc`
+- **Logging/correlation:** `logging-observability.mdc`
+- **Auth/token storage:** `security-baseline-mobile.mdc`
+- **Coroutines (Mutex for single-flight refresh):** `coroutines-flow.mdc`

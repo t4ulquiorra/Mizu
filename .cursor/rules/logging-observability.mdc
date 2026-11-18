@@ -1,0 +1,87 @@
+---
+description: Logcat + Timber for on-device structured logging; Sentry for crash reporting and off-device log shipping. No ad-hoc println()/raw Log calls at call sites.
+alwaysApply: true
+---
+
+# Logging & observability
+
+**Primary source:** Logcat (`android.util.Log`) — Android's native
+on-device logging surface, viewable via `adb logcat`/Android Studio's
+Logcat window.
+
+**Community layer:** Timber — a thin, near-universal tagging/tree-
+redirection wrapper around `android.util.Log` (automatic tag inference,
+pluggable "trees" per build variant) — as the app-facing logging API.
+Sentry (or Crashlytics/Datadog as an ADR-gated alternative) for crash
+reporting and off-device log shipping, since Logcat output never leaves
+the device on its own. This mirrors `ios-swift-rules`' `os.Logger` +
+Sentry pairing and `python-fastapi-foundation`'s real OpenTelemetry
+`TelemetryService` — a production capability shipped on day 0, not a
+stub.
+
+## Central API
+
+- One Timber bootstrap, called once in `Application.onCreate()`: a
+  `DebugTree` in debug builds (full Logcat output), a custom
+  crash-reporting-forwarding tree in release builds (Timber's own
+  documented pattern) that forwards `WARN`/`ERROR` to Sentry instead of
+  Logcat, which is stripped in release builds anyway.
+- Every `core` service and `ViewModel` logs through `Timber.tag(...)`  —
+  never a freestanding `println()` or raw `Log.d()` call.
+
+## Correlation propagation
+
+- A correlation id is set once per significant user action (screen
+  appearance, button tap that triggers a flow) — via a `CoroutineContext`
+  element or a value threaded through the request, whichever fits the
+  call chain — and read by every log call and outgoing API request
+  during that scope. This is Android's analog to iOS's `@TaskLocal`
+  correlation id and the Next.js BFF's `root.child({ correlationId })`.
+- `networking-api-client.mdc`'s `CorrelationIdInterceptor` reads the same
+  correlation id, so a single id ties a client-side log line to the
+  exact backend request it caused.
+
+## Log levels and privacy
+
+- Use Timber's levels deliberately: `Timber.d` for verbose
+  development-only detail, `Timber.i` for normal operational events,
+  `Timber.w`/`Timber.e` for recoverable failures, and let genuinely fatal
+  conditions crash (caught by Sentry's crash reporter) rather than
+  logging and continuing in a corrupted state.
+- **Never log tokens, passwords, or full PII payloads** — release builds
+  strip `DebugTree` output entirely, but the crash-reporting tree must
+  also redact or omit sensitive fields before forwarding to Sentry.
+- Structured fields (ids, counts, statuses) are passed as explicit,
+  named values in the log message — keep the message a static
+  human-readable label and put variable values in a consistent,
+  greppable format.
+
+## Crash reporting & off-device shipping
+
+- `CrashReporting` bootstraps Sentry (or the ADR-approved alternative)
+  at launch in `Application.onCreate()`, alongside the Timber tree setup
+  — both are part of the day-0 composition root, not added later.
+- Non-fatal but noteworthy errors (a failed background sync, a repeated
+  API failure) are captured as Sentry breadcrumbs/messages, not just
+  logged locally where nobody sees them until a user files a support
+  ticket.
+- Crash reporting must respect Play Console's Data Safety declarations
+  and the runtime notification/tracking posture in
+  `privacy-permissions.mdc` — it collects diagnostic data, not
+  cross-app tracking data, and is declared accordingly.
+
+## Anti-patterns
+
+- **`println()`/raw `android.util.Log` calls** in application code —
+  always through Timber.
+- **Logging a token, password, or raw PII payload**, even at `Timber.d`
+  level.
+- **A second, competing logging framework** introduced without an ADR
+  (`android-adr.mdc` trigger #3).
+
+## Related rules
+
+- **Networking (correlation id origin):** `networking-api-client.mdc`
+- **DI:** `dependency-injection-hilt.mdc`
+- **Privacy:** `privacy-permissions.mdc`
+- **Product analytics (a separate concern from crash/log observability):** `product-analytics.mdc`

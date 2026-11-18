@@ -102,35 +102,40 @@ fun NextSegmentedListItem(
             isFirstItem,
             isLastItem,
             shapes,
+            mizuStyle.isNeubrutalism,
         ) {
-            val defaultBaseShape = shapes.shape
-            if (defaultBaseShape is CornerBasedShape) {
-                shapes.copy(
-                    shape = defaultBaseShape.copy(
-                        topStart = if (isFirstItem) {
-                            overrideShape.topStart
-                        } else {
-                            defaultBaseShape.topStart
-                        },
-                        topEnd = if (isFirstItem) {
-                            overrideShape.topEnd
-                        } else {
-                            defaultBaseShape.topEnd
-                        },
-                        bottomStart = if (isLastItem) {
-                            overrideShape.bottomStart
-                        } else {
-                            defaultBaseShape.bottomStart
-                        },
-                        bottomEnd = if (isLastItem) {
-                            overrideShape.bottomEnd
-                        } else {
-                            defaultBaseShape.bottomEnd
-                        },
-                    ),
-                )
+            if (mizuStyle.isNeubrutalism) {
+                shapes.copy(shape = overrideShape)
             } else {
-                shapes
+                val defaultBaseShape = shapes.shape
+                if (defaultBaseShape is CornerBasedShape) {
+                    shapes.copy(
+                        shape = defaultBaseShape.copy(
+                            topStart = if (isFirstItem) {
+                                overrideShape.topStart
+                            } else {
+                                defaultBaseShape.topStart
+                            },
+                            topEnd = if (isFirstItem) {
+                                overrideShape.topEnd
+                            } else {
+                                defaultBaseShape.topEnd
+                            },
+                            bottomStart = if (isLastItem) {
+                                overrideShape.bottomStart
+                            } else {
+                                defaultBaseShape.bottomStart
+                            },
+                            bottomEnd = if (isLastItem) {
+                                overrideShape.bottomEnd
+                            } else {
+                                defaultBaseShape.bottomEnd
+                            },
+                        ),
+                    )
+                } else {
+                    shapes
+                }
             }
         },
         colors = colors,

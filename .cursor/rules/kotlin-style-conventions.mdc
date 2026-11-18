@@ -1,0 +1,64 @@
+---
+description: Android Kotlin style guide + Kotlin coding conventions as the source of truth; ktlint/detekt as the enforcement layer only.
+globs: "**/*.kt"
+---
+
+# Kotlin style & conventions
+
+**Primary source:** the [Android Kotlin style
+guide](https://developer.android.com/kotlin/style-guide) and the
+[Kotlin official coding
+conventions](https://kotlinlang.org/docs/coding-conventions.html) —
+Google's and JetBrains' own guidance respectively. These are followed as
+if repeated here in their entirety; this file does not restate them, it
+points to them as the actual source of truth.
+
+**Community layer:** ktlint (implements the official Kotlin style guide
+directly — its stated philosophy is "there should be only one way to
+format code," making it more of a direct enforcement tool than a
+competing opinion) + detekt (static analysis rules beyond formatting —
+complexity, potential bugs) as the **automated enforcement layer only**.
+
+## Enforcement, not debate
+
+- `.editorconfig` (ktlint reads this) and `detekt.yml` in the foundation
+  scaffold encode the official style guide, unmodified unless a specific
+  rule conflicts with a documented project need — and that conflict gets
+  a one-line comment in the config explaining why, not a silent removal.
+- Format-on-save (ktlint) resolves style debates in PR review before they
+  happen — reviewers comment on logic and naming clarity, not brace
+  placement.
+- CI gate 1/2 (`testing-verify-flows.mdc`) runs ktlint + detekt with zero
+  tolerance for new violations; existing violations in code the PR
+  doesn't touch are not blocking.
+
+## Naming (Android Kotlin style guide highlights relevant to app code)
+
+- `UpperCamelCase` for classes/objects/interfaces, `lowerCamelCase` for
+  functions/properties/parameters, `SCREAMING_SNAKE_CASE` only for
+  top-level or companion-object `const val`s.
+- Name booleans as assertions: `isLoading`, `hasError` — never `loading`,
+  `error` (ambiguous whether it's the boolean or the value) — same
+  convention as `ios-swift-rules`' naming guidance.
+- Acronyms in names follow standard camel case (`userId`, `apiUrl`),
+  matching the Kotlin convention (unlike Swift's all-caps acronym rule) —
+  do not import Swift naming habits into Kotlin code.
+
+## Kotlin idioms adopted alongside the official style guide
+
+- Prefer `val` over `var`; prefer immutable collections
+  (`List`, `Map`) over mutable ones at API boundaries.
+- Prefer expression bodies and `when` over imperative `if`/`else` chains
+  where it improves readability — but do not force single-expression
+  functions where a multi-statement body is clearer.
+- Use data classes for simple value holders (DTOs, `UiState`); use sealed
+  interfaces/classes for closed sets of alternatives (`ApiError`,
+  `Intent`).
+- Use dedicated logging (`AppLogger`/Timber per `logging-observability.mdc`)
+  instead of `println()`/raw `Log.d` calls scattered through application
+  code.
+
+## Related rules
+
+- **Testing/CI gates:** `testing-verify-flows.mdc`
+- **Logging:** `logging-observability.mdc`

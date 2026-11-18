@@ -1,0 +1,107 @@
+---
+description: Hilt as the default DI framework — Jetpack's own official recommendation. Koin only via ADR.
+alwaysApply: true
+---
+
+# Dependency injection
+
+**Primary source:** Hilt — Jetpack's own official DI recommendation
+(`developer.android.com/training/dependency-injection`), built on Dagger
+for compile-time-validated dependency graphs. Unlike iOS, where DI is
+entirely a third-party concern, this is Google's own blessed default —
+treat it as a primary-source decision, not a community-layer one.
+
+**Community layer:** none needed for the default path. Koin is a
+legitimate alternative (Kotlin-first DSL, first-class Kotlin
+Multiplatform support) but is adopted only via an ADR
+(`android-adr.mdc` trigger #2) — e.g. a genuine KMP requirement or a
+rapid-prototyping exception — never as the default.
+
+## Design principle
+
+**One DI style for the whole app.** Every `core` service
+(`ApiClient`, `AuthRepository`, `AppLogger`, the Room database,
+`AnalyticsClient`) is provided through a Hilt module. There is no second,
+competing DI mechanism (no hand-rolled singleton object holding services,
+no `ServiceLocator`).
+
+## Modules and scopes
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule {
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        authAuthenticator: TokenAuthenticator,
+        loggingInterceptor: LoggingInterceptor,
+    ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(authInterceptor)
+        .addInterceptor(loggingInterceptor)
+        .authenticator(authAuthenticator)
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideApiClient(okHttpClient: OkHttpClient): ApiClient =
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create())
+            .build()
+            .create(ApiClient::class.java)
+}
+```
+
+- Split bindings by concern into separate `@Module`s under
+  `core/di/` — `NetworkModule`, `AuthModule`, `AnalyticsModule`,
+  `PersistenceModule` — mirroring the module boundaries in
+  `project-structure-gradle.mdc`.
+- **`@Singleton` + `@InstallIn(SingletonComponent::class)`** for
+  process-lifetime services (network client, database, analytics
+  client). **`@ViewModelScoped`** for anything that should live exactly
+  as long as the owning `ViewModel`.
+- `ViewModel`s receive dependencies through constructor injection with
+  **`@HiltViewModel`** + **`@Inject constructor`** — never a manually
+  constructed `ViewModelFactory`.
+
+## Application and Activity setup
+
+```kotlin
+@HiltAndroidApp
+class MyApplication : Application()
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity()
+```
+
+- `@HiltAndroidApp` on the `Application` subclass is the composition
+  root — nothing else bootstraps the DI graph.
+- `@AndroidEntryPoint` on any Activity/Fragment that needs field
+  injection or hosts Hilt-aware composables.
+
+## Testing
+
+- Replace production modules with `@TestInstallIn` + a test-only
+  `@Module` providing `MockApiClient`/fake `AuthRepository` — this is
+  Hilt's official testing API, not a hand-rolled override mechanism.
+- `hiltRule = HiltAndroidRule(this)` in instrumented tests; plain
+  constructor injection with manually-built fakes in JVM unit tests where
+  Hilt's test runner overhead isn't needed.
+
+## Anti-patterns
+
+- **A hand-rolled singleton object** (`object ServiceLocator { val apiClient = ... }`)
+  instead of a Hilt module — defeats testability and Hilt's compile-time
+  graph validation.
+- **`ViewModelFactory` boilerplate** instead of `@HiltViewModel`.
+- **A second DI framework** (Koin, manual constructor wiring at scale)
+  introduced without an ADR (`android-adr.mdc` trigger #2).
+
+## Related rules
+
+- **Architecture:** `architecture-udf-state.mdc`
+- **Networking:** `networking-api-client.mdc`
+- **ADR triggers:** `android-adr.mdc`

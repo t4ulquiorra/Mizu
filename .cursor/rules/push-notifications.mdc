@@ -1,0 +1,80 @@
+---
+description: Firebase Cloud Messaging registration and handling — Google's own push service.
+alwaysApply: true
+---
+
+# Push & local notifications
+
+**Primary source:** Firebase Cloud Messaging (FCM) — Google's own push
+notification service for Android, and the `NotificationManagerCompat`/
+`NotificationChannel` APIs for displaying notifications. Firebase is not
+part of AOSP, but it is unambiguously Google's own product — treat FCM as
+the primary source, the same way `push-notifications.mdc` treats APNs as
+Apple's own on iOS.
+
+## Registration
+
+- Request the runtime **`POST_NOTIFICATIONS`** permission (Android 13+)
+  **at a contextually relevant moment** in the product flow, not
+  immediately on first launch — this is both good practice and a
+  `privacy-permissions.mdc` concern.
+- Retrieve the FCM registration token
+  (`FirebaseMessaging.getInstance().token`) and forward it to a `core`
+  service that registers it with the backend through the standard
+  `ApiClient` (`networking-api-client.mdc`) — not a bespoke networking
+  path.
+- Handle token **rotation** (`FirebaseMessagingService.onNewToken`) by
+  re-registering with the backend — a token is not stable for the
+  lifetime of an install.
+
+## Notification channels
+
+- Declare `NotificationChannel`s explicitly at app startup (required on
+  Android 8+) grouped by purpose (e.g. "system-alerts", "account") —
+  not one generic channel for everything, which removes the user's
+  ability to control categories independently in system settings.
+
+## Handling incoming messages
+
+- Implement `FirebaseMessagingService.onMessageReceived` in one place (a
+  `core` service, not scattered across features).
+- **Data messages** (silent push) trigger a `WorkManager` request
+  (`app-lifecycle-background.mdc`) to refresh data through the standard
+  `ApiClient`/`AppDatabase` path — they do not bypass the app's normal
+  data-loading services.
+- **Notification tap** resolves to the same typed `AppRoute`
+  (`navigation-deep-linking.mdc`) used by App Links and App Shortcuts —
+  do not build a separate navigation path just for
+  notification-originated deep links.
+
+## Local notifications
+
+- Local notifications (reminders, timers) go through the same
+  `NotificationManagerCompat` API as remote ones; do not introduce a
+  separate local-notification abstraction.
+
+## Testing
+
+- Token-registration and message-routing logic (message payload →
+  `AppRoute`/`WorkRequest`) are unit-testable by constructing the
+  relevant data objects directly — no real FCM infrastructure needed for
+  this.
+- End-to-end delivery (an actual push arriving) is verified manually per
+  release, documented in the feature map — this is not part of the
+  automated CI suite.
+
+## Anti-patterns
+
+- **Requesting notification permission on first launch** before the user
+  has any context for why the app wants to notify them.
+- **One generic notification channel** for all notification types.
+- **A second, bespoke deep-link resolver** for notification taps instead
+  of reusing the shared `AppRoute` resolution from
+  `navigation-deep-linking.mdc`.
+
+## Related rules
+
+- **Deep linking:** `navigation-deep-linking.mdc`
+- **Background execution (WorkManager on data message):** `app-lifecycle-background.mdc`
+- **Privacy/permission prompts:** `privacy-permissions.mdc`
+- **Networking:** `networking-api-client.mdc`

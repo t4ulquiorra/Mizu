@@ -1,0 +1,115 @@
+---
+description: Which Android decisions require an ADR, the ADR template, and the growth path for ADR-gated features (Play Billing, widgets, extensions).
+alwaysApply: true
+---
+
+# Android architecture decision records
+
+**Rationale:** mobile ships to end-user devices you cannot patch on
+demand, across a much wider hardware/OS-version matrix than iOS. The *why*
+behind an architecture or SDK choice is what keeps a two-year-old app
+maintainable after the person who chose Retrofit over Ktor, or a specific
+minSdk, has moved on.
+
+## ADR triggers (mandatory)
+
+An ADR is required for any of:
+
+1. Deviating from the default **architecture** (UDF + "MVI-flavored
+   MVVM") for a specific screen or feature — e.g. adopting a strict MVI
+   library (Orbit, Mobius) for a genuinely complex, deterministic state
+   machine (`architecture-udf-state.mdc`)
+2. Adopting **Koin instead of Hilt** for dependency injection — a real
+   trade-off (Kotlin Multiplatform requirement, rapid-prototyping
+   exception), not a default (`dependency-injection-hilt.mdc`)
+3. Adopting **Ktor instead of Retrofit + OkHttp**, or introducing any new
+   third-party SDK not already named as the default in these rules — a
+   new analytics vendor, a new crash reporter, a second networking
+   library
+4. Enabling **Google Play Billing**, **App Widgets/Glance**, or a
+   **share-target intent extension** for the first time
+5. Any **minSdk**/**targetSdk** change from the constitution default
+   (minSdk 26, target/compileSdk latest stable)
+6. Introducing a **Wear OS** target — this also requires confirming
+   whether it belongs in this repo at all or needs its own rules pairing
+   (see README "Explicitly out of scope")
+7. Any **security-baseline or privacy-permissions exception** (with
+   expiry date) — e.g. disabling network security config's certificate
+   pinning for a specific domain, or falling back to the deprecated
+   `EncryptedSharedPreferences` for a legacy migration reason
+8. Changing the **module boundary** (new Gradle module, new convention
+   plugin, new `build-logic` dependency edge) once the app has grown past
+   the single-module default
+
+Not ADR-worthy: adding a new screen inside an existing feature using the
+default architecture, adding a new endpoint to the existing `ApiClient`,
+patch bumps to existing dependencies, new composables that are pure spec
+implementation with no alternatives weighed.
+
+## Override contract
+
+Any ADR that overrides a constitution default must:
+
+1. **Cite the specific product-spec requirement forcing it.** "We prefer
+   Ktor" is not a requirement; it fails review. "This module ships as a
+   Kotlin Multiplatform target shared with a future iOS build, per the
+   product roadmap" is.
+2. **Carry a review/expiry date** for exceptions (security-baseline,
+   privacy-permissions) — permanent, un-reviewed exceptions don't exist.
+
+## Template (`docs/specification/adr/NNNN-<slug>.md`)
+
+```markdown
+# ADR-NNNN: <decision>
+Status: Proposed | Accepted | Superseded by ADR-MMMM
+Date: YYYY-MM-DD    Deciders: <names>
+
+## Context
+<constraint driving the decision: product requirement, performance budget,
+platform limitation>
+
+## Options considered
+| Option | Effort | Maintenance burden | Risk | Notes |
+|---|---|---|---|---|
+
+## Decision
+
+## Consequences
+<migration path, rollback story, what becomes harder>
+```
+
+## Rules
+
+1. **Skills and agents propose, humans accept.** Generated ADRs are born
+   `Status: Proposed` with the options table filled in; a human fills
+   gaps, decides, and flips to Accepted.
+2. **ADR and the implementation land in the same PR.** An accepted ADR
+   with no implementation, or a new SDK/architecture deviation with no
+   ADR, both fail review.
+3. **ADRs are append-only.** Wrong decisions get superseded, never
+   edited — the history *is* the value.
+
+## Growth path for ADR-gated features
+
+Google Play Billing, App Widgets/Glance, and share-target intent
+extensions are not "missing" from this constitution — they are
+intentionally deferred until a product initiative needs one. When that
+happens:
+
+1. Raise an ADR using the template above, scoped to the specific feature
+   (e.g. "Adopt Google Play Billing for subscription tier X")
+2. The ADR itself carries the convention for that repo (naming, module
+   membership, testing approach) — it does not need a new `.mdc` module
+3. If the same pattern recurs across a second consumer app, propose a
+   scoped `.mdc` module upstream in `android-kotlin-rules` via PR,
+   following the same review process as any other rule change
+
+This mirrors how `ios-adr.mdc` (and, further back, `terraform-infra-rules`'
+`infra-adr.mdc`) gates flavor/topology decisions rather than hard-coding
+one answer for every consumer, and keeps the constitution from bloating
+with capabilities most apps never touch.
+
+## Related rules
+
+- **Architecture default:** `architecture-udf-state.mdc`
+- **SDD workflow:** `spec-driven-development.mdc`

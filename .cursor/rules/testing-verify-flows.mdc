@@ -1,0 +1,78 @@
+---
+description: Testing methodology — JUnit4, Compose Testing APIs v2, MockK, Turbine, Roborazzi, and the gate ladder.
+alwaysApply: true
+---
+
+# Testing & verify methodology
+
+**Primary source:** Google's own "Create a testing strategy for Android"
+agent skill (`developer.android.com/agents/skills/testing/testing-setup`)
+— JUnit4 for local and instrumented tests, Compose Testing APIs (v2) for
+UI, Espresso only if the project has Views, Robolectric to run behavior
+UI tests without a device/emulator.
+
+**Community layer:** MockK (Kotlin-first mocking — do not use Mockito on
+a Kotlin-first project), Turbine (for testing `Flow`/`StateFlow`
+emissions), and Roborazzi (screenshot/snapshot testing on top of
+Robolectric) — none Google-authored, all de facto standard.
+
+## Standard module layout
+
+```text
+app/src/
+  test/kotlin/...            # JUnit4 — logic, view models (mocked dependencies), Robolectric-backed behavior/screenshot tests
+  androidTest/kotlin/...      # Instrumented — the small, critical-journey suite on a real emulator/device
+```
+
+## Categories (separate concerns)
+
+| Category | Role | Typical invocation | Assertions |
+|----------|------|---------------------|------------|
+| **Unit** | Logic, view models — mocked `ApiClient`/`AuthRepository` via Hilt test modules | `./gradlew testDebugUnitTest` | Fast, JVM-only, no emulator |
+| **Screenshot** | Composable rendering at fixed configurations (font scale, dark mode) | Same task, Roborazzi on Robolectric | Pixel-diff against committed references |
+| **Instrumented** | Critical journeys only (login, one core flow) on a real emulator/device | `./gradlew connectedAndroidTest` | Simulator/device-driven; slow — keep this suite small |
+
+**Convention:** Do not duplicate a full login-to-detail journey in both
+screenshot and instrumented tests. Screenshot tests prove a composable
+renders correctly in isolation; instrumented tests prove the real
+navigation/DI wiring works end to end.
+
+## Gate ladder
+
+1. **Format/lint** — ktlint + detekt (Android Kotlin style guide config), zero warnings on new code
+2. **Static analysis** — `./gradlew lint` (Android Lint) alongside detekt
+3. **Build** — `./gradlew assembleDebug` for the primary module
+4. **Unit tests** — JUnit4 + MockK + Turbine, must pass before any PR merges
+5. **Screenshot tests** — Roborazzi, must pass or the PR must include updated reference images with a stated reason
+6. **Accessibility checks** — Compose's semantic tree assertions (`assertContentDescriptionEquals`, TalkBack-focus order) run at least once per critical screen
+7. **Instrumented tests** — the small, critical-journey suite
+
+**Closure (qualitative):** no numeric quotas on test count. Closure = the
+feature map is complete, as-built agrees, and every in-scope capability
+has unit and/or screenshot proof plus one instrumented-test journey if it
+is a critical path (login, primary navigation).
+
+## Configuration pattern
+
+- Mock `ApiClient` and `AuthRepository` implementations are provided via
+  Hilt's `@TestInstallIn` to replace production modules in tests — never
+  via subclassing or reflection hacks.
+- Screenshot reference images are committed to the repo; regenerate only
+  via Roborazzi's `--record` mode, never by hand-editing PNGs.
+- Instrumented tests read emulator-safe fixture data from a test-only
+  build flavor or a launch fixture — never from a live backend.
+
+## CI vs local
+
+| Layer | CI | Local |
+|-------|----|-------|
+| Format, lint, build | yes | yes |
+| Unit + screenshot tests | yes | yes |
+| Accessibility checks | yes (part of the instrumented suite) | yes |
+| Instrumented tests | yes (managed device / emulator on CI) | yes |
+
+## Related rules
+
+- **SDD workflow:** `spec-driven-development.mdc`
+- **Networking mocks:** `networking-api-client.mdc`
+- **Accessibility:** `design-tokens-accessibility.mdc`

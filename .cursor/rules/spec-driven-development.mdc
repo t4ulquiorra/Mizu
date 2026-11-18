@@ -1,0 +1,73 @@
+---
+description: Spec-driven development — truth hierarchy and same-PR discipline for Android app repos.
+alwaysApply: true
+---
+
+# Spec-driven development
+
+## Truth hierarchy (read in this order)
+
+| Priority | Location | Answers |
+|----------|----------|---------|
+| 1 | `.cursor/rules/*.mdc` (this submodule) | **How** to build |
+| 2 | `docs/specification/product/` | **What** to build |
+| 3 | `docs/specification/adr/` | **Why** (accepted decisions) |
+| 4 | `docs/specification/as-built/` | **What is live** |
+
+## Before changing behavior
+
+1. Read the relevant **product** spec (and **ADR** if architecture, module
+   boundaries, or a third-party SDK choice changes)
+2. Read **as-built** — do not assume a screen or flow is live because the
+   spec mentions it
+3. Treat accepted ADRs as immutable during implementation — supersede with
+   a new ADR when architecture changes
+
+## Same PR discipline
+
+When code changes, update together:
+
+- **product** spec (if a screen, flow, or contract changes)
+- **JUnit4/Compose Testing** unit and behavior tests per `testing-verify-flows.mdc`
+- **screenshot tests** (Roborazzi) for changed composables
+- **as-built** — verification rows; distinguish implemented / unit-tested / instrumented-tested
+- **feature map** (`app/README.md` or equivalent)
+
+## PR traceability
+
+Every PR should name (see repo `.github/pull_request_template.md` when
+present):
+
+- **Initiative** (e.g. board epic or program id)
+- **Issue #**
+- **Spec paths** touched
+- **Verify command** run (e.g. `./gradlew testDebugUnitTest` or the
+  emulator smoke steps documented in the feature map)
+
+## Constitution boundary
+
+- Do **not** put product requirements, screen catalogs, or upstream
+  service URLs in **`.cursor/rules/`**
+- Do **not** treat narrative docs as the primary contract when a product
+  spec exists
+- Do **not** infer implementation maturity from rules or specs without
+  checking **as-built**
+- Do **not** redesign accepted architecture opportunistically in an
+  implementation task
+- Do **not** introduce a new third-party SDK (analytics vendor, crash
+  reporter, DI framework other than Hilt) without an ADR — see
+  `android-adr.mdc`
+
+## Execution chat rule
+
+- Architecture and spec design happen in dedicated design chats
+- Implementation chats execute one accepted ADR or one accepted phase
+  slice at a time
+- Implementation prompts should explicitly name the ADR or phase being
+  executed
+
+## Related rules
+
+- **ADR process:** `android-adr.mdc`
+- **Testing methodology:** `testing-verify-flows.mdc`
+- **Architecture:** `architecture-udf-state.mdc`

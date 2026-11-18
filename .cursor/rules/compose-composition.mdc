@@ -1,0 +1,85 @@
+---
+description: Composable decomposition conventions — Jetpack Compose is the strongly-recommended UI toolkit; no business logic in composable bodies.
+alwaysApply: true
+---
+
+# Compose composition
+
+**Primary source:** Jetpack Compose — Google's "strongly recommended"
+UI toolkit for phones, tablets, foldables, and Wear OS
+(`developer.android.com/topic/architecture/recommendations`). Views/XML
+is a documented, ADR-gated escape hatch (`android-adr.mdc`) for
+interop with a legacy screen or a library with no Compose equivalent yet
+— not the default.
+
+**Community layer:** composable decomposition conventions below are this
+constitution's own pattern, not a third-party library.
+
+## Composable decomposition
+
+- A screen-level composable's body should read as a small tree of named
+  composables, not a single large function with deep nesting. If a
+  composable needs a comment to explain a section, extract that section
+  into its own composable.
+- Extract a composable when: it's reused, it has its own meaningful
+  state, or the parent composable is hard to scan at a glance — not
+  purely by line count.
+- **Composables own layout and presentation only.** Data loading,
+  formatting logic beyond trivial display formatting, and business rules
+  belong in the `ViewModel` (`architecture-udf-state.mdc`) or a `core`
+  service.
+
+## State hoisting
+
+- Follow Compose's state-hoisting principle: a composable that needs to
+  report an event takes a lambda parameter (`onSubmit: () -> Unit`); it
+  does not reach into a `ViewModel` or Hilt-injected dependency itself
+  unless it *is* the screen-level composable that owns that `ViewModel`.
+- `remember`/`rememberSaveable` for view-local, UI-only state (is a
+  dialog shown, scroll position) that doesn't belong in the screen's
+  `UiState`.
+- **Do not** duplicate state between a composable and the `ViewModel`'s
+  `UiState` — the `UiState` is the single source of truth once one
+  exists for that screen.
+
+## Reusable components
+
+- Shared, presentation-only composables (buttons, cards, empty/error
+  states) live in `designsystem/`, styled from Material 3 tokens
+  (`design-tokens-accessibility.mdc`) — not re-implemented per feature.
+- A reusable composable takes data and lambdas as parameters; it does
+  not reach into `core` services or Hilt injection itself — only
+  screen-level composables do that.
+
+## Previews
+
+- Every non-trivial composable ships a `@Preview` using fixture data —
+  previews are part of day-0 quality, not an afterthought, since they're
+  the fastest feedback loop Android Studio offers.
+
+## Performance
+
+- Pass stable/immutable data classes as composable parameters so
+  Compose's recomposition skipping works correctly — avoid passing
+  mutable `List`/lambdas that are recreated on every recomposition
+  without `remember`.
+- Use `LazyColumn`/`LazyRow` with a stable `key` per item for any
+  scrollable collection — an unkeyed list forces unnecessary
+  recomposition on reorder.
+
+## Anti-patterns
+
+- **Massive composable functions** with inline `if`/`when` chains and
+  formatting logic all in one body.
+- **Business logic in a composable's body or click lambda** (e.g.
+  parsing a response, deciding retry logic) instead of delegating to the
+  `ViewModel`.
+- **A composable directly injecting a Hilt dependency** unless it is the
+  screen-level composable that legitimately owns that dependency's
+  `ViewModel`.
+
+## Related rules
+
+- **Architecture:** `architecture-udf-state.mdc`
+- **Design tokens:** `design-tokens-accessibility.mdc`
+- **Localization:** `no-hardcoded-strings.mdc`

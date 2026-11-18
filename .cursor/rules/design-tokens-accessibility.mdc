@@ -1,0 +1,75 @@
+---
+description: Material 3 design tokens + TalkBack/scalable-text accessibility, semantic tokens over raw values.
+globs: "**/*.kt"
+---
+
+# Design tokens & accessibility
+
+**Primary source:** Material 3 (`MaterialTheme`, `ColorScheme`,
+`Typography`) for design tokens, plus Compose's semantics APIs
+(`contentDescription`, `Modifier.semantics`, scalable `sp` text units)
+and TalkBack — all Google-native.
+
+**Community layer:** semantic token naming convention below, mirroring
+the same intent as `ios-swift-rules`' `design-tokens-accessibility.mdc`
+— not a third-party token library.
+
+## Semantic tokens, not raw values
+
+- Colors, spacing, and typography are referenced through
+  `MaterialTheme.colorScheme`/`MaterialTheme.typography`/a semantic
+  `Spacing` object defined once in `designsystem/` — never raw hex
+  literals (`Color(0xFF...)`) or magic `dp` numbers scattered across
+  features.
+- Define the app's color scheme via Material 3's `ColorScheme` (ideally
+  generated from a source color with `dynamicColorScheme`/Material You
+  support) rather than hard-coded per-composable colors — this also
+  gets light/dark mode handled for free.
+
+## Scalable text
+
+- Use `sp` units (not `dp`) for all text sizes so they scale with the
+  user's system font size setting — never a fixed `dp`-based text size.
+- Test layouts at the largest system font scale during development, not
+  only at the default scale — this is the single most common
+  accessibility regression in Compose apps, same as iOS's Dynamic Type
+  gap.
+
+## TalkBack
+
+- Every interactive element has a meaningful `contentDescription` —
+  icon-only `IconButton`s especially, since TalkBack otherwise reads the
+  icon's resource name or nothing at all.
+- Group decorative/redundant child elements with
+  `Modifier.semantics(mergeDescendants = true)` so TalkBack doesn't read
+  a card's contents as disconnected fragments.
+- Purely decorative images use `contentDescription = null` explicitly —
+  do not leave TalkBack announcing meaningless decoration, and do not
+  leave the parameter unset (which is a lint warning, not a deliberate
+  choice).
+
+## Accessibility checks (Compose-native, zero third-party)
+
+- Use Compose's semantic-tree test assertions
+  (`assertContentDescriptionEquals`, `onNodeWithContentDescription`) in
+  at least one instrumented test per critical screen
+  (`testing-verify-flows.mdc` gate 6) — this catches missing
+  content descriptions programmatically instead of a manual checklist.
+- Minimum tappable target size is 48x48dp per Material Design guidance —
+  `Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)` on custom
+  controls that are visually smaller than that.
+
+## Anti-patterns
+
+- **Raw `Color(0xFF...)` or hex strings** inline in a composable instead
+  of a `MaterialTheme.colorScheme` reference.
+- **Fixed `dp`-based text sizing** instead of `sp`.
+- **Icon-only `IconButton`s with no `contentDescription`.**
+- **Skipping the semantic-tree accessibility assertions** in CI instead
+  of fixing the underlying issue they'd flag.
+
+## Related rules
+
+- **Composable composition:** `compose-composition.mdc`
+- **Testing:** `testing-verify-flows.mdc`
+- **Localization:** `no-hardcoded-strings.mdc`

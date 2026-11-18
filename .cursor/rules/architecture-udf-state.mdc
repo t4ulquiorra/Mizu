@@ -1,0 +1,119 @@
+---
+description: Google's UDF as the default architecture; "MVI-flavored MVVM" naming convention on top; strict MVI libraries as an ADR-gated escape hatch.
+alwaysApply: true
+---
+
+# Architecture & state management
+
+**Primary source:** Google's own Unidirectional Data Flow (UDF) guidance
+(`developer.android.com/topic/architecture/ui-layer`,
+`.../recommendations`). Google deliberately avoids mandating a named
+pattern like "MVI" — the requirement is the principle: **state flows
+down, events flow up**, `ViewModel` holds and exposes `StateFlow<UiState>`
+and survives configuration changes automatically.
+
+**Community layer:** the "MVI-flavored MVVM" naming convention — a
+`UiState` data/sealed class, an `Intent`/`Event` sealed class for inbound
+actions, and an optional one-shot `Effect` channel for navigation/snackbar
+side effects — layered on top of Google's `ViewModel` for team
+consistency. This is not a library; it's a naming convention every
+screen follows.
+
+## Default: `ViewModel` + `StateFlow<UiState>` + Intent
+
+```kotlin
+data class LoginUiState(
+    val email: String = "",
+    val password: String = "",
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+)
+
+sealed interface LoginIntent {
+    data class EmailChanged(val value: String) : LoginIntent
+    data class PasswordChanged(val value: String) : LoginIntent
+    data object Submit : LoginIntent
+}
+
+@HiltViewModel
+class LoginViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(LoginUiState())
+    val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    fun onIntent(intent: LoginIntent) {
+        when (intent) {
+            is LoginIntent.EmailChanged -> _uiState.update { it.copy(email = intent.value) }
+            is LoginIntent.PasswordChanged -> _uiState.update { it.copy(password = intent.value) }
+            LoginIntent.Submit -> submit()
+        }
+    }
+
+    private fun submit() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            authRepository.login(_uiState.value.email, _uiState.value.password)
+                .onSuccess { _uiState.update { it.copy(isLoading = false) } }
+                .onFailure { _uiState.update { it.copy(isLoading = false, errorMessage = it.toString()) } }
+        }
+    }
+}
+```
+
+- **`ViewModel`s own presentation state and orchestration**, not business
+  logic that belongs in a `core` service (`AuthRepository`, `ApiClient`).
+- **A single `Intent` entry point** (`onIntent`) rather than the UI calling
+  many separate `viewModel.doThing()` functions directly — makes logging
+  and debugging "what is happening right now" drastically easier.
+- **Composables own layout**, not state derivation — the `ViewModel`
+  decides what the `UiState` looks like; the composable just renders it.
+
+## One-shot events
+
+Per Google's own explicit guidance
+(`developer.android.com/topic/architecture/ui-layer/events`): reduce
+one-off `ViewModel` events (navigation, snackbar) to a `UiState` field
+rather than a `Channel`/`SharedFlow` the UI might miss if it outlives the
+producer. If a one-shot channel is genuinely needed, document why in the
+screen's spec.
+
+## Use `ViewModel`s at screen level only
+
+- Use `ViewModel` in screen-level composables or navigation
+  destinations/graphs — **not** in reusable pieces of UI.
+- For complex, dynamic composables that need their own state scope, use
+  `rememberViewModelStoreOwner()` rather than reaching for a screen-level
+  `ViewModel`.
+- **Do not use `AndroidViewModel`.** Use the plain `ViewModel` class; move
+  any dependency on `Application`/`Context` to `core` services injected
+  via Hilt instead.
+
+## When UDF-as-written is not enough (ADR-gated)
+
+Adopt a strict MVI library (Orbit, Mobius) only when a specific screen's
+product spec requires deterministic, exhaustively-testable state
+transitions (e.g. a multi-step wizard with undo/redo) — and only after an
+ADR per `android-adr.mdc` trigger #1. Do not adopt one wholesale for an
+entire app "for consistency" without that trigger.
+
+| Pattern | Default? | Trigger to adopt |
+|---|---|---|
+| `ViewModel` + `StateFlow<UiState>` + Intent | Yes | N/A — starting point |
+| Strict MVI library (Orbit, Mobius) | No | A specific screen's state machine must be exactly reproducible/testable |
+
+## Anti-patterns
+
+- **Business logic, networking calls, or formatting logic inline in a
+  composable** — extract to the `ViewModel` or a `core` service.
+- **`ViewModel` events exposed via `Channel`/`SharedFlow`** for anything
+  that should just be `UiState` — see the one-shot events section above.
+- **Calling multiple `viewModel.fetchX()`/`viewModel.doY()` methods
+  directly from the UI** instead of a single `onIntent` entry point.
+
+## Related rules
+
+- **Project structure:** `project-structure-gradle.mdc`
+- **DI:** `dependency-injection-hilt.mdc`
+- **Navigation:** `navigation-deep-linking.mdc`
+- **Composable composition:** `compose-composition.mdc`

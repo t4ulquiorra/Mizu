@@ -1,0 +1,96 @@
+---
+description: Index of Android/Kotlin guideline rules (modular MDC topics).
+alwaysApply: true
+---
+
+# Code guideline modules (index)
+
+These **`.mdc`** files govern **architectural patterns** for native
+Android apps. They live in the **`android-kotlin-rules`** repository and
+are consumed via a **git submodule** at each app repo's
+**`.cursor/rules/`** (this directory when mounted).
+
+**Product-specific** requirements, ADRs, screen catalogs, and env URLs
+belong in each app repo under **`docs/specification/`** and **README** —
+not in this package.
+
+## Sourcing principle
+
+Every rule below names its **primary source** first. Where Google/AOSP has
+an official position (an Android Developers architecture guide, the
+Kotlin coding conventions, a Jetpack library's own docs, Material 3),
+that is the primary source and is never contradicted by a third-party
+convention. Third-party libraries (Retrofit, Timber, Sentry, PostHog,
+MockK, Turbine, Roborazzi) are the **production-composition or
+enforcement layer on top** — adopted because they solve a real problem
+better than a hand-rolled equivalent, not because Google lacks an
+opinion. Where Google genuinely has no first-party option (networking has
+none), the module says so rather than inventing a source.
+
+Android's ecosystem is more first-party than iOS's in several places:
+**Hilt** (DI), **Room** (persistence), **WorkManager** (background work),
+and **Navigation Compose** (routing) are all Jetpack's own official
+recommendations.
+
+## Process rules (this package)
+
+| File | Topic |
+|------|--------|
+| **`spec-driven-development.mdc`** | SDD truth hierarchy, as-built discipline, PR traceability |
+| **`testing-verify-flows.mdc`** | JUnit4 / Compose Testing / MockK / Turbine methodology, gate ladder |
+| **`android-adr.mdc`** | ADR triggers, template, and the growth path for ADR-gated features |
+
+## Architectural rules (this package)
+
+| File | Topic |
+|------|--------|
+| **`project-structure-gradle.mdc`** | Gradle + version catalogs as the base; convention plugins as an optional modularization layer |
+| **`architecture-udf-state.mdc`** | Google's UDF (state down, events up); `ViewModel` + `StateFlow<UiState>`; "MVI-flavored MVVM" convention |
+| **`dependency-injection-hilt.mdc`** | Hilt as the default DI framework; Koin only via ADR |
+| **`coroutines-flow.mdc`** | Kotlin Coroutines, structured concurrency, `Flow`/`StateFlow` |
+| **`networking-api-client.mdc`** | Retrofit + OkHttp composition (Interceptor + Authenticator); typed errors |
+| **`persistence-room.mdc`** | Room as the default local persistence |
+| **`app-lifecycle-background.mdc`** | Activity/Process lifecycle, `ViewModel` scoping, WorkManager |
+| **`navigation-deep-linking.mdc`** | Navigation Compose, App Links, App Actions/Shortcuts |
+| **`push-notifications.mdc`** | Firebase Cloud Messaging registration and handling |
+| **`compose-composition.mdc`** | Composable decomposition, state hoisting, no logic in composables |
+| **`design-tokens-accessibility.mdc`** | Material 3 tokens, TalkBack, scalable text, accessibility checks |
+| **`kotlin-style-conventions.mdc`** | Android Kotlin style guide; ktlint + detekt enforcement |
+| **`logging-observability.mdc`** | Logcat + Timber, Sentry crash reporting |
+| **`no-hardcoded-strings.mdc`** | String resources (`strings.xml`) + Compose `stringResource()` |
+| **`security-baseline-mobile.mdc`** | DataStore + Keystore (Tink), BiometricPrompt, network security config |
+| **`privacy-permissions.mdc`** | Runtime permissions, Play Console Data Safety |
+| **`product-analytics.mdc`** | Event-tracking convention; PostHog default, Firebase Analytics ADR-gated alternative |
+
+## Explicitly out of scope (see README + `android-adr.mdc`)
+
+Release-pipeline mechanics, a handful of product-specific feature
+categories, and other-platform companion apps are intentionally not
+covered here — see the README's "Explicitly out of scope" table and
+`android-adr.mdc`'s growth path for how a scoped addition gets adopted
+when a product actually needs one.
+
+## Per-repository product documentation
+
+Each app repo should provide (not in this package):
+
+| Path | Purpose |
+|------|---------|
+| **`docs/specification/product/`** | Requirements, capabilities, features |
+| **`docs/specification/adr/`** | Architecture decision records |
+| **`docs/specification/as-built/`** | What is live today |
+| **`app/README.md`** or a **`Tests/README.md`**-equivalent | Verify/debug commands, feature map |
+| **`README.md`** | Setup, run commands |
+
+## Cross-project conventions
+
+- **Do not** add product features or screen names to shared **`.mdc`** files — extend **`docs/specification/`** in the consumer repo.
+- **Do not** edit **`.cursor/rules/`** in consumer repos — propose changes via PR on the upstream `android-kotlin-rules` repository.
+- **Do not** add release/signing/CI-pipeline content to **`.mdc`** files — enforced by `scripts/check_mdc_boundary.sh`.
+- **No emojis** in code, logs, or UI copy; use Logcat priority levels (`Log.d`/`Log.i`/`Log.w`/`Log.e`) via Timber instead of emoji status markers.
+
+## Where to start
+
+1. **`architecture-udf-state.mdc`** and **`dependency-injection-hilt.mdc`** for structure and composition.
+2. **`spec-driven-development.mdc`** before changing any behavior.
+3. Consumer repo **`docs/specification/`** when the task changes behavior, screens, or integrations.

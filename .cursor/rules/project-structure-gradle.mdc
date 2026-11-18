@@ -1,0 +1,86 @@
+---
+description: Gradle + version catalogs as the base project format; convention plugins as an optional modularization layer once module count justifies it.
+alwaysApply: true
+---
+
+# Project structure
+
+**Primary source:** Gradle with Kotlin DSL and version catalogs
+(`gradle/libs.versions.toml`) — Android's own current default for
+dependency and plugin management (`developer.android.com/build/migrate-to-catalogs`).
+
+**Community layer:** none needed for the base — version catalogs are a
+Gradle/Android Studio-native mechanism. Convention plugins (an included
+`build-logic` build) are an optional modularization layer once module
+count and team size justify it; this pattern is documented by Google
+but not enforced by tooling the way Hilt or Room are.
+
+## Default layout (single module, day 0)
+
+```text
+<app>/
+  gradle/libs.versions.toml   # single source of truth for dependency + plugin versions
+  app/
+    build.gradle.kts
+    src/main/kotlin/<package>/
+      MainActivity.kt
+      core/
+        logging/
+        network/
+        auth/
+        analytics/
+        persistence/
+        navigation/
+        di/                    # Hilt modules
+      feature/
+        login/
+        <feature>/
+      designsystem/
+    src/test/kotlin/...        # JUnit4 + MockK + Turbine + Roborazzi
+    src/androidTest/kotlin/... # instrumented critical-journey suite
+```
+
+## When to introduce convention plugins / build-logic
+
+Introduce an included `build-logic` build (via an ADR, per
+`android-adr.mdc`) when **any** of:
+
+- The app has grown past ~3 feature modules and copy-pasted
+  `build.gradle.kts` boilerplate is visibly drifting between modules
+- More than 2 engineers are regularly touching shared build configuration
+- A feature module needs to be built/tested in isolation for CI
+  parallelization
+
+**Do not** use `buildSrc` for this — it invalidates the entire build
+cache on any change. Use an included build (`build-logic`) so build-logic
+changes don't force a full project recompilation.
+
+## Module boundary rules
+
+- **`core/*`** modules never import from **`feature/*`**. If a core
+  service needs feature-specific behavior, invert the dependency
+  (interface in core, implementation in the feature).
+- **`feature/<A>`** does not depend on **`feature/<B>`** directly. Shared
+  behavior between features moves to `core/` or `designsystem/`.
+- **`app`** is the only module allowed to wire feature entry points
+  together (via Hilt's `@AndroidEntryPoint`/`@HiltAndroidApp` and the
+  navigation graph).
+- Prefer `implementation` over `api` for module dependencies to minimize
+  recompilation of downstream modules when an internal detail changes.
+- Changing this graph (new Gradle module, new convention plugin) once
+  established requires an ADR (`android-adr.mdc` trigger #8).
+
+## Dependency pinning
+
+- Every dependency and plugin version lives in `gradle/libs.versions.toml`
+  — never a hardcoded version string in a module's `build.gradle.kts`.
+- **KSP, not KAPT**, for annotation processing (Hilt, Room) — KAPT is
+  deprecated and meaningfully slower.
+- Review and bump dependency versions deliberately; do not enable
+  automatic dependency updates unreviewed in CI.
+
+## Related rules
+
+- **Architecture:** `architecture-udf-state.mdc`
+- **DI:** `dependency-injection-hilt.mdc`
+- **ADR triggers:** `android-adr.mdc`

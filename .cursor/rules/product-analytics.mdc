@@ -1,0 +1,90 @@
+---
+description: Vendor-agnostic event-tracking convention; PostHog as the day-0 default (analytics + feature flags in one SDK), Firebase Analytics as a stronger ADR-gated alternative than iOS had.
+alwaysApply: true
+---
+
+# Product analytics & feature flags
+
+**Primary source:** Firebase Analytics is a legitimate Google-first
+option here — unlike iOS, where App Store Connect's "App Analytics" is
+view-only with no custom event API, Firebase Analytics (Google's own
+product) does support custom events. This is a genuine asymmetry from
+`ios-swift-rules`' equivalent module, worth knowing rather than
+mechanically copying the iOS framing.
+
+**Why PostHog is still the proposed default despite that:** almost every
+production app tracks product usage from day one — nearly as universal
+as crash reporting (`logging-observability.mdc`), which is also a day-0
+module. PostHog combines product analytics, feature flags, and session
+replay in a single SDK, avoiding the SDK-bloat and user-id-stitching
+problems of running Firebase Analytics + a separate feature-flag vendor.
+It's also the same vendor already proposed for `ios-swift-rules`, which
+keeps cross-platform product analytics on one vendor if a team ships
+both an iOS and Android app from this lab's stacks.
+
+## Default: PostHog
+
+```kotlin
+val config = PostHogAndroidConfig(apiKey = BuildConfig.POSTHOG_API_KEY)
+PostHogAndroid.setup(context, config)
+```
+
+**ADR-gated alternative:** Firebase Analytics, when a team is already
+Firebase-anchored for auth/push (FCM)/Crashlytics and wants to avoid
+adding a second vendor ecosystem — a stronger case on Android than the
+equivalent iOS decision, since Firebase Analytics's custom-event API is
+genuinely comparable to PostHog's here. Document the trade-off (Firebase
+lacks session replay; feature flags are a separate product, Remote
+Config) in the ADR.
+
+## Event-tracking convention (vendor-agnostic)
+
+Route every analytics call through a thin `AnalyticsClient` interface —
+same posture as `ApiClient` (`networking-api-client.mdc`) — so the vendor
+is swappable behind one seam if an ADR changes it later:
+
+```kotlin
+interface AnalyticsClient {
+    fun track(event: AnalyticsEvent)
+    fun isFeatureEnabled(flag: FeatureFlag): Boolean
+}
+```
+
+- **Event names** are a closed sealed class (`AnalyticsEvent`), not
+  free-form strings scattered across features — prevents typos
+  fragmenting a funnel across two slightly different event name
+  spellings.
+- **No PII in event properties** — user ids are the vendor's
+  anonymous/pseudonymous distinct-id mechanism, not raw email addresses
+  or names. Cross-reference `privacy-permissions.mdc`'s Play Console Data
+  Safety declaration before adding any new event property that could be
+  considered tracking data.
+- Feature flags are read through the same `AnalyticsClient` seam
+  (`isFeatureEnabled`), evaluated locally where the SDK supports it
+  (PostHog does) for performance — not a bespoke remote-config client
+  built separately from the analytics vendor.
+
+## Testing
+
+- A fake `AnalyticsClient` (in the test source set) records tracked
+  events for assertion in unit tests — no real network calls to the
+  analytics vendor in CI.
+- Feature-flag-gated code paths are tested with both flag states via the
+  fake, not only the currently-enabled default.
+
+## Anti-patterns
+
+- **Calling the PostHog (or any vendor) SDK directly from a composable
+  or `ViewModel`** instead of through `AnalyticsClient`.
+- **Free-form string event names** instead of the closed
+  `AnalyticsEvent` sealed class.
+- **Logging PII as an event property** — see `privacy-permissions.mdc`.
+- **A second analytics/feature-flag vendor added alongside the first**
+  without an ADR and a stated reason (SDK bloat, data consistency).
+
+## Related rules
+
+- **Privacy:** `privacy-permissions.mdc`
+- **Crash reporting (a separate concern):** `logging-observability.mdc`
+- **DI:** `dependency-injection-hilt.mdc`
+- **ADR triggers:** `android-adr.mdc`
