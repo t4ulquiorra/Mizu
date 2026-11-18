@@ -22,7 +22,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.anilbeesetti.nextplayer.core.model.AppSkin
@@ -62,11 +61,8 @@ data class MizuStyle(
 
 val LocalMizuStyle = staticCompositionLocalOf { MizuStyle() }
 
-fun getMizuStyle(
-    skin: AppSkin,
-    isDark: Boolean,
-): MizuStyle {
-    return if (skin == AppSkin.NEUBRUTALISM) {
+fun getMizuStyle(skin: AppSkin, isDark: Boolean): MizuStyle =
+    if (skin == AppSkin.NEUBRUTALISM) {
         if (isDark) {
             MizuStyle(
                 skin = skin,
@@ -117,7 +113,6 @@ fun getMizuStyle(
             cardBackground = Color.Transparent,
         )
     }
-}
 
 /**
  * Applies a hard zero-blur offset shadow and solid ink outline when in Neubrutalism style.
@@ -134,9 +129,18 @@ fun Modifier.neoShadow(
         val offsetPx = offset.toPx()
         drawRoundRect(
             color = shadowColor,
-            topLeft = Offset(offsetPx, offsetPx),
-            size = Size(size.width, size.height),
-            cornerRadius = CornerRadius(cornerPx, cornerPx),
+            topLeft = Offset(
+                x = offsetPx,
+                y = offsetPx,
+            ),
+            size = Size(
+                width = size.width,
+                height = size.height,
+            ),
+            cornerRadius = CornerRadius(
+                x = cornerPx,
+                y = cornerPx,
+            ),
         )
     }
 }
@@ -178,7 +182,10 @@ fun Modifier.neoClickable(
             cornerRadius = mizuStyle.cornerRadius,
             enabled = true,
         )
-        .offset(x = currentOffset, y = currentOffset)
+        .offset(
+            x = currentOffset,
+            y = currentOffset,
+        )
         .border(
             width = mizuStyle.borderWidth,
             color = mizuStyle.borderColor,
