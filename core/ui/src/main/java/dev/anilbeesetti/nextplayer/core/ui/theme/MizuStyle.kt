@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -56,7 +57,7 @@ data class MizuStyle(
     val cardBackground: Color = Color.White,
 ) {
     val isNeubrutalism: Boolean get() = skin == AppSkin.NEUBRUTALISM
-    val shape: Shape get() = RoundedCornerShape(cornerRadius)
+    val shape: CornerBasedShape get() = RoundedCornerShape(cornerRadius)
 }
 
 val LocalMizuStyle = staticCompositionLocalOf { MizuStyle() }

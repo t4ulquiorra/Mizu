@@ -47,7 +47,7 @@ fun NextSegmentedListItem(
     interactionSource: MutableInteractionSource? = null,
 ) {
     val mizuStyle = LocalMizuStyle.current
-    val overrideShape = if (mizuStyle.isNeubrutalism) {
+    val overrideShape: CornerBasedShape = if (mizuStyle.isNeubrutalism) {
         mizuStyle.shape
     } else {
         MaterialTheme.shapes.large
@@ -107,17 +107,26 @@ fun NextSegmentedListItem(
             if (defaultBaseShape is CornerBasedShape) {
                 shapes.copy(
                     shape = defaultBaseShape.copy(
-                        topStart =
-                            overrideShape.topStart.takeIf { isFirstItem }
-                                ?: defaultBaseShape.topStart,
-                        topEnd =
-                            overrideShape.topEnd.takeIf { isFirstItem } ?: defaultBaseShape.topEnd,
-                        bottomStart =
-                            overrideShape.bottomStart.takeIf { isLastItem }
-                                ?: defaultBaseShape.bottomStart,
-                        bottomEnd =
-                            overrideShape.bottomEnd.takeIf { isLastItem }
-                                ?: defaultBaseShape.bottomEnd,
+                        topStart = if (isFirstItem) {
+                            overrideShape.topStart
+                        } else {
+                            defaultBaseShape.topStart
+                        },
+                        topEnd = if (isFirstItem) {
+                            overrideShape.topEnd
+                        } else {
+                            defaultBaseShape.topEnd
+                        },
+                        bottomStart = if (isLastItem) {
+                            overrideShape.bottomStart
+                        } else {
+                            defaultBaseShape.bottomStart
+                        },
+                        bottomEnd = if (isLastItem) {
+                            overrideShape.bottomEnd
+                        } else {
+                            defaultBaseShape.bottomEnd
+                        },
                     ),
                 )
             } else {
