@@ -62,56 +62,56 @@ data class MizuStyle(
 val LocalMizuStyle = staticCompositionLocalOf { MizuStyle() }
 
 fun getMizuStyle(skin: AppSkin, isDark: Boolean): MizuStyle = if (skin == AppSkin.NEUBRUTALISM) {
-        if (isDark) {
-            MizuStyle(
-                skin = skin,
-                isDark = true,
-                borderWidth = 2.dp,
-                borderColor = MizuInkDark,
-                shadowOffset = 3.dp,
-                shadowColor = MizuShadowDark,
-                cornerRadius = 10.dp,
-                accentFolder = MizuSunYellow,
-                accentVideo = MizuAqua,
-                accentAudio = MizuLavender,
-                accentPlaylist = MizuLime,
-                accentMore = MizuCoral,
-                cardBackground = MizuSurfaceDark,
-            )
-        } else {
-            MizuStyle(
-                skin = skin,
-                isDark = false,
-                borderWidth = 2.dp,
-                borderColor = MizuInk,
-                shadowOffset = 3.dp,
-                shadowColor = MizuInk,
-                cornerRadius = 10.dp,
-                accentFolder = MizuSunYellow,
-                accentVideo = MizuAqua,
-                accentAudio = MizuLavender,
-                accentPlaylist = MizuLime,
-                accentMore = MizuCoral,
-                cardBackground = Color.White,
-            )
-        }
-    } else {
+    if (isDark) {
         MizuStyle(
             skin = skin,
-            isDark = isDark,
-            borderWidth = 0.dp,
-            borderColor = Color.Transparent,
-            shadowOffset = 0.dp,
-            shadowColor = Color.Transparent,
-            cornerRadius = 16.dp,
+            isDark = true,
+            borderWidth = 2.dp,
+            borderColor = MizuInkDark,
+            shadowOffset = 3.dp,
+            shadowColor = MizuShadowDark,
+            cornerRadius = 10.dp,
             accentFolder = MizuSunYellow,
             accentVideo = MizuAqua,
             accentAudio = MizuLavender,
             accentPlaylist = MizuLime,
             accentMore = MizuCoral,
-            cardBackground = Color.Transparent,
+            cardBackground = MizuSurfaceDark,
+        )
+    } else {
+        MizuStyle(
+            skin = skin,
+            isDark = false,
+            borderWidth = 2.dp,
+            borderColor = MizuInk,
+            shadowOffset = 3.dp,
+            shadowColor = MizuInk,
+            cornerRadius = 10.dp,
+            accentFolder = MizuSunYellow,
+            accentVideo = MizuAqua,
+            accentAudio = MizuLavender,
+            accentPlaylist = MizuLime,
+            accentMore = MizuCoral,
+            cardBackground = Color.White,
         )
     }
+} else {
+    MizuStyle(
+        skin = skin,
+        isDark = isDark,
+        borderWidth = 0.dp,
+        borderColor = Color.Transparent,
+        shadowOffset = 0.dp,
+        shadowColor = Color.Transparent,
+        cornerRadius = 16.dp,
+        accentFolder = MizuSunYellow,
+        accentVideo = MizuAqua,
+        accentAudio = MizuLavender,
+        accentPlaylist = MizuLime,
+        accentMore = MizuCoral,
+        cardBackground = Color.Transparent,
+    )
+}
 
 /**
  * Applies a hard zero-blur offset shadow and solid ink outline when in Neubrutalism style.
