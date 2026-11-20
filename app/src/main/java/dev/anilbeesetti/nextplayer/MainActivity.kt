@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntryDecorator
@@ -196,7 +197,7 @@ class MainActivity : FragmentActivity() {
                 }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    color = CrateTheme.colors.bgBase,
                 ) {
                     val navState = rememberTopLevelNavState()
 
@@ -358,7 +359,7 @@ fun NavigationLayout(
                     )
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = CrateTheme.colors.bgBase,
             contentWindowInsets = WindowInsets(0.dp),
             content = {
                 Box(

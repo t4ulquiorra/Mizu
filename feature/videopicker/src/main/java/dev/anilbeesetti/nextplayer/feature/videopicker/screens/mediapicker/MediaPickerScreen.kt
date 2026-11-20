@@ -115,7 +115,9 @@ import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
 import dev.anilbeesetti.nextplayer.core.ui.preview.DayNightPreview
 import dev.anilbeesetti.nextplayer.core.ui.preview.VideoPickerPreviewParameterProvider
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.CenterCircularProgressBar
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.MediaInfoDialog
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.MediaView
@@ -230,14 +232,35 @@ internal fun MediaPickerScreenContent(
         topBar = {
             NextTopAppBar(
                 title = {
-                    val titleText = (state.folderName ?: stringResource(R.string.app_name))
-                        .takeIf { !selectionManager.isInSelectionMode } ?: ""
-                    Text(
-                        text = titleText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.Bold.takeIf { state.folderName == null },
-                    )
+                    if (!selectionManager.isInSelectionMode) {
+                        Column {
+                            Text(
+                                text = state.folderName ?: "THE CRATE",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = if (state.folderName == null) {
+                                    CrateTheme.typography.titleLarge
+                                } else {
+                                    CrateTheme.typography.titleMedium
+                                },
+                                color = CrateTheme.colors.inkPrimary,
+                            )
+                            val holder = (state.mediaDataState as? DataState.Success)?.value
+                            if (state.folderName == null) {
+                                val count = holder?.folders?.size ?: 0
+                                CrateMonoBreadcrumb(
+                                    section = "LIBRARY",
+                                    count = "$count FOLDERS",
+                                )
+                            } else {
+                                val count = holder?.videos?.size ?: 0
+                                CrateMonoBreadcrumb(
+                                    section = "FOLDER",
+                                    count = "$count VIDEOS",
+                                )
+                            }
+                        }
+                    }
                 },
                 navigationIcon = {
                     if (selectionManager.isInSelectionMode) {
@@ -410,7 +433,7 @@ internal fun MediaPickerScreenContent(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { scaffoldPadding ->
         Box(
             Modifier
@@ -422,7 +445,7 @@ internal fun MediaPickerScreenContent(
                         topEnd = 24.dp,
                     ),
                 )
-                .background(MaterialTheme.colorScheme.background),
+                .background(CrateTheme.colors.bgBase),
         ) {
             if (!permissionState.status.isGranted) {
                 PermissionMissingView(
@@ -1172,32 +1195,30 @@ private fun SelectionActionsSheet(
         enter = slideInVertically { it },
         exit = slideOutVertically { it },
     ) {
-        val shape = MaterialTheme.shapes.largeIncreased.copy(
-            bottomStart = ZeroCornerSize,
-            bottomEnd = ZeroCornerSize,
-        )
-        Column(modifier = Modifier.fillMaxWidth()) {
+        val dockShape = CrateTheme.shapes.dock
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             Row(
                 modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .fillMaxWidth()
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = shape,
-                    )
-                    .clip(shape = shape)
+                    .clip(shape = dockShape)
+                    .background(color = CrateTheme.colors.bgSurfaceKey)
+                    .border(1.dp, CrateTheme.colors.borderStrong, dockShape)
                     .horizontalScroll(state = rememberScrollState())
                     .thenIf(condition = isTv) {
                         focusRestorer(fallback = firstActionFocusRequester).focusGroup()
                             .focusProperties { up = contentFocusRequester }
                     }
-                    .navigationBarsPadding()
                     .padding(
-                        horizontal = 8.dp,
-                        vertical = 12.dp,
+                        horizontal = 12.dp,
+                        vertical = 8.dp,
                     ),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 SelectionAction(
                     modifier = Modifier.thenIf(condition = isTv) {

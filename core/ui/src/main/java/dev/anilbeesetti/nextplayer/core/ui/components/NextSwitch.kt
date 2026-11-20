@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateBgBase
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @Composable
 fun NextSwitch(
@@ -35,5 +37,14 @@ fun NextSwitch(
         modifier = modifier,
         enabled = enabled,
         thumbContent = thumbContent,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = CrateBgBase,
+            checkedTrackColor = CrateTheme.colors.accent,
+            checkedBorderColor = CrateTheme.colors.accent,
+            checkedIconColor = CrateTheme.colors.accent,
+            uncheckedThumbColor = CrateTheme.colors.inkMuted,
+            uncheckedTrackColor = CrateTheme.colors.bgSurfaceKey,
+            uncheckedBorderColor = CrateTheme.colors.borderStrong,
+        ),
     )
 }

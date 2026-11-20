@@ -42,6 +42,8 @@ import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusGroup
 import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusItem
 import dev.anilbeesetti.nextplayer.core.ui.extensions.plus
 import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
+import dev.anilbeesetti.nextplayer.feature.videopicker.composables.crate.CrateArcCarousel
+import dev.anilbeesetti.nextplayer.feature.videopicker.composables.crate.CrateFolderStack
 import dev.anilbeesetti.nextplayer.feature.videopicker.state.SelectionManager
 import dev.anilbeesetti.nextplayer.feature.videopicker.state.rememberSelectionManager
 import kotlin.math.abs
@@ -73,6 +75,37 @@ fun MediaView(
     val isTv = remember { context.isTelevision }
 
     BoxWithConstraints {
+        if (preferences.mediaViewMode == MediaViewMode.FOLDERS &&
+            preferences.mediaLayoutMode == MediaLayoutMode.GRID &&
+            mediaHolder.folders.isNotEmpty() &&
+            mediaHolder.videos.isEmpty() &&
+            !selectionManager.isInSelectionMode &&
+            !isTv
+        ) {
+            CrateFolderStack(
+                folders = mediaHolder.folders,
+                recentlyPlayedFolder = recentlyPlayedFolder,
+                onFolderClick = onFolderClick,
+                modifier = modifier.padding(contentPadding),
+            )
+            return@BoxWithConstraints
+        }
+
+        if (preferences.mediaLayoutMode == MediaLayoutMode.GRID &&
+            mediaHolder.videos.isNotEmpty() &&
+            mediaHolder.folders.isEmpty() &&
+            !selectionManager.isInSelectionMode &&
+            !isTv
+        ) {
+            CrateArcCarousel(
+                videos = mediaHolder.videos,
+                preferences = preferences,
+                onVideoClick = onVideoClick,
+                modifier = modifier.padding(contentPadding),
+            )
+            return@BoxWithConstraints
+        }
+
         val mizuStyle = LocalMizuStyle.current
         val isTabletOrTv = isTv || this.maxWidth > 600.dp
         val folderMinWidth = if (isTabletOrTv) 140.dp else 90.dp

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -51,8 +52,22 @@ fun PreferenceItem(
                 )
             }
         },
-        supportingContent = description?.let { { Text(text = description) } },
-        content = { Text(text = title) },
+        supportingContent = description?.let {
+            {
+                Text(
+                    text = description,
+                    style = CrateTheme.typography.bodyMedium,
+                    color = CrateTheme.colors.inkSecondary,
+                )
+            }
+        },
+        content = {
+            Text(
+                text = title,
+                style = CrateTheme.typography.titleMedium,
+                color = CrateTheme.colors.inkPrimary,
+            )
+        },
         trailingContent = trailingContent,
     )
 }

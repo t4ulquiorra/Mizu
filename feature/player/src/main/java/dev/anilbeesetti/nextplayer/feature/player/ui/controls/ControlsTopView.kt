@@ -33,8 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 import dev.anilbeesetti.nextplayer.feature.player.buttons.PlayerButton
+import dev.anilbeesetti.nextplayer.feature.player.buttons.PlayerButtonBlackAlpha
 import dev.anilbeesetti.nextplayer.feature.player.model.labelRes
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 
@@ -68,16 +70,20 @@ fun ControlsTopView(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        PlayerButton(onClick = onBackClick) {
+        PlayerButton(
+            onClick = onBackClick,
+            containerColor = PlayerButtonBlackAlpha,
+        ) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_left),
                 contentDescription = null,
+                tint = CrateTheme.colors.inkPrimary,
             )
         }
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium.copy(lineBreak = LineBreak.Heading),
-            color = Color.White,
+            style = CrateTheme.typography.titleMedium.copy(lineBreak = LineBreak.Heading),
+            color = CrateTheme.colors.inkPrimary,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(weight = 1f),
@@ -92,29 +98,43 @@ fun ControlsTopView(
                     .semantics { contentDescription = decoderDescription }
                     .focusRequester(focusRequester = firstControlFocusRequester),
                 onClick = onDecoderClick,
+                containerColor = CrateTheme.colors.bgSurfaceKey,
             ) {
                 Text(
                     text = stringResource((videoDecoderMode ?: DecoderMode.HARDWARE).labelRes),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = CrateTheme.typography.monoBold,
+                    color = CrateTheme.colors.accent,
                     maxLines = 1,
                 )
             }
-            PlayerButton(onClick = onPlaylistClick) {
+            PlayerButton(
+                onClick = onPlaylistClick,
+                containerColor = PlayerButtonBlackAlpha,
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_playlist),
                     contentDescription = null,
+                    tint = CrateTheme.colors.inkPrimary,
                 )
             }
-            PlayerButton(onClick = onAudioClick) {
+            PlayerButton(
+                onClick = onAudioClick,
+                containerColor = PlayerButtonBlackAlpha,
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_audio_track),
                     contentDescription = null,
+                    tint = CrateTheme.colors.inkPrimary,
                 )
             }
-            PlayerButton(onClick = onSubtitleClick) {
+            PlayerButton(
+                onClick = onSubtitleClick,
+                containerColor = PlayerButtonBlackAlpha,
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_subtitle_track),
                     contentDescription = null,
+                    tint = CrateTheme.colors.inkPrimary,
                 )
             }
         }

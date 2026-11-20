@@ -329,13 +329,15 @@ fun NextPlayerTheme(
         else -> lightScheme
     }
 
-    CompositionLocalProvider(LocalMizuStyle provides mizuStyle) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = Typography,
-            motionScheme = MotionScheme.expressive(),
-            content = content,
-        )
+    CrateTheme {
+        CompositionLocalProvider(LocalMizuStyle provides mizuStyle) {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = Typography,
+                motionScheme = MotionScheme.expressive(),
+                content = content,
+            )
+        }
     }
 }
 

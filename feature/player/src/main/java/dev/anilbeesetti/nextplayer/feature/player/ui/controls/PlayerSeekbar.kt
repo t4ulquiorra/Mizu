@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.Chapter
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.feature.player.LocalUseMaterialYouControls
 import dev.anilbeesetti.nextplayer.feature.player.state.currentChapterIndex
 
@@ -329,16 +330,20 @@ private fun SimpleSlider(
                         4.dp,
                         shape = CircleShape,
                     )
-                    .background(Color.White)
+                    .background(CrateTheme.colors.accent)
                     .then(
                         other = if (isFocused) {
                             Modifier.border(
                                 2.dp,
-                                MaterialTheme.colorScheme.primary,
+                                CrateTheme.colors.inkPrimary,
                                 shape = CircleShape,
                             )
                         } else {
-                            Modifier
+                            Modifier.border(
+                                1.5.dp,
+                                CrateTheme.colors.accentShadow,
+                                shape = CircleShape,
+                            )
                         },
                     ),
             )
@@ -347,20 +352,20 @@ private fun SimpleSlider(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
+                    .height(6.dp)
                     .chapterGaps(
                         chapters = chapters,
                         valueRange.endInclusive,
                     )
-                    .clip(MaterialTheme.shapes.extraSmall)
-                    .background(Color.White.copy(alpha = 0.5f)),
+                    .clip(CrateTheme.shapes.pill)
+                    .background(CrateTheme.colors.bgSurfaceKey),
             ) {
                 if (valueRange.endInclusive > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(fraction = value / valueRange.endInclusive)
-                            .height(4.dp)
-                            .background(MaterialTheme.colorScheme.primary),
+                            .height(6.dp)
+                            .background(CrateTheme.colors.accent),
                     )
                 }
             }

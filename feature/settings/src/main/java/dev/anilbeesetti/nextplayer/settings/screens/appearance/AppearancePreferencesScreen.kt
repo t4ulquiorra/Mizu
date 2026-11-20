@@ -34,8 +34,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.anilbeesetti.nextplayer.core.model.AppSkin
 import dev.anilbeesetti.nextplayer.core.model.ThemeConfig
@@ -49,6 +51,8 @@ import dev.anilbeesetti.nextplayer.core.ui.components.rememberTvListFocusRequest
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusDown
 import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateAccentOption
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.MizuAqua
 import dev.anilbeesetti.nextplayer.core.ui.theme.MizuSunYellow
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
@@ -96,7 +100,7 @@ private fun AppearancePreferencesScreenContent(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -106,6 +110,12 @@ private fun AppearancePreferencesScreenContent(
                 .padding(paddingValues = innerPadding)
                 .padding(horizontal = 16.dp),
         ) {
+            ListSectionTitle(text = "CRATE ACCENT")
+            CrateAccentSelector(
+                selectedAccent = CrateAccentOption.ORANGE,
+                onAccentSelected = { /* UI preview */ },
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             ListSectionTitle(text = stringResource(id = R.string.skin_and_style))
             SkinSelector(
                 selectedSkin = state.preferences.appSkin,
@@ -394,6 +404,57 @@ private fun SkinPreviewCard(
                             fontWeight = FontWeight.Bold,
                         ),
                         color = Color.White,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CrateAccentSelector(
+    selectedAccent: CrateAccentOption,
+    onAccentSelected: (CrateAccentOption) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CrateAccentOption.entries.forEach { option ->
+            val isSelected = selectedAccent == option
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(CrateTheme.shapes.card)
+                    .background(if (isSelected) CrateTheme.colors.bgSurfaceKey else CrateTheme.colors.bgSurface)
+                    .border(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) option.accent else CrateTheme.colors.borderStrong,
+                        shape = CrateTheme.shapes.card,
+                    )
+                    .clickable { onAccentSelected(option) }
+                    .padding(vertical = 12.dp, horizontal = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(option.accent),
+                    )
+                    Text(
+                        text = option.title.uppercase(),
+                        style = CrateTheme.typography.monoSmallCaps.copy(fontSize = 9.sp),
+                        color = if (isSelected) option.accent else CrateTheme.colors.inkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

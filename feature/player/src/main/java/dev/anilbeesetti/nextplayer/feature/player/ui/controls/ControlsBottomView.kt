@@ -48,6 +48,7 @@ import dev.anilbeesetti.nextplayer.core.common.extensions.isTelevision
 import dev.anilbeesetti.nextplayer.core.model.VideoContentScale
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 import dev.anilbeesetti.nextplayer.feature.player.buttons.LoopButton
 import dev.anilbeesetti.nextplayer.feature.player.buttons.PlaybackSpeedButton
@@ -151,7 +152,8 @@ fun ControlsBottomView(
                                 append(" / ")
                                 append(getStringForTime(progressState.durationMs))
                             },
-                            style = MaterialTheme.typography.labelLarge,
+                            style = CrateTheme.typography.monoMedium,
+                            color = CrateTheme.colors.inkPrimary,
                         )
                     }
 
@@ -184,13 +186,15 @@ fun ControlsBottomView(
                                         weight = 1f,
                                         fill = false,
                                     ),
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = CrateTheme.typography.monoSmallCaps,
+                                    color = CrateTheme.colors.inkSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.NavigateNext,
                                     contentDescription = null,
+                                    tint = CrateTheme.colors.accent,
                                     modifier = Modifier.size(16.dp),
                                 )
                             }

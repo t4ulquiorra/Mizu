@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,7 +23,10 @@ fun NextTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
+        titleContentColor = CrateTheme.colors.inkPrimary,
+        navigationIconContentColor = CrateTheme.colors.inkPrimary,
+        actionIconContentColor = CrateTheme.colors.inkPrimary,
     ),
 ) {
     TopAppBar(
@@ -44,7 +48,10 @@ fun NextTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
+        titleContentColor = CrateTheme.colors.inkPrimary,
+        navigationIconContentColor = CrateTheme.colors.inkPrimary,
+        actionIconContentColor = CrateTheme.colors.inkPrimary,
     ),
 ) {
     NextTopAppBar(
@@ -54,6 +61,8 @@ fun NextTopAppBar(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = fontWeight,
+                style = CrateTheme.typography.titleMedium,
+                color = CrateTheme.colors.inkPrimary,
             )
         },
         navigationIcon = navigationIcon,

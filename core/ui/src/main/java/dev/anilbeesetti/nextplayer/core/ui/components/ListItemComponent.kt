@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.sp
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
 import dev.anilbeesetti.nextplayer.core.ui.theme.neoShadow
 
@@ -35,7 +37,14 @@ fun NextSegmentedListItem(
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(16.dp),
-    colors: ListItemColors = ListItemDefaults.segmentedColors(),
+    colors: ListItemColors = ListItemDefaults.segmentedColors(
+        containerColor = CrateTheme.colors.bgSurface,
+        headlineColor = CrateTheme.colors.inkPrimary,
+        leadingIconColor = CrateTheme.colors.accent,
+        overlineColor = CrateTheme.colors.inkMuted,
+        supportingColor = CrateTheme.colors.inkSecondary,
+        trailingIconColor = CrateTheme.colors.inkMuted,
+    ),
     shapes: ListItemShapes = ListItemDefaults.shapes(),
     leadingContent: @Composable (() -> Unit)? = null,
     trailingContent: @Composable (() -> Unit)? = null,
@@ -80,7 +89,7 @@ fun NextSegmentedListItem(
                 other = if (isFocused) {
                     Modifier.border(
                         width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = CrateTheme.colors.accent,
                         shape = overrideShape,
                     )
                 } else if (mizuStyle.isNeubrutalism) {
@@ -90,7 +99,11 @@ fun NextSegmentedListItem(
                         shape = overrideShape,
                     )
                 } else {
-                    Modifier
+                    Modifier.border(
+                        width = 1.dp,
+                        color = CrateTheme.colors.border,
+                        shape = overrideShape,
+                    )
                 },
             ),
         selected = selected,
@@ -153,12 +166,12 @@ fun ListSectionTitle(
         top = 20.dp,
         bottom = 10.dp,
     ),
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color = CrateTheme.colors.accent,
 ) {
     Text(
-        text = text,
+        text = text.uppercase(),
         modifier = modifier.padding(paddingValues = contentPadding),
         color = color,
-        style = MaterialTheme.typography.labelLarge,
+        style = CrateTheme.typography.monoSmallCaps,
     )
 }

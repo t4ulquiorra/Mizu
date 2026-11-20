@@ -1,0 +1,4237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>The Crate — Next Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ==========================================================================
+       1. DESIGN TOKENS — STRICT EDITORIAL PALETTE
+       ========================================================================== */
+    :root {
+      --bg: #0D0C0A;
+      --surface-deep: #14120D;
+      --surface: #17150F;
+      --surface-key: #1B1812;
+      --border: #26221A;
+      --border-strong: #2E2819;
+      --border-input: #3A3220;
+
+      --ink: #ECE4D2;
+      --ink-sec: #B9B09B;
+      --ink-muted: #8F8774;
+      --ink-dim: #6F6858;
+      --ink-paper: #1A150C;
+
+      --accent: #FF5A2E;
+      --accent-shadow: #7A2A12;
+      --stamp: #C23A12;
+
+      --paper-0: #D9CBA6;
+      --paper-1: #CDBE96;
+      --paper-2: #E2D6B8;
+      --paper-3: #C4B48A;
+
+      --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    button, input, select { font-family: inherit; color: inherit; }
+    button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    .mono { font-family: var(--font-mono); }
+
+    .scroll-area::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scroll-area::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .scroll-area::-webkit-scrollbar-track { background: transparent; }
+
+    /* ==========================================================================
+       2. RESPONSIVE 1280x800 TABLET STAGE
+       ========================================================================== */
+    .viewport-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    #stage {
+      width: 1280px;
+      height: 800px;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+      transform-origin: center center;
+      perspective: 1800px;
+      perspective-origin: 50% 50%;
+      flex: none;
+    }
+
+    /* ==========================================================================
+       3. STRICT LAYER ISOLATION
+       ========================================================================== */
+    .layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1280px;
+      height: 800px;
+      transform-origin: 50% 50%;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition:
+        transform 0.7s cubic-bezier(0.2, 0.85, 0.25, 1),
+        opacity 0.45s ease,
+        visibility 0s linear 0.7s;
+    }
+
+    .layer.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition:
+        transform 0.7s cubic-bezier(0.2, 0.85, 0.25, 1),
+        opacity 0.45s ease,
+        visibility 0s linear 0s;
+    }
+
+    /* ==========================================================================
+       4. PERSISTENT 96PX LEFT VERTICAL RAIL (z-index: 4000)
+       ========================================================================== */
+    .nav-rail {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 96px;
+      height: 800px;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+      z-index: 4000;
+    }
+
+    .rail-monogram {
+      position: absolute;
+      left: 0;
+      top: 34px;
+      width: 96px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--accent);
+      transition: color 0.25s ease;
+    }
+
+    .rail-marker {
+      position: absolute;
+      left: 0;
+      top: 130px;
+      width: 4px;
+      height: 140px;
+      background: var(--accent);
+      transition: top 0.55s cubic-bezier(0.3, 1.3, 0.4, 1), background-color 0.25s ease;
+    }
+
+    .rail-btn {
+      position: absolute;
+      left: 0;
+      width: 96px;
+      height: 140px;
+      border: 0;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: var(--ink-dim);
+      transition: color 0.22s ease;
+    }
+    .rail-btn.active { color: var(--ink); }
+
+    .rail-label {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+    }
+
+    .rail-gear-btn {
+      position: absolute;
+      left: 26px;
+      bottom: 24px;
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--ink-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s ease, border-color 0.2s ease, transform 0.16s ease;
+    }
+    .rail-gear-btn:active { transform: scale(0.92); }
+
+    /* ==========================================================================
+       5. SHARED CONTROLS, KEYCAPS & FAB
+       ========================================================================== */
+    .key {
+      transition: transform 0.18s cubic-bezier(0.3, 1.4, 0.5, 1), box-shadow 0.18s ease, background-color 0.2s ease;
+    }
+    .key:active { transform: translateY(6px); }
+
+    .circle-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      transition: transform 0.16s ease, border-color 0.2s ease, background-color 0.2s ease;
+    }
+    .circle-btn:active { transform: scale(0.94); }
+
+    .btn-accent {
+      height: 48px;
+      padding: 0 22px;
+      border-radius: 14px;
+      border: 0;
+      background: var(--accent);
+      color: #0D0C0A;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 5px 0 var(--accent-shadow);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-ghost {
+      height: 42px;
+      padding: 0 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border-input);
+      background: transparent;
+      color: var(--ink-sec);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .fab {
+      position: absolute;
+      right: 40px;
+      bottom: 36px;
+      height: 72px;
+      padding: 0 30px;
+      border-radius: 22px;
+      border: 0;
+      background: var(--accent);
+      color: #0D0C0A;
+      box-shadow: 0 7px 0 var(--accent-shadow);
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      z-index: 3500;
+      transition: transform 0.18s cubic-bezier(0.3, 1.4, 0.5, 1), background-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .fab:active { transform: translateY(6px); box-shadow: 0 1px 0 var(--accent-shadow); }
+
+    @media (hover: hover) {
+      .rail-btn:hover { color: var(--ink-sec); }
+      .rail-gear-btn:hover { color: var(--ink); border-color: var(--ink-muted); }
+      .key:hover { transform: translateY(-4px); }
+      .circle-btn:hover { border-color: var(--ink-muted); background: #1F1C14; transform: translateY(-2px); }
+      .folder-tab-btn:hover { filter: brightness(1.06); }
+      .wall-card:hover { transform: translateZ(46px) rotateX(-5deg); }
+      .folder-list-item:hover { background: rgba(236, 228, 210, 0.035); }
+      .folder-list-item:hover .folder-art-icon { transform: translateY(-2px) scale(1.03); }
+      .folder-list-item:hover .folder-list-chev { color: var(--ink); transform: translateX(3px); }
+    }
+
+    /* ==========================================================================
+       6. LAYER 0 — HOME (ORGANIC UNALIGNED 3D FOLDER STACK)
+       ========================================================================== */
+    .crate-viewport {
+      position: absolute;
+      left: 96px;
+      top: 0;
+      width: 1184px;
+      height: 800px;
+      perspective: 1600px;
+      perspective-origin: 50% 28%;
+      touch-action: none;
+    }
+
+    .folder-wrap {
+      position: absolute;
+      left: 182px;
+      top: 330px;
+      width: 820px;
+      height: 410px;
+      transform-origin: 50% 0%;
+      will-change: transform, opacity;
+    }
+
+    .folder-tab-btn {
+      position: absolute;
+      top: -36px;
+      width: 252px;
+      height: 46px;
+      border: 0;
+      padding: 9px 14px 0;
+      text-align: left;
+      border-radius: 12px 12px 0 0;
+      color: var(--ink-paper);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 -4px 12px rgba(0, 0, 0, 0.25);
+      transition: filter 0.16s ease, background-color 0.25s ease;
+    }
+
+    .folder-tab-name {
+      font-size: 14.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .folder-body-btn {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 820px;
+      height: 410px;
+      border: 0;
+      padding: 0;
+      text-align: left;
+      border-radius: 6px 20px 16px 16px;
+      color: var(--ink-paper);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        0 -12px 28px rgba(0, 0, 0, 0.4);
+      overflow: visible;
+    }
+
+    .folder-name-big {
+      position: absolute;
+      left: 30px;
+      top: 62px;
+      font-size: 54px;
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      line-height: 1.02;
+      max-width: 560px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .folder-stamp {
+      position: absolute;
+      right: 34px;
+      top: 34px;
+      padding: 8px 14px;
+      border: 2px solid var(--stamp);
+      color: var(--stamp);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      transform: rotate(-6deg);
+      border-radius: 6px;
+    }
+
+    .folder-spines {
+      position: absolute;
+      left: 30px;
+      bottom: 34px;
+      height: 150px;
+      display: flex;
+      align-items: flex-end;
+      gap: 5px;
+      pointer-events: none;
+    }
+
+    .spine-bar {
+      flex: none;
+      width: 12px;
+      border-radius: 3px 3px 0 0;
+      transform-origin: 50% 100%;
+      transition: transform 0.6s cubic-bezier(0.2, 1.2, 0.3, 1);
+    }
+
+    .folder-body-btn.is-fanned .spine-bar {
+      transform: translateY(var(--fan-y)) rotate(var(--fan-r));
+    }
+
+    .open-folder-cta {
+      position: absolute;
+      right: 30px;
+      bottom: 28px;
+      height: 56px;
+      padding: 0 24px;
+      border-radius: 18px;
+      border: 0;
+      background: var(--accent);
+      color: #0D0C0A;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: 0 5px 0 var(--accent-shadow);
+      z-index: 3;
+      transition: opacity 0.2s ease, transform 0.18s cubic-bezier(0.3, 1.4, 0.5, 1), background-color 0.25s ease;
+    }
+
+    /* Alt Grid, Free-Floating List, Flat Videos & Directory Tree */
+    .alt-home-view {
+      position: absolute;
+      left: 144px;
+      right: 40px;
+      top: 120px;
+      bottom: 0;
+      overflow-y: auto;
+      display: none;
+      padding-bottom: 120px;
+    }
+    .alt-home-view.active { display: block; }
+
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .home-grid-card {
+      border: 0;
+      border-radius: 14px;
+      padding: 18px;
+      min-height: 156px;
+      text-align: left;
+      color: var(--ink-paper);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.36), 0 8px 20px rgba(0, 0, 0, 0.38);
+      position: relative;
+    }
+
+    .home-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 980px;
+    }
+
+    .home-list-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 15px 20px;
+      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      text-align: left;
+      width: 100%;
+    }
+
+    /* Apple-Refined Free-Floating Folder List View (No Boxes, Inset Hairline Dividers) */
+    .folder-list-free {
+      display: flex;
+      flex-direction: column;
+      max-width: 1040px;
+      background: transparent;
+    }
+
+    .folder-list-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      width: 100%;
+      padding: 18px 16px 18px 0;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      text-align: left;
+      transition: background-color 0.18s ease;
+    }
+
+    .folder-list-item::after {
+      content: '';
+      position: absolute;
+      left: 100px;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background: rgba(236, 228, 210, 0.09);
+      pointer-events: none;
+    }
+    .folder-list-item:last-child::after { display: none; }
+
+    .folder-art-icon {
+      position: relative;
+      width: 76px;
+      height: 56px;
+      flex: none;
+      transition: transform 0.22s cubic-bezier(0.22, 1.3, 0.36, 1);
+    }
+
+    .folder-art-tab {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 31px;
+      height: 13px;
+      border-radius: 5px 5px 0 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .folder-art-back {
+      position: absolute;
+      left: 0;
+      top: 7px;
+      width: 76px;
+      height: 49px;
+      border-radius: 4px 8px 8px 8px;
+      filter: brightness(0.84);
+    }
+
+    .folder-art-front {
+      position: absolute;
+      left: 0;
+      top: 11px;
+      width: 76px;
+      height: 45px;
+      border-radius: 3px 7px 8px 8px;
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 32%, rgba(0, 0, 0, 0.12) 100%);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.45),
+        0 6px 14px rgba(0, 0, 0, 0.42);
+    }
+
+    .folder-art-front::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      top: 8px;
+      height: 1px;
+      background: rgba(26, 21, 12, 0.18);
+    }
+
+    .folder-art-new {
+      position: absolute;
+      top: 2px;
+      right: -6px;
+      padding: 2px 6px;
+      border-radius: 99px;
+      background: var(--accent);
+      color: #0D0C0A;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+      z-index: 3;
+    }
+
+    .folder-list-chev {
+      font-size: 26px;
+      line-height: 1;
+      color: var(--ink-dim);
+      font-weight: 400;
+      transition: color 0.18s ease, transform 0.18s ease;
+    }
+
+    .manila-icon {
+      width: 44px;
+      height: 30px;
+      border-radius: 5px;
+      position: relative;
+      flex: none;
+    }
+    .manila-icon::before {
+      content: '';
+      position: absolute;
+      top: -5px;
+      left: 0;
+      width: 20px;
+      height: 6px;
+      border-radius: 3px 3px 0 0;
+      background: inherit;
+    }
+
+    /* ==========================================================================
+       7. LAYER 4 — FOLDER VIEW (3D ARC CAROUSEL + WALL + PRECISION RULER)
+       ========================================================================== */
+    .arc-wall-toggle {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+    }
+
+    .arc-wall-btn {
+      height: 44px;
+      padding: 0 20px;
+      border-radius: 12px;
+      border: 0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      background: transparent;
+      color: var(--ink-muted);
+    }
+    .arc-wall-btn.active { background: var(--accent); color: #0D0C0A; }
+
+    .arc-stage {
+      position: absolute;
+      left: 96px;
+      top: 104px;
+      width: 1184px;
+      height: 416px;
+      perspective: 1400px;
+      perspective-origin: 50% 38%;
+      touch-action: none;
+      overflow: visible;
+    }
+
+    .arc-card {
+      position: absolute;
+      left: 422px;
+      top: 52px;
+      width: 340px;
+      height: 191px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      overflow: visible;
+      will-change: transform, opacity;
+    }
+
+    .arc-card-face {
+      position: relative;
+      display: block;
+      width: 340px;
+      height: 191px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #14110C;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    }
+
+    /* True Physical DOM Reflection with Silky Multi-Stop Alpha Mask */
+    .arc-reflect {
+      position: absolute;
+      left: 0;
+      top: 199px;
+      width: 340px;
+      height: 112px;
+      border-radius: 10px;
+      overflow: hidden;
+      pointer-events: none;
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.38) 0%,
+        rgba(0, 0, 0, 0.16) 32%,
+        rgba(0, 0, 0, 0.04) 64%,
+        transparent 100%
+      );
+      mask-image: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.38) 0%,
+        rgba(0, 0, 0, 0.16) 32%,
+        rgba(0, 0, 0, 0.04) 64%,
+        transparent 100%
+      );
+    }
+
+    .arc-reflect-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 340px;
+      height: 191px;
+      transform: scaleY(-1);
+      transform-origin: center center;
+      filter: blur(1.5px);
+    }
+
+    .ruler-wrap {
+      position: absolute;
+      left: 144px;
+      top: 676px;
+      width: 1000px;
+      height: 96px;
+      touch-action: none;
+      cursor: ew-resize;
+      z-index: 25;
+    }
+
+    .wall-wrap {
+      position: absolute;
+      left: 144px;
+      top: 120px;
+      width: 1100px;
+      height: 680px;
+      overflow-y: auto;
+      padding: 20px 10px 110px;
+      perspective: 1200px;
+    }
+
+    .wall-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 26px 24px;
+    }
+
+    .wall-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      text-align: left;
+      transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(0.2, 1.2, 0.3, 1);
+    }
+
+    .wall-thumb {
+      position: relative;
+      width: 100%;
+      height: 144px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #14110C;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+    }
+
+    .wall-act-btn {
+      height: 26px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(236, 228, 210, 0.22);
+      background: rgba(13, 12, 10, 0.8);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    /* ==========================================================================
+       8. LAYER 1 — PLAYLISTS (3D TACTILE ARCHIVAL REEL / SLIPCASE SHELF)
+       ========================================================================== */
+    .reel-shelf {
+      display: flex;
+      align-items: flex-start;
+      gap: 32px;
+      padding: 46px 24px 44px 12px;
+      perspective: 1600px;
+      perspective-origin: 45% 45%;
+      overflow-x: auto;
+      overflow-y: visible;
+      min-height: 460px;
+    }
+
+    .slipcase-wrap {
+      position: relative;
+      width: 248px;
+      height: 336px;
+      flex: none;
+      transform-style: preserve-3d;
+      transform: rotateY(-6deg);
+      transition: transform 0.42s cubic-bezier(0.2, 1.25, 0.35, 1);
+      cursor: pointer;
+    }
+
+    .slipcase-wrap:hover,
+    .slipcase-wrap:focus-within {
+      transform: rotateY(0deg) translateY(-10px) translateZ(36px);
+      z-index: 20;
+    }
+
+    @keyframes slipcaseEnter {
+      from { opacity: 0; transform: translateY(-38px) rotateY(-14deg) scale(0.94); }
+      to   { opacity: 1; transform: translateY(0) rotateY(-6deg) scale(1); }
+    }
+    .slipcase-wrap.is-entering {
+      animation: slipcaseEnter 0.5s cubic-bezier(0.2, 1.25, 0.35, 1) both;
+    }
+
+    .slipcase-tape {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: -14px;
+      height: 68px;
+      border-radius: 10px 10px 0 0;
+      background: linear-gradient(180deg, #27241E 0%, #161411 100%);
+      border: 1px solid #3A3428;
+      border-bottom: 0;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 -6px 16px rgba(0, 0, 0, 0.5);
+      transform: translateY(0px);
+      transition: transform 0.44s cubic-bezier(0.22, 1.35, 0.36, 1);
+      pointer-events: none;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 8px;
+      gap: 6px;
+    }
+
+    .slipcase-wrap:hover .slipcase-tape,
+    .slipcase-wrap:focus-within .slipcase-tape {
+      transform: translateY(-26px);
+    }
+
+    .tape-grip {
+      width: 64px;
+      height: 4px;
+      border-radius: 2px;
+      background: repeating-linear-gradient(90deg, rgba(236, 228, 210, 0.25) 0 4px, transparent 4px 8px);
+    }
+
+    .tape-strip {
+      width: 156px;
+      height: 16px;
+      border-radius: 3px;
+      background: rgba(236, 228, 210, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 7px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      letter-spacing: 0.12em;
+      color: var(--ink-muted);
+    }
+
+    .slipcase-sleeve {
+      position: relative;
+      width: 248px;
+      height: 336px;
+      border-radius: 10px 16px 16px 10px;
+      padding: 20px 20px 18px 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      z-index: 2;
+      box-shadow:
+        -8px 18px 34px rgba(0, 0, 0, 0.58),
+        inset 0 2px 0 rgba(255, 255, 255, 0.38),
+        inset 5px 0 0 rgba(0, 0, 0, 0.14);
+    }
+
+    .slipcase-sleeve.is-local {
+      background: var(--paper-0);
+      color: var(--ink-paper);
+    }
+
+    .slipcase-sleeve.is-m3u {
+      background: #181510;
+      color: var(--ink);
+      border: 1px solid #2E2819;
+      box-shadow:
+        -8px 18px 34px rgba(0, 0, 0, 0.65),
+        inset 0 2px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .slipcase-m3u-stripe {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 10px;
+      background: var(--accent);
+    }
+
+    .slipcase-window {
+      width: 100%;
+      height: 86px;
+      border-radius: 10px;
+      background: #100E0B;
+      border: 1.5px solid rgba(26, 21, 12, 0.28);
+      box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slipcase-sleeve.is-m3u .slipcase-window {
+      border-color: rgba(255, 90, 46, 0.35);
+      background: #0B0A08;
+    }
+
+    .slipcase-kebab {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 0;
+      background: rgba(0, 0, 0, 0.08);
+      color: inherit;
+      font-size: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+    }
+    .slipcase-sleeve.is-m3u .slipcase-kebab {
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .slipcase-ghost {
+      width: 248px;
+      height: 336px;
+      flex: none;
+      border-radius: 14px;
+      border: 1.5px dashed var(--border-input);
+      background: rgba(23, 21, 15, 0.42);
+      color: var(--ink-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      transform: rotateY(-6deg);
+      transition: transform 0.36s cubic-bezier(0.2, 1.25, 0.35, 1), border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .slipcase-ghost:hover {
+      transform: rotateY(0deg) translateY(-8px) translateZ(24px);
+      border-color: var(--accent);
+      color: var(--ink);
+      background: rgba(255, 90, 46, 0.06);
+    }
+
+    .stamp-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      border: 1px solid var(--border-input);
+      color: var(--ink-sec);
+      text-transform: uppercase;
+    }
+    .stamp-badge.m3u { border-color: var(--accent); color: var(--accent); }
+
+    /* ==========================================================================
+       9. LAYER 2 — NETWORK (ISOMETRIC PROTOCOL KEYCAPS)
+       ========================================================================== */
+    .studio-input {
+      height: 64px;
+      padding: 0 22px;
+      border-radius: 16px;
+      border: 1px solid var(--border-input);
+      background: var(--surface-deep);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 18px;
+      outline: none;
+      width: 100%;
+    }
+    .studio-input:focus { border-color: var(--accent); }
+
+    .slab-btn {
+      position: absolute;
+      width: 200px;
+      height: 130px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      transform-style: preserve-3d;
+    }
+
+    .slab-layer {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+    }
+
+    .slab-top {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      color: #17120A;
+      text-align: left;
+      transition: transform 0.4s cubic-bezier(0.3, 1.5, 0.5, 1), background-color 0.2s ease;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45);
+    }
+
+    /* ==========================================================================
+       10. LAYER 3 — MORE (3 HARDWARE KEYS + HISTORY HAND OF CARDS)
+       ========================================================================== */
+    .hw-keycap {
+      width: 330px;
+      height: 130px;
+      border-radius: 20px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-key);
+      box-shadow: 0 8px 0 #070605, inset 0 1px 0 rgba(255, 255, 255, 0.07);
+      text-align: left;
+      padding: 0 26px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .hand-stage {
+      position: absolute;
+      left: 96px;
+      top: 370px;
+      width: 1184px;
+      height: 430px;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .hand-card-wrap {
+      position: absolute;
+      left: 462px;
+      top: 150px;
+      width: 260px;
+      height: 270px;
+      transform-origin: 130px 700px;
+      transition: transform 0.38s cubic-bezier(0.2, 1.15, 0.3, 1);
+    }
+
+    .hand-card-body {
+      position: absolute;
+      inset: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 16px;
+      background: #E8DFC8;
+      color: #17120A;
+      text-align: left;
+      box-shadow: 0 24px 44px rgba(0, 0, 0, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.5);
+      z-index: 1;
+    }
+
+    .hand-card-thumb {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 260px;
+      height: 146px;
+      padding: 0;
+      border: 0;
+      border-radius: 16px 16px 0 0;
+      overflow: hidden;
+      background: #14110C;
+      z-index: 2;
+    }
+
+    /* ==========================================================================
+       11. OVERLAYS & MODALS (STRICTLY HIDDEN BY DEFAULT)
+       ========================================================================== */
+    .overlay-sheet {
+      position: absolute;
+      left: 96px;
+      top: 0;
+      width: 1184px;
+      height: 800px;
+      background: var(--bg);
+      z-index: 4200;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(28px) scale(0.985);
+      transition: opacity 0.24s ease, transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.34s;
+    }
+
+    .overlay-sheet.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+      transition: opacity 0.24s ease, transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+    }
+
+    .overlay-head {
+      padding: 26px 44px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex: none;
+    }
+
+    .overlay-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 44px 70px;
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 5000;
+      background: rgba(6, 5, 4, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.22s ease, visibility 0s linear 0s;
+    }
+
+    .modal-card {
+      background: var(--surface-deep);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.74);
+      max-height: 700px;
+      overflow-y: auto;
+      transform: translateY(16px) scale(0.97);
+      transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-backdrop.open .modal-card { transform: translateY(0) scale(1); }
+
+    /* Two-Pane Settings */
+    .settings-split {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      overflow: hidden;
+    }
+
+    .settings-nav {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .settings-cat {
+      width: 100%;
+      padding: 13px 15px;
+      border-radius: 13px;
+      border: 1px solid transparent;
+      background: transparent;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .settings-cat.active { background: var(--surface); border-color: var(--border-strong); }
+
+    .settings-detail {
+      overflow-y: auto;
+      padding: 28px 44px 60px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+      max-width: 720px;
+    }
+
+    .toggle-sw {
+      width: 50px;
+      height: 28px;
+      border-radius: 99px;
+      border: 1px solid var(--border-input);
+      background: var(--surface-deep);
+      position: relative;
+      flex: none;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+    .toggle-sw::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--ink-muted);
+      transition: transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1), background-color 0.2s ease;
+    }
+    .toggle-sw.on { background: var(--accent); border-color: var(--accent); }
+    .toggle-sw.on::after { transform: translateX(22px); background: #0D0C0A; }
+
+    .seg-bar {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      border: 1px solid var(--border-input);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .seg-btn {
+      height: 44px;
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--ink-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+    .seg-btn:last-child { border-right: 0; }
+    .seg-btn.active { background: var(--accent); color: #0D0C0A; font-weight: 700; }
+
+    .chip-btn {
+      padding: 8px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--border-input);
+      background: var(--bg);
+      color: var(--ink-muted);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip-btn.active { border-color: var(--accent); background: rgba(255, 90, 46, 0.14); color: var(--ink); }
+
+    .action-opt {
+      width: 100%;
+      padding: 15px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .accent-swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+    .accent-swatch.active { border-color: var(--ink); transform: scale(1.14); }
+
+    .kebab-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-muted);
+      font-size: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+    }
+
+    /* ==========================================================================
+       12. MULTI-SELECT MODE, 7-BUTTON ACTION DOCK & FLAT VIDEOS / TREE
+       ========================================================================== */
+    .select-bar {
+      position: absolute;
+      left: 128px;
+      right: 40px;
+      top: 26px;
+      height: 60px;
+      padding: 0 16px;
+      border-radius: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 3600;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-12px);
+      transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.24s;
+    }
+    .select-bar.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0);
+      transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+    }
+
+    .action-dock {
+      position: absolute;
+      left: 136px;
+      right: 40px;
+      bottom: 24px;
+      height: 78px;
+      padding: 0 18px;
+      border-radius: 22px;
+      background: #17150F;
+      border: 1px solid var(--border-strong);
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      z-index: 4400;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(26px);
+      transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.28s;
+    }
+    .action-dock.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0);
+      transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+    }
+
+    .dock-act-btn {
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--ink-sec);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      transition: background-color 0.16s ease, color 0.16s ease, transform 0.14s ease;
+    }
+    .dock-act-btn:hover { background: rgba(236, 228, 210, 0.07); color: var(--ink); }
+    .dock-act-btn:active { transform: scale(0.94); }
+    .dock-act-btn.danger { color: var(--accent); }
+
+    .is-selected-card {
+      outline: 2.5px solid var(--accent) !important;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px rgba(255, 90, 46, 0.18), 0 12px 26px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .sel-check-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #0D0C0A;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+      z-index: 6;
+    }
+
+    .vid-new-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--accent);
+      color: #0D0C0A;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+      z-index: 5;
+    }
+
+    .flat-videos-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 20px 16px;
+    }
+
+    .tree-group-card {
+      margin-bottom: 18px;
+      border-radius: 16px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      padding: 16px 20px;
+    }
+
+    /* ==========================================================================
+       13. FULL-SCREEN CINEMA VIDEO PLAYER
+       ========================================================================== */
+    #overlay-player {
+      position: absolute;
+      inset: 0;
+      z-index: 6000;
+      background: #050504;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+    }
+
+    #overlay-player.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.25s ease, visibility 0s linear 0s;
+    }
+
+    .cinema-stage {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .cinema-media { width: 100%; height: 100%; object-fit: contain; }
+    .cinema-media.fill { object-fit: cover; }
+
+    .cinema-subs {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 18px;
+      border-radius: 8px;
+      background: rgba(13, 12, 10, 0.8);
+      color: var(--ink);
+      text-align: center;
+      max-width: 78%;
+      pointer-events: none;
+    }
+
+    .cinema-top {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 22px 30px;
+      background: linear-gradient(180deg, rgba(13, 12, 10, 0.9) 0%, transparent 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 20;
+    }
+
+    .cinema-bot {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 18px 30px 26px;
+      background: linear-gradient(0deg, rgba(13, 12, 10, 0.94) 0%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 20;
+    }
+
+    .cinema-btn {
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: rgba(23, 21, 15, 0.88);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .cinema-btn.primary { background: var(--accent); color: #0D0C0A; border-color: var(--accent); font-weight: 700; padding: 0 20px; }
+
+    .cinema-stage.locked .cinema-top,
+    .cinema-stage.locked .cinema-bot { opacity: 0; pointer-events: none; }
+    .unlock-btn { position: absolute; top: 22px; right: 30px; z-index: 30; display: none; }
+    .cinema-stage.locked .unlock-btn { display: inline-flex; }
+
+    .toast {
+      position: fixed;
+      bottom: 26px;
+      left: 50%;
+      transform: translateX(-50%) translateY(14px);
+      z-index: 9999;
+      padding: 11px 20px;
+      border-radius: 99px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <!-- Hidden Native File Pickers -->
+  <input type="file" id="localVideoInput" accept="video/*" style="display:none;" />
+  <input type="file" id="localM3uInput" accept=".m3u,.m3u8,text/plain" style="display:none;" />
+
+  <div class="viewport-wrap">
+    <div id="stage">
+
+      <!-- ==================== LAYER 0: HOME (ORGANIC UNALIGNED 3D FOLDER STACK) ==================== -->
+      <section class="layer active" id="layer-home" aria-label="Home">
+        <div style="position:absolute;left:144px;top:30px;font-size:40px;font-weight:700;letter-spacing:-1px;">Next Player</div>
+        <div class="mono" id="homeSubtitle" style="position:absolute;left:146px;top:84px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">LIBRARY · 18 FOLDERS</div>
+
+        <!-- Top-Right Minimal Circular Action Buttons -->
+        <div style="position:absolute;right:40px;top:34px;display:flex;gap:12px;z-index:2400;">
+          <button id="btnHomeSelectMode" class="circle-btn" type="button" aria-label="Select items" title="Select items">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M9 12l2 2 4-4"></path></svg>
+          </button>
+          <button id="btnQuickSettings" class="circle-btn" type="button" aria-label="Quick Settings" title="Quick Settings">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          </button>
+          <button id="btnSearch" class="circle-btn" type="button" aria-label="Search" title="Search">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+          </button>
+          <button id="btnTopSettings" class="circle-btn" type="button" aria-label="Settings" title="Settings">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+        </div>
+
+        <div class="crate-viewport" id="crateViewport"></div>
+        <div class="alt-home-view scroll-area" id="altHomeView"></div>
+
+        <!-- Minimal Right-Edge Stepper -->
+        <div id="crateStepper" style="position:absolute;right:28px;top:300px;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:2200;">
+          <button id="btnStepPrev" class="circle-btn" type="button" aria-label="Previous folder" style="width:48px;height:48px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"></path></svg>
+          </button>
+          <div class="mono" id="stepperCur" style="font-size:20px;font-weight:500;margin-top:6px;">02</div>
+          <div class="mono" id="stepperTotal" style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">/ 18</div>
+          <button id="btnStepNext" class="circle-btn" type="button" aria-label="Next folder" style="width:48px;height:48px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+        </div>
+
+        <div class="mono" id="crateCue" style="position:absolute;left:146px;bottom:30px;font-size:11px;letter-spacing:.14em;color:var(--ink-muted);pointer-events:none;">DRAG · SCROLL · TAP A TAB · TAP FRONT FOLDER TO FAN OUT</div>
+      </section>
+
+      <!-- ==================== LAYER 4: FOLDER VIEW (ARC / WALL + RULER SCRUBBER) ==================== -->
+      <section class="layer" id="layer-folder" aria-label="Folder View">
+        <button id="btnCloseFolder" class="circle-btn" type="button" aria-label="Back to folders" style="position:absolute;left:128px;top:30px;z-index:30;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"></path></svg>
+        </button>
+        <div id="fvTitle" style="position:absolute;left:208px;top:26px;font-size:40px;font-weight:700;letter-spacing:-1px;max-width:620px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:30;">Bleach</div>
+        <div class="mono" id="fvCount" style="position:absolute;left:210px;top:80px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);z-index:30;">275 VIDEOS</div>
+
+        <div style="position:absolute;right:40px;top:34px;display:flex;align-items:center;gap:12px;z-index:30;">
+          <button id="btnFvSelectMode" class="circle-btn" type="button" aria-label="Select videos" title="Select videos">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M9 12l2 2 4-4"></path></svg>
+          </button>
+          <div class="arc-wall-toggle">
+            <button id="btnModeArc" class="arc-wall-btn active" type="button">ARC</button>
+            <button id="btnModeWall" class="arc-wall-btn" type="button">WALL</button>
+          </div>
+        </div>
+
+        <div id="fvWallContainer" class="wall-wrap scroll-area" style="display:none;">
+          <div class="wall-grid" id="wallGrid"></div>
+        </div>
+      </section>
+
+      <!-- ==================== LAYER 1: PLAYLISTS (3D ARCHIVAL REEL / SLIPCASE SHELF) ==================== -->
+      <section class="layer" id="layer-lists" aria-label="Playlists">
+        <div style="position:absolute;left:144px;top:30px;font-size:40px;font-weight:700;letter-spacing:-1px;">Playlists</div>
+        <div class="mono" id="playlistsSub" style="position:absolute;left:146px;top:84px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">02 · ARCHIVAL REEL SHELF</div>
+        <div id="playlistsHost" class="scroll-area" style="position:absolute;left:132px;top:148px;width:1108px;height:520px;overflow-x:auto;overflow-y:visible;"></div>
+        <div class="mono" style="position:absolute;left:146px;bottom:34px;font-size:11px;letter-spacing:.14em;color:var(--ink-muted);pointer-events:none;">HOVER A SLIPCASE TO DRAW THE TAPE · TAP TO OPEN REEL · ⋮ FOR ACTIONS</div>
+      </section>
+
+      <!-- ==================== LAYER 2: NETWORK (URL STREAM + ISOMETRIC PATCH BAY) ==================== -->
+      <section class="layer" id="layer-net" aria-label="Network">
+        <div style="position:absolute;left:144px;top:30px;font-size:40px;font-weight:700;letter-spacing:-1px;">Network</div>
+        <div class="mono" style="position:absolute;left:144px;top:124px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">NETWORK STREAM · ENTER A URL</div>
+
+        <div style="position:absolute;left:144px;top:150px;width:1050px;display:flex;gap:14px;">
+          <input id="netUrlInput" class="studio-input" style="flex:1;height:70px;" type="url" placeholder="http://example.com/example.mp4" />
+          <button id="btnOpenStream" class="key" type="button" style="flex:none;height:70px;padding:0 28px;border-radius:16px;border:0;font-size:16px;font-weight:700;background:var(--surface-key);color:var(--ink-dim);box-shadow:0 6px 0 #070605;">Open network stream</button>
+        </div>
+        <div class="mono" id="netStreamHint" style="position:absolute;left:146px;top:232px;font-size:12px;letter-spacing:.1em;color:var(--accent);min-height:16px;"></div>
+
+        <div id="netSavedCol" class="scroll-area" style="position:absolute;left:144px;top:312px;width:430px;height:440px;overflow-y:auto;padding-bottom:40px;"></div>
+
+        <div style="position:absolute;left:600px;top:296px;width:640px;height:440px;perspective:1400px;">
+          <div id="patchBayGrid" style="position:absolute;left:92px;top:72px;width:424px;height:284px;transform-style:preserve-3d;transform:rotateX(58deg) rotateZ(-38deg);"></div>
+        </div>
+      </section>
+
+      <!-- ==================== LAYER 3: MORE (3 HARDWARE KEYS + HAND OF CARDS) ==================== -->
+      <section class="layer" id="layer-more" aria-label="More">
+        <div style="position:absolute;left:144px;top:30px;font-size:40px;font-weight:700;letter-spacing:-1px;">More</div>
+
+        <div style="position:absolute;left:144px;top:126px;display:flex;gap:24px;">
+          <button id="btnVaultKey" class="hw-keycap key" type="button">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path id="vaultShackle" d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+            <span><span style="display:block;font-size:30px;font-weight:700;letter-spacing:-.5px;">Vault</span><span class="mono" id="vaultStateTxt" style="display:block;margin-top:4px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">LOCKED</span></span>
+          </button>
+
+          <button id="btnPickFileKey" class="hw-keycap key" type="button">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+            <span><span style="display:block;font-size:30px;font-weight:700;letter-spacing:-.5px;">Pick file</span><span class="mono" style="display:block;margin-top:4px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">BROWSE STORAGE</span></span>
+          </button>
+
+          <button id="btnTrashKey" class="hw-keycap key" type="button">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
+            <span><span style="display:block;font-size:30px;font-weight:700;letter-spacing:-.5px;">Trash</span><span class="mono" id="trashCountTxt" style="display:block;margin-top:4px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">EMPTY</span></span>
+          </button>
+        </div>
+
+        <div style="position:absolute;left:144px;top:296px;width:1038px;display:flex;align-items:flex-end;justify-content:space-between;">
+          <div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-.5px;">History</div>
+            <div class="mono" style="margin-top:4px;font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">LAST 4 PLAYED · SLIDE ACROSS THE HAND · TAP ONE TO PULL IT OUT</div>
+          </div>
+          <button id="btnViewAllHistory" class="btn-ghost" type="button" style="height:38px;">Full History &rarr;</button>
+        </div>
+
+        <div class="hand-stage" id="handStage"></div>
+      </section>
+
+      <!-- ==================== LEFT 96PX VERTICAL RAIL ==================== -->
+      <aside class="nav-rail" aria-label="Primary Navigation">
+        <div class="rail-monogram mono">NP</div>
+        <div class="rail-marker" id="railMarker"></div>
+        <button class="rail-btn active" data-screen="0" style="top:130px;" type="button" aria-label="Home">
+          <span class="mono" style="font-size:11px;letter-spacing:.1em;">01</span>
+          <span class="rail-label">HOME</span>
+        </button>
+        <button class="rail-btn" data-screen="1" style="top:270px;" type="button" aria-label="Playlists">
+          <span class="mono" style="font-size:11px;letter-spacing:.1em;">02</span>
+          <span class="rail-label">LISTS</span>
+        </button>
+        <button class="rail-btn" data-screen="2" style="top:410px;" type="button" aria-label="Network">
+          <span class="mono" style="font-size:11px;letter-spacing:.1em;">03</span>
+          <span class="rail-label">NET</span>
+        </button>
+        <button class="rail-btn" data-screen="3" style="top:550px;" type="button" aria-label="More">
+          <span class="mono" style="font-size:11px;letter-spacing:.1em;">04</span>
+          <span class="rail-label">MORE</span>
+        </button>
+        <button id="btnRailSettings" class="rail-gear-btn" type="button" aria-label="Settings" title="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </aside>
+
+      <!-- ==================== CONTEXT-AWARE TACTILE FAB ==================== -->
+      <button id="mainFab" class="fab" type="button">
+        <span id="fabIcon" style="display:flex;align-items:center;"></span>
+        <span id="fabLabel">Resume</span>
+      </button>
+
+      <!-- ==================== MULTI-SELECT TOP BAR & 7-ACTION BOTTOM DOCK ==================== -->
+      <div class="select-bar" id="selectBar" aria-hidden="true">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <button id="btnExitSelect" class="circle-btn" type="button" style="width:40px;height:40px;" aria-label="Exit selection">&times;</button>
+          <span class="mono" id="selectCountLabel" style="font-size:15px;font-weight:600;letter-spacing:.06em;">0 / 18 Selected</span>
+        </div>
+        <button id="btnSelectAll" class="circle-btn" type="button" style="width:42px;height:42px;" aria-label="Select all" title="Select all">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 17.5l2 2 4-4"></path></svg>
+        </button>
+      </div>
+
+      <div class="action-dock" id="actionDock" aria-hidden="true">
+        <button class="dock-act-btn" data-act="play" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+          <span>Play</span>
+        </button>
+        <button class="dock-act-btn" data-act="playlist" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="16" y2="7"></line><line x1="4" y1="12" x2="12" y2="12"></line><path d="M16 11v6M13 14h6"></path></svg>
+          <span>Add to playlist</span>
+        </button>
+        <button class="dock-act-btn" data-act="share" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg>
+          <span>Share</span>
+        </button>
+        <button class="dock-act-btn" data-act="copy" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span>Copy</span>
+        </button>
+        <button class="dock-act-btn" data-act="move" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6M9 14l3 3 3-3"></path></svg>
+          <span>Move</span>
+        </button>
+        <button class="dock-act-btn" data-act="hide" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          <span>Hide</span>
+        </button>
+        <button class="dock-act-btn danger" data-act="delete" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
+          <span>Delete</span>
+        </button>
+      </div>
+
+      <!-- ==================== OVERLAYS: VAULT (HIDDEN VIDEOS), PLAYLIST DETAIL, ADD CONNECTION, HISTORY, TRASH, SETTINGS ==================== -->
+      <div class="overlay-sheet" id="overlay-vault" aria-hidden="true">
+        <div class="overlay-head">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <button class="circle-btn" type="button" style="width:46px;height:46px;" onclick="closeOverlays()">&larr;</button>
+            <div>
+              <div style="font-size:28px;font-weight:700;">Hidden videos</div>
+              <div class="mono" id="vaultMetaSub" style="font-size:11px;color:var(--accent);margin-top:2px;">VAULT UNLOCKED · 0 HIDDEN VIDEOS</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button id="btnVaultQuickSettings" class="circle-btn" type="button" style="width:44px;height:44px;" aria-label="Vault Quick Settings" title="Vault Quick Settings">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="17" x2="20" y2="17"></line><circle cx="9" cy="7" r="2.5" fill="var(--bg)"></circle><circle cx="15" cy="17" r="2.5" fill="var(--bg)"></circle></svg>
+            </button>
+            <button id="btnVaultSettingsGear" class="circle-btn" type="button" style="width:44px;height:44px;" aria-label="Vault settings" title="Vault settings">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+            <button id="btnLockVaultNow" class="btn-ghost" type="button" style="height:40px;">Lock Vault</button>
+          </div>
+        </div>
+        <div class="overlay-body scroll-area" id="vaultListHost"></div>
+      </div>
+
+      <div class="overlay-sheet" id="overlay-pldetail" aria-hidden="true">
+        <div class="overlay-head">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <button class="circle-btn" type="button" style="width:46px;height:46px;" onclick="closeOverlays()">&larr;</button>
+            <div>
+              <div id="pdTitle" style="font-size:28px;font-weight:700;">testing</div>
+              <div class="mono" id="pdMeta" style="font-size:11px;color:var(--ink-muted);margin-top:2px;">LOCAL · 2 VIDEOS</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button id="btnPdPlayAll" class="btn-accent" type="button" style="height:40px;padding:0 16px;font-size:13px;">&#9654; Play All</button>
+            <button id="btnPdShuffle" class="btn-ghost" type="button" style="height:40px;">Shuffle</button>
+            <input id="pdSearch" class="studio-input" style="height:40px;width:210px;font-size:12.5px;padding:0 14px;" placeholder="Filter playlist..." />
+            <button id="btnPdSort" class="btn-ghost" type="button" style="height:40px;">A&ndash;Z</button>
+          </div>
+        </div>
+        <div class="overlay-body scroll-area" id="pdBody"></div>
+      </div>
+
+      <div class="overlay-sheet" id="overlay-addconn" aria-hidden="true">
+        <div class="overlay-head">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <button class="circle-btn" type="button" style="width:46px;height:46px;" onclick="closeOverlays()">&times;</button>
+            <div style="font-size:28px;font-weight:700;">Add connection</div>
+          </div>
+        </div>
+        <div class="overlay-body scroll-area">
+          <div style="max-width:740px;display:flex;flex-direction:column;gap:16px;">
+            <div>
+              <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">PROTOCOL</div>
+              <div class="seg-bar" id="connProtoSeg">
+                <button class="seg-btn active" data-p="SMB" type="button">SMB</button>
+                <button class="seg-btn" data-p="FTP" type="button">FTP / SFTP</button>
+                <button class="seg-btn" data-p="WEBDAV" type="button">WEBDAV</button>
+              </div>
+            </div>
+
+            <div id="rowUseSftp" style="display:none;align-items:center;justify-content:space-between;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);">
+              <div>
+                <div style="font-weight:700;font-size:15px;">Use SFTP</div>
+                <div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:2px;">ENCRYPTED SSH (DEFAULT PORT 22)</div>
+              </div>
+              <button id="swUseSftp" class="toggle-sw" type="button" aria-label="Use SFTP"></button>
+            </div>
+
+            <div id="rowUseHttps" style="display:none;align-items:center;justify-content:space-between;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);">
+              <div>
+                <div style="font-weight:700;font-size:15px;">Use HTTPS</div>
+                <div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:2px;">ENCRYPTED TLS (DEFAULT PORT 443)</div>
+              </div>
+              <button id="swUseHttps" class="toggle-sw" type="button" aria-label="Use HTTPS"></button>
+            </div>
+
+            <input id="cName" class="studio-input" placeholder="Name" />
+            <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:12px;">
+              <input id="cHost" class="studio-input" placeholder="Host (e.g. 192.168.1.42)" />
+              <input id="cPort" class="studio-input" placeholder="Port (default 445)" />
+            </div>
+            <input id="cPath" class="studio-input" placeholder="Path / Share name" value="/" />
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <input id="cUser" class="studio-input" placeholder="Username" />
+              <input id="cPass" class="studio-input" type="password" placeholder="Password" />
+            </div>
+
+            <button id="btnSaveConn" class="btn-accent key" type="button" style="height:56px;width:100%;margin-top:8px;font-size:16px;">Test &amp; Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay-sheet" id="overlay-history" aria-hidden="true">
+        <div class="overlay-head">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <button class="circle-btn" type="button" style="width:46px;height:46px;" onclick="closeOverlays()">&larr;</button>
+            <div style="font-size:28px;font-weight:700;">History</div>
+          </div>
+          <button id="btnClearHist" class="btn-ghost" type="button">Clear history</button>
+        </div>
+        <div class="overlay-body scroll-area" id="historyListHost"></div>
+      </div>
+
+      <div class="overlay-sheet" id="overlay-trash" aria-hidden="true">
+        <div class="overlay-head">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <button class="circle-btn" type="button" style="width:46px;height:46px;" onclick="closeOverlays()">&larr;</button>
+            <div style="font-size:28px;font-weight:700;">Trash</div>
+          </div>
+          <button id="btnEmptyTrash" class="btn-ghost" type="button" style="display:none;">Empty trash</button>
+        </div>
+        <div class="overlay-body scroll-area" id="trashListHost"></div>
+      </div>
+
+      <div class="overlay-sheet" id="overlay-settings" aria-hidden="true">
+        <div class="overlay-head">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <button class="circle-btn" type="button" style="width:46px;height:46px;" onclick="closeOverlays()">&larr;</button>
+            <div style="font-size:28px;font-weight:700;">Settings</div>
+          </div>
+        </div>
+        <div class="settings-split">
+          <div class="settings-nav scroll-area" id="settingsNav"></div>
+          <div class="settings-detail scroll-area" id="settingsDetail"></div>
+        </div>
+      </div>
+
+      <!-- ==================== MODALS: QUICK SETTINGS, SEARCH, DIALOG ==================== -->
+      <div class="modal-backdrop" id="overlay-quick" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-card" style="width:560px;padding:26px 28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+            <div style="font-size:24px;font-weight:700;">Quick Settings</div>
+            <button class="circle-btn" type="button" style="width:38px;height:38px;" onclick="closeModals()">&times;</button>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">MEDIA VIEW MODE</div>
+            <div class="seg-bar" id="qsViewModeSeg">
+              <button class="seg-btn" data-m="tree" type="button">TREE</button>
+              <button class="seg-btn active" data-m="folders" type="button">FOLDERS</button>
+              <button class="seg-btn" data-m="videos" type="button">VIDEOS</button>
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">MEDIA LAYOUT</div>
+            <div class="seg-bar" id="qsLayoutSeg">
+              <button class="seg-btn active" data-v="crate" type="button">CRATE 3D</button>
+              <button class="seg-btn" data-v="grid" type="button">GRID</button>
+              <button class="seg-btn" data-v="list" type="button">LIST</button>
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">SORT &amp; ORDER</div>
+            <div class="seg-bar" id="qsSortSeg" style="margin-bottom:8px;">
+              <button class="seg-btn active" data-v="title" type="button">TITLE</button>
+              <button class="seg-btn" data-v="duration" type="button">DURATION</button>
+              <button class="seg-btn" data-v="date" type="button">DATE</button>
+              <button class="seg-btn" data-v="size" type="button">SIZE</button>
+              <button class="seg-btn" data-v="location" type="button">LOCATION</button>
+            </div>
+            <div class="seg-bar" id="qsDirSeg">
+              <button class="seg-btn active" data-v="asc" type="button">&uarr; A&ndash;Z</button>
+              <button class="seg-btn" data-v="desc" type="button">&darr; Z&ndash;A</button>
+            </div>
+          </div>
+          <div style="margin-bottom:18px;">
+            <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">FIELDS</div>
+            <div id="qsFieldsHost" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div>
+              <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">ACCENT INK</div>
+              <div id="qsAccentHost" style="display:flex;gap:10px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+              <div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">TACTILE SFX</div>
+              <button id="qsSfxToggle" class="toggle-sw on" type="button" aria-label="Toggle tactile SFX"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="overlay-search" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-card" style="width:740px;height:620px;display:flex;flex-direction:column;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);">
+            <button class="circle-btn" type="button" style="width:40px;height:40px;" onclick="closeModals()">&larr;</button>
+            <input id="searchInput" style="flex:1;border:0;background:transparent;font-size:18px;outline:none;" placeholder="Search videos and folders" autocomplete="off" />
+            <button id="btnClearSearch" class="btn-ghost" type="button" style="height:34px;display:none;">Clear</button>
+          </div>
+          <div id="searchBody" class="scroll-area" style="flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-card" id="dialogCard" style="width:460px;padding:26px;"></div>
+      </div>
+
+      <!-- ==================== FULL-SCREEN CINEMA VIDEO PLAYER ==================== -->
+      <div id="overlay-player" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="cinema-stage" id="cinemaStage">
+          <canvas id="cinemaCanvas" class="cinema-media"></canvas>
+          <video id="cinemaVideo" class="cinema-media" style="display:none;" playsinline></video>
+          <div class="cinema-subs" id="cinemaSubs" style="display:none;"></div>
+          <button id="btnUnlockCinema" class="cinema-btn unlock-btn" type="button">Unlock Controls</button>
+
+          <div class="cinema-top">
+            <div style="display:flex;align-items:center;gap:16px;min-width:0;">
+              <button id="btnCloseCinema" class="circle-btn" type="button" style="width:44px;height:44px;">&larr;</button>
+              <div style="min-width:0;">
+                <div id="cinemaTitle" style="font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Video</div>
+                <div class="mono" id="cinemaBadge" style="font-size:11px;color:var(--accent);margin-top:2px;">1080P · HW+</div>
+              </div>
+            </div>
+            <button id="btnLockCinema" class="cinema-btn" type="button">Lock</button>
+          </div>
+
+          <div class="cinema-bot">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <span class="mono" id="cinemaCur" style="font-size:12px;">00:00</span>
+              <input id="cinemaScrub" type="range" min="0" max="1000" value="0" style="flex:1;accent-color:var(--accent);cursor:pointer;" />
+              <span class="mono" id="cinemaDur" style="font-size:12px;">22:59</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+              <div style="display:flex;gap:8px;">
+                <button id="btnPrevEp" class="cinema-btn" type="button">&lsaquo; Prev</button>
+                <button id="btnSeekBack" class="cinema-btn" type="button">-10s</button>
+                <button id="btnPlayPause" class="cinema-btn primary" type="button">Pause</button>
+                <button id="btnSeekFwd" class="cinema-btn" type="button">+10s</button>
+                <button id="btnNextEp" class="cinema-btn" type="button">Next &rsaquo;</button>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button id="btnAudioTrack" class="cinema-btn" type="button">Audio: Japanese</button>
+                <button id="btnSubTrack" class="cinema-btn" type="button">Sub: English</button>
+                <button id="btnSpeed" class="cinema-btn" type="button">1.0x</button>
+                <button id="btnAspect" class="cinema-btn" type="button">Fit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =======================================================================
+      // 1. RESPONSIVE 1280x800 STAGE SCALER (1:1 POINTER DELTA COMPENSATION)
+      // =======================================================================
+      let stageScale = 1;
+      const stageEl = document.getElementById('stage');
+
+      function fitStage() {
+        const vw = document.documentElement.clientWidth || window.innerWidth;
+        const vh = document.documentElement.clientHeight || window.innerHeight;
+        stageScale = Math.min(vw / 1280, vh / 800);
+        window.__stageScale = stageScale;
+        stageEl.style.transform = 'scale(' + stageScale.toFixed(5) + ')';
+      }
+      window.addEventListener('DOMContentLoaded', fitStage);
+      window.addEventListener('resize', fitStage);
+      document.addEventListener('fullscreenchange', () => {
+        fitStage();
+        setTimeout(fitStage, 120);
+      });
+      fitStage();
+
+      // =======================================================================
+      // 2. BOOT-TIME PROCEDURAL CANVAS SPRITE ATLAS (40 CINEMA FRAMES)
+      // =======================================================================
+      const FRAME_ART_CACHE = new Map();
+
+      function buildCinemaFrameDataURL(v) {
+        const key = String(v.id || v.t || 'default');
+        if (FRAME_ART_CACHE.has(key)) return FRAME_ART_CACHE.get(key);
+
+        const c = document.createElement('canvas');
+        c.width = 320;
+        c.height = 180;
+        const g = c.getContext('2d');
+        const m = v.motif || 'cinema';
+        const h = v.hue || 22;
+
+        // Base widescreen film grade
+        const bg = g.createLinearGradient(0, 0, 320, 180);
+        if (m === 'bleach') {
+          bg.addColorStop(0, '#160B06');
+          bg.addColorStop(0.55, 'hsl(' + h + ', 64%, 24%)');
+          bg.addColorStop(1, 'hsl(' + ((h + 18) % 360) + ', 82%, 46%)');
+        } else if (m === 'bebop') {
+          bg.addColorStop(0, '#090D1F');
+          bg.addColorStop(0.6, 'hsl(' + h + ', 52%, 22%)');
+          bg.addColorStop(1, '#312E81');
+        } else if (m === 'vendetta') {
+          bg.addColorStop(0, '#130708');
+          bg.addColorStop(1, '#360E12');
+        } else if (m === 'horror') {
+          bg.addColorStop(0, '#070709');
+          bg.addColorStop(1, '#260808');
+        } else if (m === 'noir') {
+          bg.addColorStop(0, '#0C1117');
+          bg.addColorStop(1, '#1E293B');
+        } else if (m === 'tech') {
+          bg.addColorStop(0, '#081412');
+          bg.addColorStop(1, '#133832');
+        } else {
+          bg.addColorStop(0, 'hsl(' + h + ', 38%, 12%)');
+          bg.addColorStop(1, 'hsl(' + ((h + 26) % 360) + ', 55%, 24%)');
+        }
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 320, 180);
+
+        // Motif-specific bespoke composition
+        if (m === 'bleach') {
+          g.save();
+          g.fillStyle = 'rgba(236, 228, 210, 0.86)';
+          g.beginPath();
+          g.moveTo(-18, 166); g.lineTo(256, 12); g.lineTo(294, 22); g.lineTo(24, 182);
+          g.closePath(); g.fill();
+          g.strokeStyle = 'rgba(255, 90, 46, 0.65)';
+          g.lineWidth = 3.5;
+          g.beginPath(); g.moveTo(46, 180); g.lineTo(320, 36); g.stroke();
+          g.fillStyle = 'rgba(13, 12, 10, 0.55)';
+          g.beginPath(); g.arc(74, 54, 24, 0, Math.PI * 2); g.fill();
+          g.restore();
+        } else if (m === 'bebop') {
+          g.fillStyle = 'rgba(255, 194, 71, 0.85)';
+          g.beginPath(); g.arc(234, 58, 38, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(9, 12, 24, 0.78)';
+          g.fillRect(0, 114, 320, 66);
+          g.strokeStyle = 'rgba(127, 231, 208, 0.65)';
+          g.lineWidth = 2;
+          g.beginPath(); g.moveTo(0, 114); g.lineTo(320, 114); g.stroke();
+          g.fillStyle = '#ECE4D2';
+          g.beginPath(); g.moveTo(36, 86); g.lineTo(154, 66); g.lineTo(122, 92); g.closePath(); g.fill();
+        } else if (m === 'vendetta') {
+          g.strokeStyle = '#C23A12';
+          g.lineWidth = 7;
+          g.beginPath(); g.arc(160, 90, 56, 0, Math.PI * 2); g.stroke();
+          g.lineCap = 'round';
+          g.beginPath(); g.moveTo(116, 48); g.lineTo(160, 134); g.lineTo(204, 48); g.stroke();
+        } else if (m === 'horror') {
+          g.fillStyle = '#3B0909';
+          g.fillRect(128, 22, 64, 136);
+          g.strokeStyle = '#FF5A2E';
+          g.lineWidth = 2;
+          g.strokeRect(128, 22, 64, 136);
+          const glow = g.createRadialGradient(160, 78, 4, 160, 78, 52);
+          glow.addColorStop(0, 'rgba(220, 38, 38, 0.42)');
+          glow.addColorStop(1, 'transparent');
+          g.fillStyle = glow;
+          g.fillRect(90, 20, 140, 130);
+        } else if (m === 'noir') {
+          g.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+          g.lineWidth = 1;
+          for (let rx = 20; rx < 320; rx += 28) {
+            g.beginPath(); g.moveTo(rx, 0); g.lineTo(rx - 18, 180); g.stroke();
+          }
+          g.fillStyle = 'rgba(236, 228, 210, 0.16)';
+          g.beginPath(); g.arc(225, 46, 24, 0, Math.PI * 2); g.fill();
+        } else if (m === 'tech') {
+          g.strokeStyle = '#7FE7D0';
+          g.lineWidth = 2.5;
+          g.beginPath();
+          g.moveTo(24, 132); g.lineTo(96, 72); g.lineTo(164, 106); g.lineTo(248, 42); g.lineTo(296, 66);
+          g.stroke();
+          g.fillStyle = '#7FE7D0';
+          g.beginPath(); g.arc(248, 42, 5, 0, Math.PI * 2); g.fill();
+        } else {
+          const spot = g.createRadialGradient(216, 48, 6, 216, 48, 140);
+          spot.addColorStop(0, 'hsla(' + h + ', 82%, 58%, 0.55)');
+          spot.addColorStop(1, 'transparent');
+          g.fillStyle = spot;
+          g.fillRect(0, 0, 320, 180);
+        }
+
+        // Subtle film vignette & grain scanlines
+        const vig = g.createRadialGradient(160, 90, 70, 160, 90, 185);
+        vig.addColorStop(0, 'transparent');
+        vig.addColorStop(1, 'rgba(6, 5, 4, 0.52)');
+        g.fillStyle = vig;
+        g.fillRect(0, 0, 320, 180);
+
+        const url = c.toDataURL('image/jpeg', 0.86);
+        FRAME_ART_CACHE.set(key, url);
+        return url;
+      }
+
+      function thumbImgHTML(v) {
+        return '<img src="' + buildCinemaFrameDataURL(v) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />';
+      }
+
+      // =======================================================================
+      // 3. WEB AUDIO SYNTHESIZED TACTILE SFX
+      // =======================================================================
+      const sfx = {
+        ctx: null,
+        noiseBuf: null,
+        enabled: true,
+        lastFlick: 0,
+        lastTick: 0,
+        unlock() {
+          try {
+            if (this.ctx) {
+              if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+              return;
+            }
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            this.ctx = new AC();
+            const len = Math.floor(this.ctx.sampleRate * 0.25);
+            this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+            const ch = this.noiseBuf.getChannelData(0);
+            for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+          } catch (_) {}
+        },
+        flick() {
+          if (!this.enabled) return;
+          try {
+            this.unlock();
+            if (!this.ctx || !this.noiseBuf) return;
+            const now = this.ctx.currentTime;
+            if (now - this.lastFlick < 0.036) return;
+            this.lastFlick = now;
+            const src = this.ctx.createBufferSource();
+            src.buffer = this.noiseBuf;
+            const bp = this.ctx.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.frequency.setValueAtTime(1180 + (Math.random() * 180 - 90), now);
+            bp.Q.setValueAtTime(2.4, now);
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.075, now + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+            src.connect(bp); bp.connect(g); g.connect(this.ctx.destination);
+            src.start(now, Math.random() * 0.12, 0.045);
+          } catch (_) {}
+        },
+        click(pitch) {
+          if (!this.enabled) return;
+          try {
+            this.unlock();
+            if (!this.ctx) return;
+            const p = pitch || 1;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220 * p, now);
+            osc.frequency.exponentialRampToValueAtTime(60, now + 0.038);
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.linearRampToValueAtTime(0.08, now + 0.004);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.042);
+            osc.connect(g); g.connect(this.ctx.destination);
+            osc.start(now); osc.stop(now + 0.046);
+          } catch (_) {}
+        },
+        rulerTick() {
+          if (!this.enabled) return;
+          try {
+            this.unlock();
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            if (now - this.lastTick < 0.025) return;
+            this.lastTick = now;
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(920, now);
+            osc.frequency.exponentialRampToValueAtTime(420, now + 0.015);
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.036, now);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.018);
+            osc.connect(g); g.connect(this.ctx.destination);
+            osc.start(now); osc.stop(now + 0.02);
+          } catch (_) {}
+        }
+      };
+
+      // =======================================================================
+      // 4. COMPLETE 18-FOLDER LIBRARY DATA
+      // =======================================================================
+      const PAPERS = ['#D9CBA6', '#CDBE96', '#E2D6B8', '#C4B48A'];
+      const TAB_SLOTS = [30, 185, 340, 495];
+      const ACCENTS = [
+        { hex: '#FF5A2E', shadow: '#7A2A12', name: 'International Orange' },
+        { hex: '#C8F23D', shadow: '#546812', name: 'Acid Lime' },
+        { hex: '#7FE7D0', shadow: '#266859', name: 'Seafoam' },
+        { hex: '#FFC247', shadow: '#7A540E', name: 'Amber' }
+      ];
+
+      // Curated alternating horizontal X-stagger (-58px..+62px) & cant (-2.6deg..+2.8deg)
+      const ORGANIC_OFFSETS = [
+        { x: -48, rz: -2.1 }, { x:  44, rz:  1.9 }, { x: -58, rz: -2.6 }, { x:  56, rz:  2.4 },
+        { x: -30, rz: -1.3 }, { x:  62, rz:  2.8 }, { x: -54, rz: -2.3 }, { x:  36, rz:  1.6 },
+        { x: -56, rz: -2.5 }, { x:  50, rz:  2.1 }, { x: -38, rz: -1.7 }, { x:  60, rz:  2.6 },
+        { x: -46, rz: -2.0 }, { x:  32, rz:  1.4 }, { x: -52, rz: -2.3 }, { x:  42, rz:  1.8 },
+        { x: -26, rz: -1.2 }, { x:  48, rz:  2.0 }
+      ];
+
+      const p2 = n => (n < 10 ? '0' : '') + n;
+      const p3 = n => (n < 10 ? '00' : n < 100 ? '0' : '') + n;
+      const toSec = d => {
+        if (!d || d.indexOf('-') !== -1) return 1380;
+        const p = d.split(':').map(Number);
+        return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+      };
+
+      const BLEACH_TITLES = [
+        'The Day I Became a Shinigami', "The Shinigami's Work", "The Older Brother's Wish", 'Cursed Parakeet',
+        'Beat the Invisible Enemy', 'Fight to the Death! Ichigo vs Ichigo', 'Greetings from a Stuffed Lion',
+        'June 17, Memories in the Rain', 'Unbeatable Enemy', 'Assault on Trip at Sacred Ground',
+        'The Legendary Quincy', 'A Gentle Right Arm', 'Flower and Hollow', 'Back to Back, a Fight to the Death',
+        "Kon's Great Plan", 'Encounter, Renji Abarai!', 'Ichigo Dies!', 'Reclaim! The Power of the Shinigami',
+        'Ichigo Becomes a Hollow!', "Gin Ichimaru's Shadow", 'Enter! The World of the Shinigami',
+        'The Man Who Hates Shinigami', "14 Days Before Rukia's Execution", 'Assemble! The 13 Divisions',
+        'Penetrate the Centre with an Enormous Bombshell?', 'Formation! The Worst Tag', 'Release the Death Blow!',
+        'Orihime Targeted', "Breakthrough! The Shinigami's Encompassing Net", "Renji's Confrontation",
+        'The Resolution to Kill', 'Stars and the Stray'
+      ];
+      const BLEACH_DURS = ['22:59','22:59','22:59','22:59','22:59','22:59','22:59','22:59','22:55','22:56','22:56','22:56','22:56','22:50','22:51','22:51','22:50','22:50','22:50','22:50','22:50','22:50','22:50','22:50','22:50','22:48','22:49','22:48','22:48','22:58','22:48','22:48'];
+
+      function buildBleachVideos() {
+        const out = [];
+        for (let e = 1; e <= 275; e++) {
+          const no = p3(e);
+          if (e <= 32) {
+            out.push({
+              id: 'bleach-' + e, no, t: BLEACH_TITLES[e - 1],
+              raw: no + ' \u2013 ' + BLEACH_TITLES[e - 1] + '.mkv', dur: BLEACH_DURS[e - 1],
+              durSec: toSec(BLEACH_DURS[e - 1]), res: '720p', sizeMB: 215, progress: e === 1 ? 68 : 0,
+              last: e === 1, hue: (14 + e * 7) % 360, motif: 'bleach'
+            });
+          } else if (e === 206) {
+            out.push({
+              id: 'bleach-206', no: '206', t: 'The Past Chapter Begins!',
+              raw: '206_The_Past_Chapter_Begins!_The.mkv', dur: '23:37',
+              durSec: toSec('23:37'), res: '720p', sizeMB: 232, progress: 44, hue: 34, motif: 'bleach'
+            });
+          } else {
+            const dur = '22:' + (40 + (e * 7) % 19);
+            out.push({
+              id: 'bleach-' + e, no, t: 'Episode ' + no,
+              raw: 'Bleach_' + no + '.mkv', dur, durSec: toSec(dur), res: '720p', sizeMB: 210,
+              progress: 0, hue: (e * 11) % 360, motif: 'bleach'
+            });
+          }
+        }
+        return out;
+      }
+
+      const FOLDERS_DATA = [
+        {
+          id: 'f-01', name: '1080p x264 2.3GB', n: 1, nw: 0, sizeGB: 2.3, dateRank: 14, path: '/storage/emulated/0/M/Insidious Out of the Further',
+          videos: [{ id: 'ins-1', no: '01', t: 'Insidious: Out of the Further', raw: 'Insidious Out of the Further.mkv', dur: '01:46:02', durSec: toSec('01:46:02'), res: '1080p x264', sizeMB: 2355, progress: 30, hue: 348, motif: 'horror' }]
+        },
+        {
+          id: 'f-02', name: 'Bleach', n: 275, nw: 0, last: true, sizeGB: 58.4, dateRank: 18, path: '/storage/emulated/0/Download/Bleach',
+          videos: buildBleachVideos()
+        },
+        {
+          id: 'f-03', name: 'Camera', n: 3, nw: 3, sizeGB: 0.42, dateRank: 16, path: '/storage/emulated/0/DCIM/Camera',
+          videos: [
+            { id: 'cam-1', no: '01', t: 'VID_20261008_051504', raw: 'VID_20261008_051504.mp4', dur: '01:14', durSec: 74, res: '4K', sizeMB: 180, progress: 0, hue: 145, motif: 'tech' },
+            { id: 'cam-2', no: '02', t: 'VID_20261008_051651', raw: 'VID_20261008_051651.mp4', dur: '00:52', durSec: 52, res: '4K', sizeMB: 120, progress: 0, hue: 162, motif: 'tech' },
+            { id: 'cam-3', no: '03', t: 'Rain on Balcony', raw: 'VID_20261102_213044.mp4', dur: '01:43', durSec: 103, res: '1080p', sizeMB: 130, progress: 0, hue: 205, motif: 'noir' }
+          ]
+        },
+        {
+          id: 'f-04', name: 'Creative', n: 1, nw: 0, sizeGB: 0.24, dateRank: 6, path: '/storage/emulated/0/Movies/Creative',
+          videos: [{ id: 'cr-1', no: '01', t: 'Motion Reel 2026 Final', raw: 'Motion_Reel_2026_Final.mp4', dur: '03:48', durSec: 228, res: '1080p 60fps', sizeMB: 245, progress: 0, hue: 170, motif: 'tech' }]
+        },
+        {
+          id: 'f-05', name: 'Download', n: 5, nw: 0, sizeGB: 11.6, dateRank: 15, path: '/storage/emulated/0/Download',
+          videos: [
+            { id: 'dl-1', no: '01', t: 'Hellboy 2 (2008)', raw: 'Hellboy.2.(2008).1080p.Dual.Audio.mkv', dur: '01:59:42', durSec: toSec('01:59:42'), res: '1080p', sizeMB: 2457, progress: 18, hue: 16, motif: 'cinema' },
+            { id: 'dl-2', no: '02', t: "La Bataille de Gaulle: L'\u00C2ge de fer", raw: "La.Bataille.De.Gaulle.L'Age.de.fer.2026.mkv", dur: '02:38:19', durSec: toSec('02:38:19'), res: '1080p', sizeMB: 3174, progress: 0, hue: 36, motif: 'noir' },
+            { id: 'dl-3', no: '03', t: 'Memories of Murder (2003)', raw: 'Memories.of.Murder.2003.1080p.BluRay.mkv', dur: '02:11:08', durSec: toSec('02:11:08'), res: '1080p BluRay', sizeMB: 2867, progress: 0, hue: 205, motif: 'noir' },
+            { id: 'dl-4', no: '04', t: 'MobLand \u00B7 S02E01', raw: 'MobLand.2026.S02E01.1080P.Hindi.mkv', dur: '48:58', durSec: toSec('48:58'), res: '1080p', sizeMB: 1126, progress: 52, hue: 28, motif: 'cinema' },
+            { id: 'dl-5', no: '05', t: 'Pretty Woman (1990)', raw: 'Pretty.Woman.1990.1080p.BluRay.Hindi.mkv', dur: '01:59:42', durSec: toSec('01:59:42'), res: '1080p BluRay', sizeMB: 2252, progress: 0, hue: 44, motif: 'warm' }
+          ]
+        },
+        {
+          id: 'f-06', name: 'Internal Storage', n: 2, nw: 0, sizeGB: 0.31, dateRank: 7, path: '/storage/emulated/0',
+          videos: [
+            { id: 'int-1', no: '01', t: 'HEVC 10-bit HDR Test', raw: 'test_hevc_10bit_hdr.mkv', dur: '06:20', durSec: 380, res: '4K HDR', sizeMB: 190, progress: 0, hue: 185, motif: 'tech' },
+            { id: 'int-2', no: '02', t: 'Dolby Atmos Reference', raw: 'sample_dolby_atmos.mp4', dur: '06:20', durSec: 380, res: '1080p', sizeMB: 120, progress: 0, hue: 215, motif: 'tech' }
+          ]
+        },
+        {
+          id: 'f-07', name: 'Movies', n: 2, nw: 0, sizeGB: 5.4, dateRank: 8, path: '/storage/emulated/0/Movies',
+          videos: [
+            { id: 'mov-1', no: '01', t: 'Blade Runner 2049', raw: 'Blade.Runner.2049.1080p.HEVC.mkv', dur: '02:43:54', durSec: toSec('02:43:54'), res: '1080p HEVC', sizeMB: 3420, progress: 22, hue: 24, motif: 'bleach' },
+            { id: 'mov-2', no: '02', t: 'Perfect Days (2023)', raw: 'Perfect.Days.2023.1080p.BluRay.mkv', dur: '02:04:12', durSec: toSec('02:04:12'), res: '1080p', sizeMB: 2100, progress: 0, hue: 140, motif: 'warm' }
+          ]
+        },
+        {
+          id: 'f-08', name: 'psldawn', n: 1, nw: 0, sizeGB: 0.41, dateRank: 4, path: '/storage/emulated/0/Download/psldawn',
+          videos: [{ id: 'psl-1', no: '01', t: 'Archive Clip 01', raw: 'psldawn_archive_clip_01.mkv', dur: '19:14', durSec: 1154, res: '1080p', sizeMB: 410, progress: 0, hue: 95, motif: 'noir' }]
+        },
+        {
+          id: 'f-09', name: 'S02', n: 8, nw: 0, sizeGB: 7.4, dateRank: 11, path: '/storage/emulated/0/M/S02',
+          videos: Array.from({ length: 8 }, (_, i) => ({
+            id: 's02-' + (i + 1), no: p2(i + 1), t: 'Season 2 \u00B7 Episode ' + p2(i + 1), raw: 'S02E' + p2(i + 1) + '.1080p.WEB-DL.mkv',
+            dur: '47:15', durSec: 2835, res: '1080p', sizeMB: 920, progress: i < 2 ? 100 : 0, hue: 30 + i * 8, motif: 'cinema'
+          }))
+        },
+        {
+          id: 'f-10', name: 'S02 1080p WEB-DL', n: 1, nw: 0, sizeGB: 1.45, dateRank: 3, path: '/storage/emulated/0/M/S02 WEB-DL',
+          videos: [{ id: 's02w-1', no: '01', t: 'S02E01 DDP5.1', raw: 'S02E01.1080p.WEB-DL.DDP5.1.mkv', dur: '54:18', durSec: 3258, res: '1080p', sizeMB: 1480, progress: 0, hue: 175, motif: 'cinema' }]
+        },
+        {
+          id: 'f-11', name: 'ScreenRecorder', n: 59, nw: 2, sizeGB: 1.85, dateRank: 13, path: '/storage/emulated/0/DCIM/ScreenRecorder',
+          videos: Array.from({ length: 59 }, (_, i) => ({
+            id: 'sr-' + (i + 1), no: p2(i + 1), t: i === 0 ? 'Crate UI Demo Capture' : i === 1 ? 'Termux CLI Session' : 'Screen Recording ' + p2(i + 1),
+            raw: 'ScreenRec_202611' + p2(20 - (i % 19)) + '_' + p2(i + 1) + '.mp4', dur: '0' + (1 + (i % 4)) + ':' + p2((i * 13) % 59),
+            durSec: 90 + (i % 4) * 55, res: '1440p', sizeMB: 35, progress: i === 2 ? 100 : 0, hue: 155 + (i % 6) * 8, motif: 'tech'
+          }))
+        },
+        {
+          id: 'f-12', name: 'Season 1 \u00B7 1080p', n: 1, nw: 1, sizeGB: 1.28, dateRank: 2, path: '/storage/emulated/0/M/Season 1',
+          videos: [{ id: 's1-1', no: '01', t: 'Season 1 Pilot', raw: 'Season.1.Pilot.1080p.WEB-DL.mkv', dur: '51:04', durSec: 3064, res: '1080p', sizeMB: 1310, progress: 0, hue: 40, motif: 'cinema' }]
+        },
+        {
+          id: 'f-13', name: 'Season 1 \u00B7 English', n: 26, nw: 0, sizeGB: 3.64, dateRank: 12, path: '/storage/emulated/0/M/Cowboy Bebop',
+          videos: Array.from({ length: 26 }, (_, i) => ({
+            id: 'cb-' + (i + 1), no: p2(i + 1), t: 'Cowboy Bebop Episode ' + (i + 1), raw: 'Cowboy Bebop Episode ' + (i + 1) + '.mkv',
+            dur: i === 0 ? '24:50' : i === 1 ? '22:23' : '24:48', durSec: 1488, res: '720p 10Bit', sizeMB: 140, progress: i === 0 ? 100 : 0,
+            hue: 225 + (i % 6) * 14, motif: 'bebop'
+          }))
+        },
+        {
+          id: 'f-14', name: 'Season 2 \u00B7 Hindi-English', n: 7, nw: 1, sizeGB: 6.1, dateRank: 10, path: '/storage/emulated/0/M/Season 2',
+          videos: Array.from({ length: 7 }, (_, i) => ({
+            id: 's2he-' + (i + 1), no: p2(i + 1), t: 'Season 2 \u00B7 Episode ' + p2(i + 1), raw: 'Season.2.Episode.' + p2(i + 1) + '.Dual.Audio.mkv',
+            dur: '46:05', durSec: 2765, res: '1080p', sizeMB: 870, progress: 0, hue: 265 + i * 10, motif: 'bebop'
+          }))
+        },
+        {
+          id: 'f-18', name: 'The Count of Monte ...', n: 1, nw: 1, sizeGB: 4.49, dateRank: 17, path: '/storage/emulated/0/M/The Count of Monte Cristo (2024)',
+          videos: [{ id: 'cmc-1', no: '01', t: '12 12 12 Episode-01 4.49...', raw: '12 12 12 Episode-01 4.49GB.mkv', dur: '59:37', durSec: toSec('59:37'), res: '1080p', sizeMB: 4597, isNew: true, progress: 0, hue: 210, motif: 'cinema' }]
+        },
+        {
+          id: 'f-15', name: 'V for Vendetta', n: 1, nw: 0, sizeGB: 4.23, dateRank: 9, path: '/storage/emulated/0/M/V for Vendetta (2005)',
+          videos: [{ id: 'vfv-1', no: '01', t: 'V for Vendetta (2005)', raw: 'V for Vendetta (2005).mkv', dur: '02:12:32', durSec: toSec('02:12:32'), res: '1080p HEVC', sizeMB: 4331, progress: 82, hue: 175, motif: 'vendetta' }]
+        },
+        {
+          id: 'f-16', name: 'WhatsApp Video', n: 1, nw: 0, sizeGB: 0.01, dateRank: 1, path: '/storage/emulated/0/Android/media/WhatsApp/Video',
+          videos: [{ id: 'wa-1', no: '01', t: 'Shared Clip 0004', raw: 'VID-20261118-WA0004.mp4', dur: '00:42', durSec: 42, res: '720p', sizeMB: 11, progress: 0, hue: 132, motif: 'warm' }]
+        },
+        {
+          id: 'f-17', name: 'YT', n: 3, nw: 0, sizeGB: 0.68, dateRank: 5, path: '/storage/emulated/0/Movies/YT',
+          videos: [
+            { id: 'yt-1', no: '01', t: 'Spatial UI Case Study 4K', raw: 'Spatial_UI_Case_Study_4K.mp4', dur: '14:22', durSec: 862, res: '4K', sizeMB: 280, progress: 60, hue: 350, motif: 'tech' },
+            { id: 'yt-2', no: '02', t: 'Cinema Color Grading Breakdown', raw: 'Cinema_Color_Grading_Breakdown.mp4', dur: '18:05', durSec: 1085, res: '1080p', sizeMB: 245, progress: 0, hue: 28, motif: 'cinema' },
+            { id: 'yt-3', no: '03', t: 'Analog Tape Foley Design', raw: 'Analog_Tape_Foley_Design.mp4', dur: '09:43', durSec: 583, res: '1080p', sizeMB: 155, progress: 0, hue: 195, motif: 'noir' }
+          ]
+        }
+      ];
+
+      FOLDERS_DATA.forEach((f, fi) => {
+        f.organic = ORGANIC_OFFSETS[fi % ORGANIC_OFFSETS.length];
+        f.videos.forEach(v => {
+          v.folderId = f.id;
+          v.folderName = f.name;
+          v.folderPath = f.path;
+        });
+      });
+
+      const INITIAL_HISTORY = [
+        FOLDERS_DATA[1].videos[0],   // 001 – The Day I Became a Shinigami.mkv
+        FOLDERS_DATA[15].videos[0],  // V for Vendetta (2005).mkv
+        FOLDERS_DATA[1].videos[205], // 206_The_Past_Chapter_Begins!_The.mkv
+        FOLDERS_DATA[0].videos[0]    // Insidious Out of the Further.mkv
+      ];
+
+      // =======================================================================
+      // 5. APPLICATION STATE
+      // =======================================================================
+      const state = {
+        screen: 0,
+        accentIdx: 0,
+        scatter: 0.75, // Organic Stack Scatter (0..1)
+
+        // Quick Settings
+        homeViewMode: 'folders', // 'tree' | 'folders' | 'videos'
+        homeLayout: 'crate',     // 'crate' | 'grid' | 'list'
+        sortBy: 'title',         // 'title' | 'duration' | 'date' | 'size' | 'location'
+        sortDir: 'asc',
+        fields: { duration: true, folderDuration: false, extension: true, path: false, progress: true, resolution: false, size: false, thumbnail: true },
+
+        // Multi-Select State
+        selectContext: null,     // null | 'home-folders' | 'home-videos' | 'folder-videos'
+        selectedIds: new Set(),
+
+        // Home Crate Physics (starts on index 1 = Bleach)
+        sortedFolders: FOLDERS_DATA.slice(),
+        pos: 1,
+        target: 1,
+        lastFront: 1,
+        fannedId: null,
+        drag: null,
+        moved: false,
+
+        // Folder Interior (Layer 4)
+        openFolderId: null,
+        fvMode: 'arc',
+        fpos: 0,
+        ftarget: 0,
+        fLastSnap: 0,
+        fDrag: null,
+        fMoved: false,
+        rulerDrag: false,
+
+        // Playlists (Pre-loaded with testing, Late Night Anime & Sci-Fi Classics)
+        playlists: [
+          {
+            id: 'pl-testing',
+            name: 'testing',
+            type: 'Local',
+            videos: [
+              FOLDERS_DATA[2].videos[0], // VID_20261008_051504
+              FOLDERS_DATA[2].videos[1]  // VID_20261008_051651
+            ]
+          },
+          {
+            id: 'pl-anime',
+            name: 'Late Night Anime',
+            type: 'Local',
+            videos: [
+              FOLDERS_DATA[1].videos[0],  // Bleach Ep 001
+              FOLDERS_DATA[12].videos[0], // Cowboy Bebop Ep 01
+              FOLDERS_DATA[1].videos[205] // Bleach Ep 206
+            ]
+          },
+          {
+            id: 'pl-scifi',
+            name: 'Sci-Fi Classics',
+            type: 'M3U Stream',
+            videos: [
+              FOLDERS_DATA[15].videos[0], // V for Vendetta
+              FOLDERS_DATA[6].videos[0]   // Blade Runner 2049
+            ]
+          }
+        ],
+        newlyAddedPlId: null,
+        openPlaylistId: null,
+        pdSortAsc: true,
+
+        // Network
+        streamUrl: '',
+        selectedProto: '',
+        servers: [],
+        connProto: 'SMB',
+        connUseSftp: false,
+        connUseHttps: false,
+
+        // More & Vault
+        vaultOpen: false,
+        vaultBiometrics: false,
+        vaultLayout: 'list',
+        vaultSortBy: 'title',
+        vaultSortDir: 'asc',
+        hiddenVideos: [],
+        history: INITIAL_HISTORY.slice(),
+        lastPlayed: INITIAL_HISTORY[0],
+        trash: [],
+        handHoverIdx: null,
+        handLastHoverCard: -1,
+        handPickedIdx: -1,
+
+        // Settings
+        settingsCat: 'appearance',
+        prefs: {
+          showHidden: false, autoplayNext: true, resumePos: true, hwDecode: true,
+          doubleTap: '10s', swipeBright: true, swipeVol: true, pinchZoom: true,
+          audioLang: 'Japanese', volBoost: false, subLang: 'English', subSize: 18,
+          embeddedSubs: true, saveHistory: true
+        }
+      };
+
+      let toastTimer = null;
+      function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('visible'), 2300);
+      }
+      window.showToast = showToast;
+
+      function fmtTitle(v) {
+        const s = v.raw || v.t;
+        return state.fields.extension ? s : s.replace(/\.(mkv|mp4|avi|webm)$/i, '');
+      }
+
+      function applyAccent() {
+        const a = ACCENTS[state.accentIdx];
+        document.documentElement.style.setProperty('--accent', a.hex);
+        document.documentElement.style.setProperty('--accent-shadow', a.shadow);
+        renderHome();
+        renderPlaylists();
+        renderPatchBay();
+        updateStreamBtn();
+        if (state.openFolderId) renderFolderView();
+      }
+
+      // =======================================================================
+      // 6. 3D LAYER TRANSITIONS & OVERLAY MANAGEMENT
+      // =======================================================================
+      const LAYER_IDS = ['layer-home', 'layer-lists', 'layer-net', 'layer-more'];
+
+      function updateLayers() {
+        const a = state.screen;
+        const fo = state.openFolderId !== null;
+
+        LAYER_IDS.forEach((id, i) => {
+          const el = document.getElementById(id);
+          const off = i - a;
+          if (i === 0 && fo) {
+            el.classList.remove('active');
+            el.style.transform = 'translate3d(0px,-30px,-520px) rotateX(8deg)';
+          } else {
+            el.classList.toggle('active', off === 0);
+            el.style.transform = 'translate3d(0px,' + (off * 90) + 'px,' + (-Math.abs(off) * 260) + 'px) rotateX(' + (-off * 8) + 'deg)';
+          }
+        });
+
+        const l4 = document.getElementById('layer-folder');
+        const showL4 = (a === 0) && fo;
+        l4.classList.toggle('active', showL4);
+        l4.style.transform = showL4 ? 'translate3d(0px,0px,0px)' : 'translate3d(0px,40px,260px)';
+
+        document.getElementById('railMarker').style.top = (130 + a * 140) + 'px';
+        document.querySelectorAll('.rail-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.screen) === a);
+        });
+
+        const fab = document.getElementById('mainFab');
+        const icon = document.getElementById('fabIcon');
+        const lbl = document.getElementById('fabLabel');
+        if (a === 3 || fo) {
+          fab.style.display = 'none';
+        } else {
+          fab.style.display = 'inline-flex';
+          if (a === 0) {
+            icon.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"></path></svg>';
+            lbl.textContent = 'Resume';
+          } else if (a === 1) {
+            icon.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>';
+            lbl.textContent = 'New playlist';
+          } else {
+            icon.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>';
+            lbl.textContent = 'Add connection';
+          }
+        }
+      }
+
+      function setScreen(idx) {
+        sfx.click(1.1);
+        state.screen = idx;
+        state.openFolderId = null;
+        closeOverlays(true);
+        updateLayers();
+      }
+      window.setScreen = setScreen;
+
+      document.querySelectorAll('.rail-btn').forEach(b => {
+        b.addEventListener('click', () => setScreen(Number(b.dataset.screen)));
+      });
+
+      function openOverlay(id) {
+        closeOverlays(true);
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('open');
+        el.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeOverlays(silent) {
+        if (!silent) sfx.click(0.9);
+        ['overlay-vault', 'overlay-pldetail', 'overlay-addconn', 'overlay-history', 'overlay-trash', 'overlay-settings'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.classList.remove('open');
+            el.setAttribute('aria-hidden', 'true');
+          }
+        });
+        state.openPlaylistId = null;
+      }
+      window.closeOverlays = closeOverlays;
+
+      function openModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('open');
+        el.setAttribute('aria-hidden', 'false');
+      }
+
+      function clampHome(x) {
+        return Math.max(0, Math.min(state.sortedFolders.length - 1, x));
+      }
+
+      // =======================================================================
+      // 7. LAYER 0 — HOME (ORGANIC UNALIGNED 3D CRATE + LIST / GRID / VIDEOS / TREE)
+      // =======================================================================
+      function sortFolders() {
+        const list = FOLDERS_DATA.slice();
+        const m = state.sortDir === 'asc' ? 1 : -1;
+        list.sort((a, b) => {
+          if (state.sortBy === 'title') return a.name.localeCompare(b.name) * m;
+          if (state.sortBy === 'duration') return (b.n - a.n) * m;
+          if (state.sortBy === 'date') return (b.dateRank - a.dateRank) * m;
+          if (state.sortBy === 'size') return (b.sizeGB - a.sizeGB) * m;
+          if (state.sortBy === 'location') return a.path.localeCompare(b.path) * m;
+          return 0;
+        });
+        state.sortedFolders = list;
+      }
+
+      function getAllVideosFlat() {
+        const all = FOLDERS_DATA.flatMap(f => f.videos);
+        const m = state.sortDir === 'asc' ? 1 : -1;
+        all.sort((a, b) => {
+          if (a.isNew && !b.isNew) return -1;
+          if (!a.isNew && b.isNew) return 1;
+          if (state.sortBy === 'title') return a.t.localeCompare(b.t) * m;
+          if (state.sortBy === 'duration') return (b.durSec - a.durSec) * m;
+          if (state.sortBy === 'size') return ((b.sizeMB || 0) - (a.sizeMB || 0)) * m;
+          if (state.sortBy === 'location') return (a.folderPath || '').localeCompare(b.folderPath || '') * m;
+          return 0;
+        });
+        return all;
+      }
+
+      const crateVP = document.getElementById('crateViewport');
+      let crateNodes = [];
+
+      function renderHome() {
+        sortFolders();
+        const vm = state.homeViewMode;
+        const allVids = vm === 'videos' ? getAllVideosFlat() : [];
+        document.getElementById('homeSubtitle').textContent = vm === 'videos'
+          ? 'LIBRARY \u00B7 ' + allVids.length + ' VIDEOS'
+          : 'LIBRARY \u00B7 ' + state.sortedFolders.length + ' FOLDERS';
+        document.getElementById('stepperTotal').textContent = '/ ' + state.sortedFolders.length;
+
+        const isCrate = vm === 'folders' && state.homeLayout === 'crate';
+        crateVP.style.display = isCrate ? 'block' : 'none';
+        document.getElementById('crateStepper').style.display = isCrate ? 'flex' : 'none';
+        document.getElementById('crateCue').style.display = isCrate ? 'block' : 'none';
+        document.getElementById('altHomeView').classList.toggle('active', !isCrate);
+
+        if (isCrate) renderCrateDOM();
+        else renderAltHome();
+      }
+
+      function renderCrateDOM() {
+        crateVP.innerHTML = '';
+        crateNodes = [];
+        const accent = ACCENTS[state.accentIdx].hex;
+        const total = state.sortedFolders.length;
+
+        state.sortedFolders.forEach((f, i) => {
+          const paper = PAPERS[i % 4];
+          const tabBg = f.last ? accent : paper;
+          const wrap = document.createElement('div');
+          wrap.className = 'folder-wrap';
+
+          const spineCount = Math.min(f.n, 26);
+          let spinesHTML = '';
+          for (let k = 0; k < spineCount; k++) {
+            const h = 46 + (((i + 3) * 31 + k * 17) % 5) * 20;
+            const isNew = k < f.nw;
+            const fy = -(40 + (k % 4) * 14);
+            const fr = ((k - spineCount / 2) * 1.5).toFixed(1);
+            spinesHTML += '<span class="spine-bar" style="height:' + h + 'px;background:' + (isNew ? accent : '#3A3220') + ';--fan-y:' + fy + 'px;--fan-r:' + fr + 'deg;transition-delay:' + (k * 14) + 'ms;"></span>';
+          }
+          if (f.n > 26) {
+            spinesHTML += '<span class="mono" style="align-self:center;margin-left:12px;font-size:18px;font-weight:500;letter-spacing:.06em;">+' + (f.n - 26) + '</span>';
+          }
+
+          wrap.innerHTML =
+            '<button class="folder-tab-btn" type="button" aria-label="Go to ' + f.name + '" style="left:' + TAB_SLOTS[i % 4] + 'px;background:' + tabBg + ';">' +
+              '<span class="mono" style="font-size:11px;opacity:.7;padding-top:2px;">' + p2(i + 1) + '</span>' +
+              '<span class="folder-tab-name">' + f.name + '</span>' +
+              '<span class="mono" style="font-size:11px;padding-top:2px;">' + f.n + '</span>' +
+            '</button>' +
+            '<button class="folder-body-btn" type="button" aria-label="Fan out ' + f.name + '" style="background:' + paper + ';">' +
+              '<span class="mono" style="position:absolute;left:30px;top:30px;font-size:12px;letter-spacing:.14em;opacity:.65;">FOLDER ' + p2(i + 1) + ' / ' + total + '</span>' +
+              '<span class="folder-name-big">' + f.name + '</span>' +
+              '<span class="mono" style="position:absolute;left:32px;top:196px;font-size:14px;letter-spacing:.1em;">' + f.n + (f.n === 1 ? ' VIDEO' : ' VIDEOS') + (state.fields.size ? ' \u00B7 ' + f.sizeGB + ' GB' : '') + (state.fields.path ? ' \u00B7 <span style="opacity:.62;">' + f.path + '</span>' : '') + '</span>' +
+              '<span class="mono folder-fan-hint" style="position:absolute;left:32px;top:226px;font-size:12px;letter-spacing:.12em;opacity:.7;">TAP TO FAN OUT</span>' +
+              (f.nw > 0 ? '<span class="folder-stamp">' + f.nw + ' NEW</span>' : '') +
+              (f.last ? '<span class="mono" style="position:absolute;right:34px;top:96px;font-size:12px;letter-spacing:.14em;">LAST PLAYED</span>' : '') +
+              '<span class="folder-spines">' + spinesHTML + '</span>' +
+            '</button>' +
+            '<button class="open-folder-cta key" type="button" aria-label="Open ' + f.name + '">Open folder &rarr;</button>';
+
+          const bodyBtn = wrap.querySelector('.folder-body-btn');
+          let lastTap = 0;
+
+          wrap.querySelector('.folder-tab-btn').addEventListener('click', e => {
+            e.stopPropagation();
+            if (state.moved) return;
+            sfx.click(1.1);
+            state.fannedId = null;
+            if (Math.round(state.pos) === i) openFolderView(f.id);
+            else state.target = i;
+          });
+
+          bodyBtn.addEventListener('click', () => {
+            if (state.moved) return;
+            const now = Date.now();
+            if (Math.round(state.pos) === i) {
+              if (now - lastTap < 340) {
+                state.fannedId = null;
+                openFolderView(f.id);
+                return;
+              }
+              lastTap = now;
+              sfx.flick();
+              state.fannedId = state.fannedId === f.id ? null : f.id;
+              updateCrateTransforms();
+            } else {
+              lastTap = now;
+              sfx.click(1.05);
+              state.fannedId = null;
+              state.target = i;
+            }
+          });
+
+          wrap.querySelector('.open-folder-cta').addEventListener('click', e => {
+            e.stopPropagation();
+            state.fannedId = null;
+            openFolderView(f.id);
+          });
+
+          crateVP.appendChild(wrap);
+          crateNodes.push({
+            wrap,
+            bodyBtn,
+            fanHint: wrap.querySelector('.folder-fan-hint'),
+            cta: wrap.querySelector('.open-folder-cta'),
+            folder: f
+          });
+        });
+
+        updateCrateTransforms();
+      }
+
+      function updateCrateTransforms() {
+        const pos = state.pos;
+        const front = Math.round(pos);
+        if (front !== state.lastFront) {
+          state.lastFront = front;
+          state.fannedId = null;
+          document.getElementById('stepperCur').textContent = p2(front + 1);
+          sfx.flick();
+        }
+
+        const scatter = state.scatter;
+
+        crateNodes.forEach((node, i) => {
+          const d = i - pos;
+          const org = node.folder.organic;
+
+          // Organic unaligned stack: straightens smoothly to 0px / 0deg as d -> 0
+          const ease = d > 0 ? Math.min(1, d * 1.1) * scatter : 0;
+          const tx = org.x * ease;
+          const rz = org.rz * ease;
+
+          let y, z, rx, o;
+          if (d >= 0) {
+            y = -d * 48;
+            z = -d * 80;
+            rx = 5;
+            o = d > 3.5 ? Math.max(0, 1 - (d - 3.5) * 0.34) : 1;
+          } else {
+            y = -d * 320;
+            z = -d * 150;
+            rx = d * 30;
+            o = Math.max(0, 1 + d * 1.05);
+          }
+
+          const isFront = i === front;
+          const b = Math.max(0.5, 1 - Math.max(0, d) * 0.08);
+          const zi = 1000 - Math.round(d * 10);
+          const pe = (d < -0.6 || d > 6) ? 'none' : 'auto';
+
+          node.wrap.style.transform = 'translate3d(' + tx.toFixed(1) + 'px,' + y.toFixed(1) + 'px,' + z.toFixed(1) + 'px) rotateX(' + rx.toFixed(1) + 'deg) rotateZ(' + rz.toFixed(2) + 'deg)';
+          node.wrap.style.opacity = o.toFixed(2);
+          node.wrap.style.filter = 'brightness(' + b.toFixed(2) + ')';
+          node.wrap.style.zIndex = String(zi);
+          node.wrap.style.pointerEvents = pe;
+
+          const isFanned = isFront && state.fannedId === node.folder.id;
+          node.bodyBtn.classList.toggle('is-fanned', isFanned);
+          node.fanHint.textContent = isFront ? (isFanned ? 'TAP TO CLOSE' : 'TAP TO FAN OUT') : '';
+          node.cta.style.opacity = isFront ? '1' : '0';
+          node.cta.style.pointerEvents = isFront ? 'auto' : 'none';
+        });
+      }
+
+      function renderAltHome() {
+        const host = document.getElementById('altHomeView');
+        const accent = ACCENTS[state.accentIdx].hex;
+        const vm = state.homeViewMode;
+        host.innerHTML = '';
+
+        // 1. Flat "Videos" View Mode
+        if (vm === 'videos') {
+          const vids = getAllVideosFlat();
+          const isList = state.homeLayout === 'list';
+          const wrap = document.createElement('div');
+          wrap.className = isList ? 'home-list' : 'flat-videos-grid';
+
+          vids.forEach(v => {
+            const sel = state.selectContext === 'home-videos' && state.selectedIds.has(v.id);
+            const card = document.createElement('div');
+            card.className = isList ? 'home-list-row' : 'wall-card';
+            if (sel) card.classList.add('is-selected-card');
+            card.style.cursor = 'pointer';
+
+            if (isList) {
+              card.innerHTML =
+                (state.fields.thumbnail ? '<div style="width:128px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;position:relative;flex:none;">' +
+                  thumbImgHTML(v) +
+                  (sel ? '<span class="sel-check-badge">&#10003;</span>' : (v.isNew ? '<span class="vid-new-badge">NEW</span>' : '')) +
+                  (state.fields.duration ? '<span class="mono" style="position:absolute;right:6px;bottom:6px;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.76);font-size:10.5px;">' + v.dur + '</span>' : '') +
+                '</div>' : '') +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div style="font-size:15.5px;font-weight:700;color:' + (v.last ? 'var(--accent)' : 'var(--ink)') + ';">' + fmtTitle(v) + '</div>' +
+                  '<div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:3px;">' + v.folderName + (state.fields.resolution ? ' \u00B7 ' + v.res : '') + (state.fields.path ? ' \u00B7 ' + v.folderPath : '') + '</div>' +
+                '</div>';
+            } else {
+              card.innerHTML =
+                '<div class="wall-thumb" style="height:112px;">' +
+                  (state.fields.thumbnail ? thumbImgHTML(v) : '') +
+                  (sel ? '<span class="sel-check-badge">&#10003;</span>' : (v.isNew ? '<span class="vid-new-badge">NEW</span>' : '')) +
+                  (state.fields.duration ? '<span class="mono" style="position:absolute;right:7px;bottom:7px;padding:2px 7px;border-radius:5px;background:rgba(0,0,0,.76);font-size:11px;color:var(--ink);">' + v.dur + '</span>' : '') +
+                  (state.fields.progress && v.progress > 0 ? '<span style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.16);"><span style="display:block;height:100%;width:' + v.progress + '%;background:var(--accent);"></span></span>' : '') +
+                '</div>' +
+                '<div class="mono" style="margin-top:8px;font-size:11.5px;line-height:1.35;color:' + (v.last ? 'var(--accent)' : '#C9C0AA') + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + fmtTitle(v) + '</div>';
+            }
+
+            attachLongPress(card, () => enterSelectMode('home-videos', v.id));
+            card.addEventListener('click', () => {
+              if (state.selectContext === 'home-videos') toggleSelectItem(v.id);
+              else openCinemaPlayer(v);
+            });
+            wrap.appendChild(card);
+          });
+          host.appendChild(wrap);
+          return;
+        }
+
+        // 2. Directory "Tree" View Mode
+        if (vm === 'tree') {
+          const groups = {};
+          state.sortedFolders.forEach(f => {
+            const parent = f.path.split('/').slice(0, -1).join('/') || '/storage/emulated/0';
+            if (!groups[parent]) groups[parent] = [];
+            groups[parent].push(f);
+          });
+          Object.entries(groups).forEach(([dir, folders]) => {
+            const box = document.createElement('div');
+            box.className = 'tree-group-card';
+            box.innerHTML = '<div class="mono" style="font-size:11.5px;letter-spacing:.1em;color:var(--accent);margin-bottom:12px;">' + dir + '</div>';
+            const list = document.createElement('div');
+            list.className = 'folder-list-free';
+            folders.forEach((f, idx) => list.appendChild(makeFreeFolderRow(f, idx, accent)));
+            box.appendChild(list);
+            host.appendChild(box);
+          });
+          return;
+        }
+
+        // 3. Folders in Grid or Apple-Refined Free-Floating List
+        if (state.homeLayout === 'grid') {
+          const g = document.createElement('div');
+          g.className = 'home-grid';
+          state.sortedFolders.forEach((f, i) => {
+            const sel = state.selectContext === 'home-folders' && state.selectedIds.has(f.id);
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'home-grid-card' + (sel ? ' is-selected-card' : '');
+            card.style.background = f.last ? accent : PAPERS[i % 4];
+            card.innerHTML =
+              (sel ? '<span class="sel-check-badge" style="top:10px;right:10px;left:auto;">&#10003;</span>' : '') +
+              '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<span class="mono" style="font-size:11px;opacity:.7;">' + p2(i + 1) + '</span>' +
+                (!sel && f.nw > 0 ? '<span class="mono" style="font-size:10px;padding:2px 7px;border:1.5px solid #C23A12;color:#C23A12;border-radius:4px;">' + f.nw + ' NEW</span>' : '') +
+              '</div>' +
+              '<div>' +
+                '<div style="font-size:21px;font-weight:700;letter-spacing:-0.5px;line-height:1.12;margin-bottom:5px;">' + f.name + '</div>' +
+                '<div class="mono" style="font-size:11px;opacity:.75;">' + f.n + (f.n === 1 ? ' VIDEO' : ' VIDEOS') + (state.fields.size ? ' \u00B7 ' + f.sizeGB + ' GB' : '') + '</div>' +
+                (state.fields.path ? '<div class="mono" style="font-size:10px;opacity:.58;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + f.path + '</div>' : '') +
+              '</div>';
+            attachLongPress(card, () => enterSelectMode('home-folders', f.id));
+            card.addEventListener('click', () => {
+              if (state.selectContext === 'home-folders') toggleSelectItem(f.id);
+              else openFolderView(f.id);
+            });
+            g.appendChild(card);
+          });
+          host.appendChild(g);
+        } else {
+          // Apple-Refined Free-Floating Folder List directly on #0D0C0A canvas
+          const l = document.createElement('div');
+          l.className = 'folder-list-free';
+          state.sortedFolders.forEach((f, i) => l.appendChild(makeFreeFolderRow(f, i, accent)));
+          host.appendChild(l);
+        }
+      }
+
+      function makeFreeFolderRow(f, i, accent) {
+        const paper = PAPERS[i % 4];
+        const tabColor = f.last ? accent : paper;
+        const sel = state.selectContext === 'home-folders' && state.selectedIds.has(f.id);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'folder-list-item';
+        if (sel) row.style.background = 'rgba(255, 90, 46, 0.1)';
+        row.innerHTML =
+          '<div class="folder-art-icon">' +
+            '<div class="folder-art-tab" style="background:' + tabColor + ';"></div>' +
+            '<div class="folder-art-back" style="background:' + paper + ';"></div>' +
+            '<div class="folder-art-front" style="background-color:' + paper + ';"></div>' +
+            (sel ? '<span class="sel-check-badge" style="top:-4px;right:-6px;left:auto;">&#10003;</span>' : (f.nw > 0 ? '<span class="folder-art-new">' + f.nw + ' NEW</span>' : '')) +
+          '</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<span style="font-size:22px;font-weight:700;letter-spacing:-0.4px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + f.name + '</span>' +
+              (f.last ? '<span class="mono" style="font-size:10px;letter-spacing:.12em;color:var(--accent);flex:none;">LAST PLAYED</span>' : '') +
+            '</div>' +
+            '<div class="mono" style="font-size:11.5px;color:var(--ink-muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+              '<span style="color:var(--ink-sec);">' + f.n + (f.n === 1 ? ' VIDEO' : ' VIDEOS') + '</span>' +
+              (state.fields.size ? ' \u00B7 ' + f.sizeGB + ' GB' : '') +
+              ' &middot; ' + f.path +
+            '</div>' +
+          '</div>' +
+          '<span class="folder-list-chev" aria-hidden="true">&#8250;</span>';
+        attachLongPress(row, () => enterSelectMode('home-folders', f.id));
+        row.addEventListener('click', () => {
+          if (state.selectContext === 'home-folders') toggleSelectItem(f.id);
+          else openFolderView(f.id);
+        });
+        return row;
+      }
+
+      // =======================================================================
+      // 8. MULTI-SELECT ENGINE & 7-BUTTON ACTION DOCK
+      // =======================================================================
+      function attachLongPress(el, onLong) {
+        let timer = null;
+        el.addEventListener('pointerdown', e => {
+          if (e.button && e.button !== 0) return;
+          timer = setTimeout(() => { timer = null; onLong(); }, 420);
+        });
+        const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+        el.addEventListener('pointerup', cancel);
+        el.addEventListener('pointermove', cancel);
+        el.addEventListener('pointercancel', cancel);
+      }
+
+      function getSelectPool() {
+        if (state.selectContext === 'home-folders') return state.sortedFolders.map(f => f.id);
+        if (state.selectContext === 'home-videos') return getAllVideosFlat().map(v => v.id);
+        if (state.selectContext === 'folder-videos') {
+          const f = getOpenFolder();
+          return f ? f.videos.map(v => v.id) : [];
+        }
+        return [];
+      }
+
+      function getSelectedVideos() {
+        if (state.selectContext === 'home-folders') {
+          return state.sortedFolders.filter(f => state.selectedIds.has(f.id)).flatMap(f => f.videos);
+        }
+        const all = FOLDERS_DATA.flatMap(f => f.videos);
+        return all.filter(v => state.selectedIds.has(v.id));
+      }
+
+      function enterSelectMode(ctx, initialId) {
+        sfx.click(1.18);
+        state.selectContext = ctx;
+        state.selectedIds.clear();
+        if (initialId) state.selectedIds.add(initialId);
+        if (ctx === 'home-folders' && state.homeLayout === 'crate') {
+          state.homeLayout = 'grid';
+        }
+        if (ctx === 'folder-videos' && state.fvMode === 'arc') {
+          state.fvMode = 'wall';
+        }
+        updateSelectUI();
+        if (ctx.indexOf('home') === 0) renderHome();
+        else if (state.openFolderId) renderFolderView();
+      }
+
+      function toggleSelectItem(id) {
+        sfx.click(1.05);
+        if (state.selectedIds.has(id)) state.selectedIds.delete(id);
+        else state.selectedIds.add(id);
+        if (state.selectedIds.size === 0) {
+          exitSelectMode();
+          return;
+        }
+        updateSelectUI();
+        if (state.selectContext && state.selectContext.indexOf('home') === 0) renderHome();
+        else if (state.openFolderId) renderFolderView();
+      }
+
+      function exitSelectMode() {
+        const prev = state.selectContext;
+        state.selectContext = null;
+        state.selectedIds.clear();
+        updateSelectUI();
+        if (prev && prev.indexOf('home') === 0) renderHome();
+        else if (state.openFolderId) renderFolderView();
+      }
+
+      function updateSelectUI() {
+        const active = state.selectContext !== null;
+        const bar = document.getElementById('selectBar');
+        const dock = document.getElementById('actionDock');
+        bar.classList.toggle('open', active);
+        bar.setAttribute('aria-hidden', active ? 'false' : 'true');
+        dock.classList.toggle('open', active);
+        dock.setAttribute('aria-hidden', active ? 'false' : 'true');
+
+        if (active) {
+          const pool = getSelectPool();
+          document.getElementById('selectCountLabel').textContent = state.selectedIds.size + ' / ' + pool.length + ' Selected';
+        }
+      }
+
+      document.getElementById('btnHomeSelectMode').addEventListener('click', () => {
+        if (state.selectContext) exitSelectMode();
+        else {
+          const ctx = state.homeViewMode === 'videos' ? 'home-videos' : 'home-folders';
+          const first = ctx === 'home-videos' ? (getAllVideosFlat()[0] && getAllVideosFlat()[0].id) : (state.sortedFolders[0] && state.sortedFolders[0].id);
+          enterSelectMode(ctx, first);
+        }
+      });
+
+      document.getElementById('btnFvSelectMode').addEventListener('click', () => {
+        if (state.selectContext === 'folder-videos') exitSelectMode();
+        else {
+          const f = getOpenFolder();
+          enterSelectMode('folder-videos', f && f.videos[0] ? f.videos[0].id : null);
+        }
+      });
+
+      document.getElementById('btnExitSelect').addEventListener('click', () => { sfx.click(0.9); exitSelectMode(); });
+
+      document.getElementById('btnSelectAll').addEventListener('click', () => {
+        sfx.click(1.12);
+        const pool = getSelectPool();
+        if (state.selectedIds.size === pool.length) state.selectedIds.clear();
+        else pool.forEach(id => state.selectedIds.add(id));
+        if (state.selectedIds.size === 0) { exitSelectMode(); return; }
+        updateSelectUI();
+        if (state.selectContext.indexOf('home') === 0) renderHome();
+        else if (state.openFolderId) renderFolderView();
+      });
+
+      function hideVideosToVault(vids) {
+        if (!vids.length) return;
+        sfx.click(1.2);
+        vids.forEach(v => {
+          if (!state.hiddenVideos.some(h => h.id === v.id)) {
+            state.hiddenVideos.unshift(Object.assign({}, v, { hiddenAt: Date.now() }));
+          }
+          const f = FOLDERS_DATA.find(x => x.id === v.folderId);
+          if (f) {
+            f.videos = f.videos.filter(x => x.id !== v.id);
+            f.n = Math.max(0, f.n - 1);
+          }
+        });
+        renderHome();
+        if (state.openFolderId) {
+          state.ftarget = clampArc(state.ftarget);
+          state.fpos = clampArc(state.fpos);
+          renderFolderView();
+        }
+        showToast('Hidden ' + vids.length + (vids.length === 1 ? ' video' : ' videos') + ' in Vault');
+      }
+
+      document.querySelectorAll('.dock-act-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.dataset.act;
+          const vids = getSelectedVideos();
+          const count = state.selectedIds.size;
+          if (!count) return;
+
+          if (act === 'play') {
+            exitSelectMode();
+            if (vids.length) openCinemaPlayer(vids[0]);
+          } else if (act === 'playlist') {
+            if (vids.length) openPickPlaylistForVideos(vids);
+            exitSelectMode();
+          } else if (act === 'share') {
+            sfx.click(1.1);
+            showToast('Prepared ' + count + (count === 1 ? ' item' : ' items') + ' for Android Share Sheet');
+            exitSelectMode();
+          } else if (act === 'copy') {
+            sfx.click(1.1);
+            showToast('Copied ' + count + (count === 1 ? ' item' : ' items') + ' to /storage/emulated/0/Movies');
+            exitSelectMode();
+          } else if (act === 'move') {
+            sfx.click(1.1);
+            showToast('Moved ' + count + (count === 1 ? ' item' : ' items') + ' to /storage/emulated/0/Movies');
+            exitSelectMode();
+          } else if (act === 'hide') {
+            hideVideosToVault(vids);
+            exitSelectMode();
+          } else if (act === 'delete') {
+            sfx.click(0.8);
+            vids.forEach(v => {
+              state.trash.unshift(v);
+              const f = FOLDERS_DATA.find(x => x.id === v.folderId);
+              if (f) {
+                f.videos = f.videos.filter(x => x.id !== v.id);
+                f.n = Math.max(0, f.n - 1);
+              }
+            });
+            updateTrashUI();
+            exitSelectMode();
+            renderHome();
+            if (state.openFolderId) renderFolderView();
+            showToast('Moved ' + vids.length + (vids.length === 1 ? ' video' : ' videos') + ' to Trash');
+          }
+        });
+      });
+
+      document.getElementById('btnPickFileKey').addEventListener('click', () => { sfx.click(); document.getElementById('localVideoInput').click(); });
+      document.getElementById('localVideoInput').addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        openCinemaPlayer({ id: 'loc-' + Date.now(), t: f.name, raw: f.name, dur: 'LOCAL', durSec: 120, res: 'LOCAL FILE', hue: 24, motif: 'cinema', realUrl: URL.createObjectURL(f) });
+        e.target.value = '';
+      });
+
+      // =======================================================================
+      // 9. LAYER 4 — FOLDER VIEW (ARC CAROUSEL + WALL GRID + RULER SCRUBBER)
+      // =======================================================================
+      const fvLayer = document.getElementById('layer-folder');
+      const arcStageEl = document.createElement('div');
+      arcStageEl.className = 'arc-stage';
+      arcStageEl.id = 'arcStage';
+
+      const infoBlockEl = document.createElement('div');
+      infoBlockEl.id = 'fvInfoBlock';
+      infoBlockEl.style.cssText = 'position:absolute;left:144px;top:508px;width:760px;z-index:20;';
+      infoBlockEl.innerHTML =
+        '<div class="mono" id="fvInfoNo" style="font-size:12px;letter-spacing:.14em;color:var(--ink-muted);">001 / 275</div>' +
+        '<div id="fvInfoTitle" style="margin-top:10px;font-size:44px;font-weight:700;letter-spacing:-1.2px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Title</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">' +
+          '<span class="mono" id="fvInfoRaw" style="font-size:13px;color:var(--ink-muted);max-width:410px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">raw.mkv</span>' +
+          '<button id="btnFvAddList" class="btn-ghost" type="button" style="height:30px;padding:0 11px;font-size:11px;">+ Playlist</button>' +
+          '<button id="btnFvHide" class="btn-ghost" type="button" style="height:30px;padding:0 11px;font-size:11px;">Hide</button>' +
+          '<button id="btnFvTrash" class="btn-ghost" type="button" style="height:30px;padding:0 11px;font-size:11px;color:var(--accent);">Trash</button>' +
+        '</div>';
+
+      const playNowBtn = document.createElement('button');
+      playNowBtn.id = 'btnFvPlayNow';
+      playNowBtn.className = 'fab';
+      playNowBtn.type = 'button';
+      playNowBtn.style.cssText = 'position:absolute;right:56px;top:530px;bottom:auto;height:76px;padding:0 34px;border-radius:24px;font-size:20px;z-index:22;';
+      playNowBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"></path></svg><span id="fvPlayDur">Play &middot; 22:59</span>';
+
+      const rulerEl = document.createElement('div');
+      rulerEl.className = 'ruler-wrap';
+      rulerEl.id = 'fvRuler';
+      rulerEl.innerHTML =
+        '<div id="rulerMinor" style="position:absolute;left:0;top:44px;width:1000px;height:10px;"></div>' +
+        '<div id="rulerMajor" style="position:absolute;left:0;top:30px;width:1000px;height:24px;"></div>' +
+        '<div style="position:absolute;right:0;top:44px;width:1px;height:10px;background:#6F6858;"></div>' +
+        '<div id="rulerNeedle" style="position:absolute;left:0px;top:18px;width:2px;height:48px;margin-left:-1px;background:var(--accent);"></div>' +
+        '<div class="mono" id="rulerBadge" style="position:absolute;left:0px;top:-8px;transform:translateX(-50%);padding:4px 10px;border-radius:8px;background:var(--accent);color:#0D0C0A;font-size:13px;font-weight:500;">001</div>' +
+        '<div class="mono" id="rulerFirst" style="position:absolute;left:0;top:70px;font-size:11px;letter-spacing:.1em;color:var(--ink-muted);">001</div>' +
+        '<div class="mono" id="rulerLast" style="position:absolute;right:0;top:70px;font-size:11px;letter-spacing:.1em;color:var(--ink-muted);">275</div>';
+
+      const wallContEl = document.getElementById('fvWallContainer');
+      fvLayer.insertBefore(arcStageEl, wallContEl);
+      fvLayer.insertBefore(infoBlockEl, wallContEl);
+      fvLayer.insertBefore(playNowBtn, wallContEl);
+      fvLayer.insertBefore(rulerEl, wallContEl);
+
+      function getOpenFolder() {
+        return FOLDERS_DATA.find(f => f.id === state.openFolderId) || null;
+      }
+
+      function clampArc(x) {
+        const f = getOpenFolder();
+        const max = f && f.videos.length ? f.videos.length - 1 : 0;
+        return Math.max(0, Math.min(max, x));
+      }
+
+      function openFolderView(folderId) {
+        const f = FOLDERS_DATA.find(x => x.id === folderId);
+        if (!f) return;
+        sfx.click(1.18);
+        if (state.selectContext) exitSelectMode();
+        state.openFolderId = folderId;
+        state.fpos = 0;
+        state.ftarget = 0;
+        state.fLastSnap = 0;
+        updateLayers();
+        renderFolderView();
+      }
+
+      function closeFolderView() {
+        if (!state.openFolderId) return;
+        sfx.click(0.9);
+        if (state.selectContext) exitSelectMode();
+        state.openFolderId = null;
+        updateLayers();
+      }
+
+      function moveVideoToTrash(v) {
+        sfx.click(0.8);
+        state.trash.unshift(v);
+        const f = FOLDERS_DATA.find(x => x.id === v.folderId);
+        if (f) {
+          f.videos = f.videos.filter(x => x.id !== v.id);
+          f.n = Math.max(0, f.n - 1);
+        }
+        updateTrashUI();
+        renderHome();
+        if (state.openFolderId) {
+          state.ftarget = clampArc(state.ftarget);
+          state.fpos = clampArc(state.fpos);
+          renderFolderView();
+        }
+        showToast('Moved "' + v.t + '" to Trash');
+      }
+
+      let arcPool = [];
+      let arcPoolFolderId = null;
+
+      function renderFolderView() {
+        const f = getOpenFolder();
+        if (!f) return;
+        document.getElementById('fvTitle').textContent = f.name;
+        document.getElementById('fvCount').textContent = f.videos.length + (f.videos.length === 1 ? ' VIDEO' : ' VIDEOS') + ' \u00B7 ' + f.path;
+
+        const isArc = state.fvMode === 'arc';
+        document.getElementById('btnModeArc').classList.toggle('active', isArc);
+        document.getElementById('btnModeWall').classList.toggle('active', !isArc);
+
+        arcStageEl.style.display = isArc ? 'block' : 'none';
+        infoBlockEl.style.display = isArc ? 'block' : 'none';
+        playNowBtn.style.display = isArc && f.videos.length ? 'inline-flex' : 'none';
+        rulerEl.style.display = (isArc && f.videos.length > 1) ? 'block' : 'none';
+        wallContEl.style.display = isArc ? 'none' : 'block';
+
+        if (!f.videos.length) {
+          arcStageEl.innerHTML = '<div class="mono" style="text-align:center;padding-top:160px;color:var(--ink-muted);font-size:13px;">NO VIDEOS IN THIS FOLDER</div>';
+          document.getElementById('wallGrid').innerHTML = '<div class="mono" style="grid-column:1/-1;text-align:center;padding:80px 0;color:var(--ink-muted);font-size:13px;">NO VIDEOS IN THIS FOLDER</div>';
+          return;
+        }
+
+        if (isArc) {
+          const n = f.videos.length;
+          const step = n > 1 ? 1000 / (n - 1) : 1000;
+          const major = n > 20 ? step * 10 : step;
+          document.getElementById('rulerMinor').style.backgroundImage = 'repeating-linear-gradient(90deg,#6F6858 0px,#6F6858 1px,transparent 1px,transparent ' + step.toFixed(2) + 'px)';
+          document.getElementById('rulerMajor').style.backgroundImage = 'repeating-linear-gradient(90deg,#B9B09B 0px,#B9B09B 2px,transparent 2px,transparent ' + major.toFixed(2) + 'px)';
+          document.getElementById('rulerFirst').textContent = f.videos[0].no;
+          document.getElementById('rulerLast').textContent = f.videos[n - 1].no;
+          arcPoolFolderId = null;
+          updateArcCarousel();
+        } else {
+          renderWallGrid(f);
+        }
+      }
+
+      function updateArcCarousel() {
+        const f = getOpenFolder();
+        if (!f || state.fvMode !== 'arc' || !f.videos.length) return;
+        const list = f.videos;
+        const n = list.length;
+        const fpos = state.fpos;
+        const cf = Math.max(0, Math.min(n - 1, Math.round(fpos)));
+        const cur = list[cf];
+
+        if (cf !== state.fLastSnap) {
+          state.fLastSnap = cf;
+          if (state.rulerDrag) sfx.rulerTick();
+          else sfx.flick();
+        }
+
+        document.getElementById('fvInfoNo').innerHTML = cur.no + ' / ' + p2(n) + (cur.last ? ' <span style="color:var(--accent);">&nbsp;&middot;&nbsp;LAST PLAYED</span>' : '');
+        document.getElementById('fvInfoTitle').textContent = cur.t;
+        document.getElementById('fvInfoRaw').textContent = fmtTitle(cur);
+        document.getElementById('fvPlayDur').textContent = 'Play \u00B7 ' + cur.dur;
+
+        const rx = n > 1 ? (fpos / (n - 1)) * 1000 : 0;
+        document.getElementById('rulerNeedle').style.left = rx.toFixed(1) + 'px';
+        document.getElementById('rulerBadge').style.left = rx.toFixed(1) + 'px';
+        document.getElementById('rulerBadge').textContent = cur.no;
+
+        const lo = Math.max(0, Math.round(fpos) - 5);
+        const hi = Math.min(n - 1, Math.round(fpos) + 5);
+
+        if (arcPoolFolderId !== f.id) {
+          arcStageEl.innerHTML = '';
+          arcPool = [];
+          arcPoolFolderId = f.id;
+        }
+
+        const needed = hi - lo + 1;
+        while (arcPool.length < needed) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'arc-card';
+          arcStageEl.appendChild(btn);
+          arcPool.push(btn);
+        }
+        for (let k = 0; k < arcPool.length; k++) {
+          arcPool[k].style.display = k < needed ? 'block' : 'none';
+        }
+
+        for (let idx = lo; idx <= hi; idx++) {
+          const slot = arcPool[idx - lo];
+          const it = list[idx];
+          const d = idx - fpos;
+          const ad = Math.abs(d);
+          const th = d * 0.27;
+          const x = Math.round(1400 * Math.sin(th));
+          const z = Math.round(1400 * (1 - Math.cos(th)) + (ad < 1 ? (1 - ad) * 80 : 0));
+          const ry = (-th * 180 / Math.PI).toFixed(1);
+          const sc = (1 + Math.max(0, 1 - ad) * 0.32).toFixed(3);
+          const o = Math.max(0, Math.min(1, 3.3 - ad)).toFixed(2);
+          const b = (1 - Math.min(1, ad) * 0.45).toFixed(2);
+          const img = thumbImgHTML(it);
+
+          slot.style.transform = 'translate3d(' + x + 'px,0px,' + z + 'px) rotateY(' + ry + 'deg) scale(' + sc + ')';
+          slot.style.opacity = o;
+          slot.style.filter = 'brightness(' + b + ')';
+          slot.style.zIndex = String(100 - Math.round(ad * 10));
+
+          if (slot.dataset.vid !== it.id) {
+            slot.dataset.vid = it.id;
+            slot.innerHTML =
+              '<span class="arc-card-face">' +
+                img +
+                '<span class="mono" style="position:absolute;left:10px;bottom:10px;padding:3px 9px;border-radius:6px;background:rgba(0,0,0,.72);font-size:13px;font-weight:500;color:var(--ink);">' + it.no + '</span>' +
+                (state.fields.duration ? '<span class="mono" style="position:absolute;right:10px;bottom:10px;padding:3px 9px;border-radius:6px;background:rgba(0,0,0,.72);font-size:13px;font-weight:500;color:var(--ink);">' + it.dur + '</span>' : '') +
+                (state.fields.progress && it.progress > 0 ? '<span style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.18);"><span style="display:block;height:100%;width:' + it.progress + '%;background:var(--accent);"></span></span>' : '') +
+              '</span>' +
+              '<span class="arc-reflect" aria-hidden="true"><span class="arc-reflect-inner">' + img + '</span></span>';
+          }
+          slot.onclick = () => {
+            if (state.fMoved) return;
+            if (Math.round(state.ftarget) === idx) openCinemaPlayer(it);
+            else { sfx.click(1.05); state.ftarget = idx; }
+          };
+        }
+      }
+
+      function renderWallGrid(f) {
+        const grid = document.getElementById('wallGrid');
+        grid.innerHTML = '';
+        f.videos.forEach((v, idx) => {
+          const sel = state.selectContext === 'folder-videos' && state.selectedIds.has(v.id);
+          const card = document.createElement('div');
+          card.className = 'wall-card';
+          card.innerHTML =
+            '<div class="wall-thumb' + (sel ? ' is-selected-card' : '') + '">' +
+              thumbImgHTML(v) +
+              (sel ? '<span class="sel-check-badge">&#10003;</span>' : '') +
+              '<div style="position:absolute;top:7px;right:7px;display:flex;gap:5px;z-index:4;">' +
+                '<button class="wall-act-btn wa-pl" type="button" title="Add to playlist">+ List</button>' +
+                '<button class="wall-act-btn wa-hd" type="button" title="Hide in Vault">Hide</button>' +
+                '<button class="wall-act-btn wa-tr" type="button" title="Move to Trash" style="color:var(--accent);">&times;</button>' +
+              '</div>' +
+              (state.fields.duration ? '<span class="mono" style="position:absolute;right:8px;bottom:8px;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.74);font-size:12px;color:var(--ink);">' + v.dur + '</span>' : '') +
+              (state.fields.progress && v.progress > 0 ? '<span style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.16);"><span style="display:block;height:100%;width:' + v.progress + '%;background:var(--accent);"></span></span>' : '') +
+            '</div>' +
+            '<div class="mono wall-lbl" style="margin-top:10px;font-size:12px;line-height:1.4;color:' + (v.last ? 'var(--accent)' : '#C9C0AA') + ';cursor:pointer;">' + v.no + ' &middot; ' + v.t + '</div>';
+          attachLongPress(card, () => enterSelectMode('folder-videos', v.id));
+          card.querySelector('.wall-thumb').addEventListener('click', e => {
+            if (e.target.closest('button')) return;
+            if (state.selectContext === 'folder-videos') toggleSelectItem(v.id);
+            else openCinemaPlayer(v);
+          });
+          card.querySelector('.wall-lbl').addEventListener('click', () => {
+            if (state.selectContext === 'folder-videos') { toggleSelectItem(v.id); return; }
+            state.fvMode = 'arc';
+            state.fpos = idx;
+            state.ftarget = idx;
+            renderFolderView();
+          });
+          card.querySelector('.wa-pl').addEventListener('click', () => openPickPlaylistForVideo(v));
+          card.querySelector('.wa-hd').addEventListener('click', () => hideVideosToVault([v]));
+          card.querySelector('.wa-tr').addEventListener('click', () => moveVideoToTrash(v));
+          grid.appendChild(card);
+        });
+      }
+
+      document.getElementById('btnCloseFolder').addEventListener('click', closeFolderView);
+      document.getElementById('btnModeArc').addEventListener('click', () => { sfx.click(); state.fvMode = 'arc'; renderFolderView(); });
+      document.getElementById('btnModeWall').addEventListener('click', () => { sfx.click(); state.fvMode = 'wall'; renderFolderView(); });
+      playNowBtn.addEventListener('click', () => {
+        const f = getOpenFolder();
+        const v = f && f.videos[Math.round(state.fpos)];
+        if (v) openCinemaPlayer(v);
+      });
+      document.getElementById('btnFvAddList').addEventListener('click', () => {
+        const f = getOpenFolder();
+        const v = f && f.videos[Math.round(state.fpos)];
+        if (v) openPickPlaylistForVideo(v);
+      });
+      document.getElementById('btnFvHide').addEventListener('click', () => {
+        const f = getOpenFolder();
+        const v = f && f.videos[Math.round(state.fpos)];
+        if (v) hideVideosToVault([v]);
+      });
+      document.getElementById('btnFvTrash').addEventListener('click', () => {
+        const f = getOpenFolder();
+        const v = f && f.videos[Math.round(state.fpos)];
+        if (v) moveVideoToTrash(v);
+      });
+
+      // =======================================================================
+      // 10. 60FPS PHYSICS LOOP & GESTURES (CRATE + ARC + RULER)
+      // =======================================================================
+      function tickPhysics() {
+        const diff = state.target - state.pos;
+        if (Math.abs(diff) > 0.0005) {
+          state.pos = Math.abs(diff) < 0.002 ? state.target : state.pos + diff * 0.13;
+          updateCrateTransforms();
+        }
+        if (state.openFolderId && state.fvMode === 'arc') {
+          const fdiff = state.ftarget - state.fpos;
+          if (Math.abs(fdiff) > 0.0005) {
+            state.fpos = Math.abs(fdiff) < 0.002 ? state.ftarget : state.fpos + fdiff * 0.16;
+            updateArcCarousel();
+          }
+        }
+        requestAnimationFrame(tickPhysics);
+      }
+
+      let wheelSnapTimer = null;
+      crateVP.addEventListener('wheel', e => {
+        e.preventDefault();
+        sfx.unlock();
+        state.target = clampHome(state.target + (e.deltaY || 0) / 160);
+        clearTimeout(wheelSnapTimer);
+        wheelSnapTimer = setTimeout(() => { state.target = Math.round(state.target); state.fannedId = null; }, 140);
+      }, { passive: false });
+
+      crateVP.addEventListener('pointerdown', e => {
+        sfx.unlock();
+        state.drag = { y: e.clientY, t: state.target };
+        state.moved = false;
+      });
+      window.addEventListener('pointermove', e => {
+        if (!state.drag) return;
+        const dy = (e.clientY - state.drag.y) / (window.__stageScale || 1);
+        if (Math.abs(dy) > 8) state.moved = true;
+        if (state.moved) state.target = clampHome(state.drag.t + dy / 60);
+      });
+      const endCrateDrag = () => {
+        if (!state.drag) return;
+        if (state.moved) {
+          state.target = Math.round(state.target);
+          state.fannedId = null;
+          setTimeout(() => { state.moved = false; }, 60);
+        }
+        state.drag = null;
+      };
+      window.addEventListener('pointerup', endCrateDrag);
+      window.addEventListener('pointercancel', endCrateDrag);
+
+      document.getElementById('btnStepPrev').addEventListener('click', () => { sfx.click(1.05); state.target = clampHome(Math.round(state.target) - 1); state.fannedId = null; });
+      document.getElementById('btnStepNext').addEventListener('click', () => { sfx.click(0.95); state.target = clampHome(Math.round(state.target) + 1); state.fannedId = null; });
+
+      let fWheelTimer = null;
+      arcStageEl.addEventListener('wheel', e => {
+        e.preventDefault();
+        sfx.unlock();
+        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        state.ftarget = clampArc(state.ftarget + delta / 140);
+        clearTimeout(fWheelTimer);
+        fWheelTimer = setTimeout(() => { state.ftarget = Math.round(state.ftarget); }, 140);
+      }, { passive: false });
+
+      arcStageEl.addEventListener('pointerdown', e => {
+        sfx.unlock();
+        state.fDrag = { x: e.clientX, t: state.ftarget };
+        state.fMoved = false;
+      });
+      window.addEventListener('pointermove', e => {
+        if (state.fDrag) {
+          const dx = (e.clientX - state.fDrag.x) / (window.__stageScale || 1);
+          if (Math.abs(dx) > 8) state.fMoved = true;
+          if (state.fMoved) state.ftarget = clampArc(state.fDrag.t - dx / 130);
+        }
+        if (state.rulerDrag) scrubRulerFromClientX(e.clientX);
+      });
+      const endArcOrRuler = () => {
+        if (state.fDrag) {
+          if (state.fMoved) {
+            state.ftarget = Math.round(state.ftarget);
+            setTimeout(() => { state.fMoved = false; }, 60);
+          }
+          state.fDrag = null;
+        }
+        state.rulerDrag = false;
+      };
+      window.addEventListener('pointerup', endArcOrRuler);
+      window.addEventListener('pointercancel', endArcOrRuler);
+
+      function scrubRulerFromClientX(clientX) {
+        const f = getOpenFolder();
+        if (!f || f.videos.length < 2) return;
+        const rect = rulerEl.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        state.ftarget = Math.round(ratio * (f.videos.length - 1));
+      }
+      rulerEl.addEventListener('pointerdown', e => {
+        sfx.unlock();
+        state.rulerDrag = true;
+        scrubRulerFromClientX(e.clientX);
+      });
+
+      // =======================================================================
+      // 11. LAYER 1 — PLAYLISTS (3D ARCHIVAL SLIPCASE SHELF + DETAIL)
+      // =======================================================================
+      function openDialog(html) {
+        const card = document.getElementById('dialogCard');
+        card.innerHTML = html;
+        openModal('modal-backdrop');
+      }
+
+      function closeModals() {
+        ['overlay-quick', 'overlay-search', 'modal-backdrop'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); }
+        });
+      }
+      window.closeModals = closeModals;
+
+      document.querySelectorAll('.modal-backdrop').forEach(bd => {
+        bd.addEventListener('click', e => { if (e.target === bd) closeModals(); });
+      });
+
+      function renderPlaylists() {
+        const host = document.getElementById('playlistsHost');
+        const sub = document.getElementById('playlistsSub');
+        const count = state.playlists.length;
+        sub.textContent = '02 \u00B7 ARCHIVAL REEL SHELF \u00B7 ' + count + (count === 1 ? ' REEL' : ' REELS');
+        host.innerHTML = '';
+
+        const shelf = document.createElement('div');
+        shelf.className = 'reel-shelf';
+
+        state.playlists.forEach((pl, idx) => {
+          const isM3u = pl.type.toUpperCase().indexOf('M3U') !== -1;
+          const isNew = pl.id === state.newlyAddedPlId;
+          const wrap = document.createElement('div');
+          wrap.className = 'slipcase-wrap' + (isNew ? ' is-entering' : '');
+          if (isNew) state.newlyAddedPlId = null;
+
+          const previewStrip = pl.videos.slice(0, 3).map(v =>
+            '<div style="flex:1;height:100%;overflow:hidden;">' + thumbImgHTML(v) + '</div>'
+          ).join('');
+
+          wrap.innerHTML =
+            '<div class="slipcase-tape" aria-hidden="true">' +
+              '<div class="tape-grip"></div>' +
+              '<div class="tape-strip"><span>REEL ' + p2(idx + 1) + '</span><span>' + (isM3u ? 'STREAM' : '24FPS') + '</span></div>' +
+            '</div>' +
+            '<div class="slipcase-sleeve ' + (isM3u ? 'is-m3u' : 'is-local') + '">' +
+              (isM3u ? '<div class="slipcase-m3u-stripe"></div>' : '') +
+              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+                '<span class="stamp-badge ' + (isM3u ? 'm3u' : '') + '" style="' + (!isM3u ? 'border-color:rgba(26,21,12,.35);color:#1A150C;' : '') + '">' + pl.type.toUpperCase() + '</span>' +
+                '<button class="slipcase-kebab pl-kebab" type="button" aria-label="Playlist options">&#8942;</button>' +
+              '</div>' +
+              '<div class="slipcase-window">' +
+                (pl.videos.length
+                  ? '<div style="display:flex;width:100%;height:100%;">' + previewStrip + '</div>'
+                  : '<div style="display:flex;align-items:center;gap:22px;"><span style="width:28px;height:28px;border-radius:50%;border:2px dashed ' + (isM3u ? 'var(--accent)' : 'rgba(236,228,210,.35)') + ';"></span><span style="width:28px;height:28px;border-radius:50%;border:2px dashed ' + (isM3u ? 'var(--accent)' : 'rgba(236,228,210,.35)') + ';"></span></div>') +
+              '</div>' +
+              '<div>' +
+                '<div style="font-size:26px;font-weight:700;letter-spacing:-0.6px;line-height:1.08;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + pl.name + '</div>' +
+                '<div class="mono" style="font-size:11px;opacity:.68;margin-top:8px;">' + pl.videos.length + (pl.videos.length === 1 ? ' VIDEO' : ' VIDEOS') + '</div>' +
+              '</div>' +
+            '</div>';
+
+          wrap.addEventListener('pointerenter', () => sfx.flick());
+          wrap.addEventListener('click', e => {
+            if (e.target.closest('.pl-kebab')) return;
+            openPlaylistDetail(pl.id);
+          });
+          wrap.querySelector('.pl-kebab').addEventListener('click', e => {
+            e.stopPropagation();
+            openPlaylistMenu(pl);
+          });
+          shelf.appendChild(wrap);
+        });
+
+        const ghost = document.createElement('button');
+        ghost.type = 'button';
+        ghost.className = 'slipcase-ghost';
+        ghost.innerHTML =
+          '<span style="width:52px;height:52px;border-radius:26px;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:26px;">+</span>' +
+          '<span class="mono" style="font-size:11.5px;letter-spacing:.14em;">ADD REEL OR M3U</span>';
+        ghost.addEventListener('click', openCreatePlaylistChooser);
+        shelf.appendChild(ghost);
+
+        host.appendChild(shelf);
+      }
+
+      function openPlaylistMenu(pl) {
+        sfx.click();
+        openDialog(
+          '<div style="font-size:20px;font-weight:700;margin-bottom:16px;">' + pl.name + '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:10px;">' +
+            '<button id="plOptPin" class="action-opt" type="button"><span>&#8962;</span><span>Add to home screen</span></button>' +
+            '<button id="plOptRen" class="action-opt" type="button"><span>&#9998;</span><span>Rename playlist</span></button>' +
+            '<button id="plOptDel" class="action-opt" type="button" style="color:var(--accent);"><span>&#128465;</span><span>Delete</span></button>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:flex-end;margin-top:18px;"><button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button></div>'
+        );
+        document.getElementById('plOptPin').addEventListener('click', () => {
+          sfx.click(1.2);
+          closeModals();
+          showToast('Pinned "' + pl.name + '" shortcut to tablet home screen');
+        });
+        document.getElementById('plOptRen').addEventListener('click', () => {
+          openDialog(
+            '<div style="font-size:20px;font-weight:700;margin-bottom:14px;">Rename playlist</div>' +
+            '<input id="renPlInp" class="studio-input" value="' + pl.name + '" />' +
+            '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">' +
+              '<button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button>' +
+              '<button id="btnDoRen" class="btn-accent" type="button">Save</button>' +
+            '</div>'
+          );
+          const inp = document.getElementById('renPlInp');
+          setTimeout(() => { inp.focus(); inp.select(); }, 40);
+          document.getElementById('btnDoRen').addEventListener('click', () => {
+            const val = inp.value.trim();
+            if (val) pl.name = val;
+            sfx.click(1.15);
+            renderPlaylists();
+            closeModals();
+          });
+        });
+        document.getElementById('plOptDel').addEventListener('click', () => {
+          sfx.click(0.8);
+          state.playlists = state.playlists.filter(x => x.id !== pl.id);
+          renderPlaylists();
+          closeModals();
+          showToast('Deleted "' + pl.name + '"');
+        });
+      }
+
+      function openCreatePlaylistChooser() {
+        sfx.click(1.1);
+        openDialog(
+          '<div style="font-size:22px;font-weight:700;margin-bottom:16px;">Create a playlist</div>' +
+          '<div style="display:flex;flex-direction:column;gap:10px;">' +
+            '<button id="cpLocal" class="action-opt" type="button"><span style="font-size:20px;color:var(--accent);">+</span><span>Create local playlist</span></button>' +
+            '<button id="cpUrl" class="action-opt" type="button"><span style="font-size:18px;color:var(--accent);">&#128279;</span><span>Add M3U playlist from URL</span></button>' +
+            '<button id="cpFile" class="action-opt" type="button"><span style="font-size:18px;color:var(--accent);">&#128196;</span><span>Add M3U playlist from file</span></button>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:flex-end;margin-top:18px;"><button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button></div>'
+        );
+        document.getElementById('cpLocal').addEventListener('click', () => openCreateLocalPl(null));
+        document.getElementById('cpUrl').addEventListener('click', openCreateM3uUrl);
+        document.getElementById('cpFile').addEventListener('click', () => {
+          closeModals();
+          document.getElementById('localM3uInput').click();
+        });
+      }
+
+      function openCreateLocalPl(initialVideo) {
+        openDialog(
+          '<div style="font-size:22px;font-weight:700;margin-bottom:14px;">Create local playlist</div>' +
+          '<input id="newPlName" class="studio-input" placeholder="Playlist name" />' +
+          '<div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:8px;">Enter a playlist name.</div>' +
+          '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">' +
+            '<button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button>' +
+            '<button id="btnDoCreatePl" class="btn-accent" type="button">Create</button>' +
+          '</div>'
+        );
+        const inp = document.getElementById('newPlName');
+        setTimeout(() => inp.focus(), 40);
+        document.getElementById('btnDoCreatePl').addEventListener('click', () => {
+          const name = inp.value.trim();
+          if (!name) return;
+          const newId = 'pl-' + Date.now();
+          state.newlyAddedPlId = newId;
+          state.playlists.unshift({ id: newId, name, type: 'Local', videos: initialVideo ? [initialVideo] : [] });
+          sfx.click(1.2);
+          renderPlaylists();
+          closeModals();
+          showToast('Created playlist "' + name + '"');
+        });
+      }
+
+      function openCreateM3uUrl() {
+        openDialog(
+          '<div style="font-size:22px;font-weight:700;margin-bottom:14px;">Add M3U playlist from URL</div>' +
+          '<input id="newM3uUrl" class="studio-input" placeholder="M3U URL" />' +
+          '<div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:8px;">Enter an M3U URL.</div>' +
+          '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">' +
+            '<button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button>' +
+            '<button id="btnDoCreateM3u" class="btn-accent" type="button">Create</button>' +
+          '</div>'
+        );
+        const inp = document.getElementById('newM3uUrl');
+        setTimeout(() => inp.focus(), 40);
+        document.getElementById('btnDoCreateM3u').addEventListener('click', () => {
+          const url = inp.value.trim();
+          if (!url) return;
+          const label = url.split('/').pop().replace(/\.m3u8?$/i, '') || 'M3U Stream';
+          const newId = 'pl-' + Date.now();
+          state.newlyAddedPlId = newId;
+          state.playlists.unshift({
+            id: newId, name: label, type: 'M3U Stream',
+            videos: [{ id: 'm3u-' + Date.now(), no: '01', t: label + ' \u00B7 Live Feed 01', raw: url, dur: 'LIVE', durSec: 3600, res: 'HLS 1080P', hue: 16, motif: 'tech' }]
+          });
+          sfx.click(1.2);
+          renderPlaylists();
+          closeModals();
+          showToast('Imported M3U "' + label + '"');
+        });
+      }
+
+      document.getElementById('localM3uInput').addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const name = f.name.replace(/\.m3u8?$/i, '');
+        const newId = 'pl-' + Date.now();
+        state.newlyAddedPlId = newId;
+        state.playlists.unshift({
+          id: newId, name, type: 'M3U File',
+          videos: [{ id: 'm3uf-' + Date.now(), no: '01', t: name + ' \u00B7 Channel 01', raw: f.name, dur: 'LIVE', durSec: 3600, res: 'M3U8', hue: 38, motif: 'tech' }]
+        });
+        sfx.click(1.2);
+        renderPlaylists();
+        showToast('Loaded M3U file "' + f.name + '"');
+        e.target.value = '';
+      });
+
+      function openPlaylistDetail(plId) {
+        const pl = state.playlists.find(p => p.id === plId);
+        if (!pl) return;
+        sfx.click(1.1);
+        state.openPlaylistId = plId;
+        state.pdSortAsc = true;
+        document.getElementById('pdTitle').textContent = pl.name;
+        document.getElementById('pdMeta').textContent = pl.type.toUpperCase() + ' \u00B7 ' + pl.videos.length + (pl.videos.length === 1 ? ' VIDEO' : ' VIDEOS');
+        document.getElementById('pdSearch').value = '';
+        renderPlaylistDetail();
+        openOverlay('overlay-pldetail');
+      }
+
+      function renderPlaylistDetail() {
+        const pl = state.playlists.find(p => p.id === state.openPlaylistId);
+        if (!pl) return;
+        const q = document.getElementById('pdSearch').value.trim().toLowerCase();
+        const body = document.getElementById('pdBody');
+        const hasVids = pl.videos.length > 0;
+        document.getElementById('btnPdPlayAll').style.display = hasVids ? 'inline-flex' : 'none';
+        document.getElementById('btnPdShuffle').style.display = hasVids ? 'inline-flex' : 'none';
+
+        let vids = pl.videos.filter(v => !q || v.t.toLowerCase().indexOf(q) !== -1);
+        if (!state.pdSortAsc) vids = vids.slice().reverse();
+
+        if (!vids.length) {
+          body.innerHTML =
+            '<div style="height:490px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">' +
+              '<div style="font-size:24px;font-weight:700;">This playlist is empty</div>' +
+              '<div style="font-size:15px;color:var(--ink-sec);">Select videos in Home and choose Add to playlist.</div>' +
+              '<button class="btn-accent" type="button" style="margin-top:10px;" onclick="closeOverlays();setScreen(0);">Browse Home Folders</button>' +
+            '</div>';
+          return;
+        }
+
+        body.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'home-list';
+        vids.forEach(v => {
+          const row = document.createElement('div');
+          row.className = 'home-list-row';
+          row.style.cursor = 'pointer';
+          row.innerHTML =
+            '<div style="width:128px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;position:relative;flex:none;">' +
+              thumbImgHTML(v) +
+              '<span class="mono" style="position:absolute;right:6px;bottom:6px;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.76);font-size:10px;">' + v.dur + '</span>' +
+            '</div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="font-size:16px;font-weight:700;">' + v.t + '</div>' +
+              '<div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:3px;">' + (v.folderPath || '/storage/emulated/0/DCIM/Camera') + '</div>' +
+            '</div>' +
+            '<button class="kebab-btn pd-kebab" type="button" aria-label="Video options">&#8942;</button>';
+          row.addEventListener('click', e => { if (!e.target.closest('button')) openCinemaPlayer(v); });
+          row.querySelector('.pd-kebab').addEventListener('click', e => {
+            e.stopPropagation();
+            openDialog(
+              '<div style="font-size:18px;font-weight:700;margin-bottom:14px;">' + v.t + '</div>' +
+              '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                '<button id="pdOptPlay" class="action-opt" type="button"><span>&#9654;</span><span>Play video</span></button>' +
+                '<button id="pdOptRem" class="action-opt" type="button" style="color:var(--accent);"><span>&times;</span><span>Remove from playlist</span></button>' +
+              '</div>' +
+              '<div style="display:flex;justify-content:flex-end;margin-top:16px;"><button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button></div>'
+            );
+            document.getElementById('pdOptPlay').addEventListener('click', () => { closeModals(); openCinemaPlayer(v); });
+            document.getElementById('pdOptRem').addEventListener('click', () => {
+              sfx.click(0.85);
+              pl.videos = pl.videos.filter(x => x.id !== v.id);
+              document.getElementById('pdMeta').textContent = pl.type.toUpperCase() + ' \u00B7 ' + pl.videos.length + ' VIDEOS';
+              renderPlaylists();
+              renderPlaylistDetail();
+              closeModals();
+            });
+          });
+          wrap.appendChild(row);
+        });
+        body.appendChild(wrap);
+      }
+
+      document.getElementById('btnPdPlayAll').addEventListener('click', () => {
+        const pl = state.playlists.find(p => p.id === state.openPlaylistId);
+        if (pl && pl.videos.length) openCinemaPlayer(pl.videos[0]);
+      });
+      document.getElementById('btnPdShuffle').addEventListener('click', () => {
+        const pl = state.playlists.find(p => p.id === state.openPlaylistId);
+        if (pl && pl.videos.length) {
+          openCinemaPlayer(pl.videos[Math.floor(Math.random() * pl.videos.length)]);
+        }
+      });
+      document.getElementById('pdSearch').addEventListener('input', renderPlaylistDetail);
+      document.getElementById('btnPdSort').addEventListener('click', e => {
+        sfx.click();
+        state.pdSortAsc = !state.pdSortAsc;
+        e.currentTarget.textContent = state.pdSortAsc ? 'A\u2013Z' : 'Z\u2013A';
+        renderPlaylistDetail();
+      });
+
+      function openPickPlaylistForVideo(v) {
+        openPickPlaylistForVideos([v]);
+      }
+
+      function openPickPlaylistForVideos(vids) {
+        sfx.click();
+        if (!state.playlists.length) { openCreateLocalPl(vids[0]); return; }
+        openDialog(
+          '<div style="font-size:20px;font-weight:700;margin-bottom:14px;">Add ' + (vids.length > 1 ? vids.length + ' videos ' : '') + 'to playlist</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;">' +
+            state.playlists.map(pl => '<button class="action-opt pick-pl-opt" data-id="' + pl.id + '" type="button"><span style="flex:1;">' + pl.name + '</span><span class="mono" style="font-size:11px;color:var(--ink-muted);">' + pl.videos.length + ' videos</span></button>').join('') +
+          '</div>' +
+          '<div style="display:flex;justify-content:flex-end;margin-top:16px;"><button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button></div>'
+        );
+        document.querySelectorAll('.pick-pl-opt').forEach(b => b.addEventListener('click', () => {
+          const pl = state.playlists.find(p => p.id === b.dataset.id);
+          if (pl) {
+            vids.forEach(v => {
+              if (!pl.videos.some(x => x.id === v.id)) pl.videos.push(v);
+            });
+            sfx.click(1.2);
+            renderPlaylists();
+            closeModals();
+            showToast('Added ' + vids.length + (vids.length === 1 ? ' video' : ' videos') + ' to "' + pl.name + '"');
+          }
+        }));
+      }
+
+      // =======================================================================
+      // 12. LAYER 2 — NETWORK & ADD CONNECTION FORM
+      // =======================================================================
+      const PROTOS = [
+        { p: 'SMB', d: 'WINDOWS SHARE', no: '01', x: 0, y: 0 },
+        { p: 'FTP', d: 'FILE TRANSFER', no: '02', x: 224, y: 0 },
+        { p: 'SFTP', d: 'OVER SSH', no: '03', x: 0, y: 154 },
+        { p: 'WebDAV', d: 'OVER HTTP(S)', no: '04', x: 224, y: 154 }
+      ];
+
+      function detectProtoFromUrl(u) {
+        const m = (u.match(/^([a-z][a-z0-9+.-]*):\/\//i) || [])[1];
+        if (!m) return '';
+        const map = { smb: 'SMB', ftp: 'FTP', sftp: 'SFTP', dav: 'WebDAV', davs: 'WebDAV', webdav: 'WebDAV', webdavs: 'WebDAV' };
+        return map[m.toLowerCase()] || '';
+      }
+
+      function renderPatchBay() {
+        const grid = document.getElementById('patchBayGrid');
+        const det = detectProtoFromUrl(state.streamUrl);
+        const eff = det || state.selectedProto;
+        const accent = ACCENTS[state.accentIdx].hex;
+        grid.innerHTML = '';
+
+        PROTOS.forEach(pr => {
+          const active = eff === pr.p;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'slab-btn';
+          btn.style.left = pr.x + 'px';
+          btn.style.top = pr.y + 'px';
+          btn.innerHTML =
+            '<div class="slab-layer" style="background:#120F0A;transform:translateZ(0px);"></div>' +
+            '<div class="slab-layer" style="background:#1C1810;transform:translateZ(6px);"></div>' +
+            '<div class="slab-layer" style="background:#2A2418;transform:translateZ(12px);"></div>' +
+            '<div class="slab-top" style="background:' + (active ? accent : '#D9CBA6') + ';transform:translateZ(' + (active ? 38 : 18) + 'px);">' +
+              '<span class="mono" style="position:absolute;left:16px;top:14px;font-size:11px;letter-spacing:.14em;opacity:.7;">' + pr.no + '</span>' +
+              '<span style="position:absolute;left:16px;bottom:34px;font-size:34px;font-weight:700;letter-spacing:-1px;">' + pr.p + '</span>' +
+              '<span class="mono" style="position:absolute;left:16px;bottom:14px;font-size:11px;letter-spacing:.08em;">' + pr.d + '</span>' +
+            '</div>';
+          btn.addEventListener('click', () => {
+            sfx.click(1.15);
+            state.selectedProto = pr.p;
+            renderPatchBay();
+          });
+          grid.appendChild(btn);
+        });
+      }
+
+      function updateStreamBtn() {
+        const u = state.streamUrl.trim();
+        const valid = /^[a-z][a-z0-9+.-]*:\/\/\S+/i.test(u);
+        const det = detectProtoFromUrl(u);
+        const btn = document.getElementById('btnOpenStream');
+        const accent = ACCENTS[state.accentIdx];
+        btn.style.background = valid ? accent.hex : 'var(--surface-key)';
+        btn.style.color = valid ? '#0D0C0A' : 'var(--ink-dim)';
+        btn.style.boxShadow = valid ? '0 6px 0 ' + accent.shadow : '0 6px 0 #070605';
+        document.getElementById('netStreamHint').textContent = det ? 'LOOKS LIKE ' + det.toUpperCase() + ' \u2014 KEY LIT BELOW' : '';
+      }
+
+      function renderNetworkSaved() {
+        const col = document.getElementById('netSavedCol');
+        if (!state.servers.length) {
+          col.innerHTML =
+            '<h2 style="font-size:48px;line-height:1;letter-spacing:-1.5px;font-weight:700;">No connections yet</h2>' +
+            '<p style="margin:18px 0 0;font-size:17px;line-height:1.5;color:var(--ink-sec);">Add an SMB, FTP, SFTP or WebDAV connection to browse and play videos from your network. Pick a key, then press the orange button.</p>';
+          return;
+        }
+        col.innerHTML = '<h2 style="font-size:44px;line-height:1;letter-spacing:-1.5px;font-weight:700;margin-bottom:18px;">' + state.servers.length + (state.servers.length === 1 ? ' connection' : ' connections') + '</h2>';
+        const stack = document.createElement('div');
+        stack.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+        state.servers.forEach(sv => {
+          const row = document.createElement('div');
+          row.className = 'home-list-row';
+          row.style.padding = '13px 16px';
+          row.innerHTML =
+            '<span class="stamp-badge m3u">' + sv.proto + '</span>' +
+            '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:15px;">' + sv.name + '</div><div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:2px;">' + sv.host + ':' + sv.port + sv.path + '</div></div>' +
+            '<button class="btn-accent" type="button" style="height:34px;padding:0 12px;font-size:12px;">Browse</button>';
+          row.querySelector('button').addEventListener('click', () => {
+            openCinemaPlayer({ id: 'srv-' + Date.now(), t: sv.name + ' \u00B7 Mounted Stream', raw: sv.proto.toLowerCase() + '://' + sv.host + sv.path, dur: '01:48:20', durSec: 6500, res: '1080P NAS', hue: 28, motif: 'cinema' });
+          });
+          stack.appendChild(row);
+        });
+        col.appendChild(stack);
+      }
+
+      document.getElementById('netUrlInput').addEventListener('input', e => {
+        state.streamUrl = e.target.value;
+        updateStreamBtn();
+        renderPatchBay();
+      });
+
+      document.getElementById('btnOpenStream').addEventListener('click', () => {
+        const u = state.streamUrl.trim() || 'http://example.com/example.mp4';
+        openCinemaPlayer({ id: 'net-' + Date.now(), t: u.split('/').pop() || 'Network Stream', raw: u, dur: '01:24:00', durSec: 5040, res: 'NETWORK STREAM', hue: 18, motif: 'tech' });
+      });
+
+      function openAddConnOverlay() {
+        sfx.click(1.1);
+        const pre = state.selectedProto === 'SFTP' ? 'FTP' : state.selectedProto === 'WebDAV' ? 'WEBDAV' : (state.selectedProto || 'SMB');
+        state.connProto = pre;
+        state.connUseSftp = state.selectedProto === 'SFTP';
+        state.connUseHttps = false;
+        document.getElementById('cName').value = '';
+        document.getElementById('cHost').value = '';
+        document.getElementById('cPort').value = '';
+        document.getElementById('cPath').value = '/';
+        document.getElementById('cUser').value = '';
+        document.getElementById('cPass').value = '';
+        syncAddConnUI();
+        openOverlay('overlay-addconn');
+      }
+
+      function syncAddConnUI() {
+        const p = state.connProto;
+        document.querySelectorAll('#connProtoSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.p === p));
+        document.getElementById('rowUseSftp').style.display = p === 'FTP' ? 'flex' : 'none';
+        document.getElementById('rowUseHttps').style.display = p === 'WEBDAV' ? 'flex' : 'none';
+        document.getElementById('swUseSftp').classList.toggle('on', state.connUseSftp);
+        document.getElementById('swUseHttps').classList.toggle('on', state.connUseHttps);
+        const defPort = p === 'SMB' ? '445' : p === 'FTP' ? (state.connUseSftp ? '22' : '21') : (state.connUseHttps ? '443' : '80');
+        document.getElementById('cPort').placeholder = 'Port (default ' + defPort + ')';
+      }
+
+      document.querySelectorAll('#connProtoSeg .seg-btn').forEach(b => b.addEventListener('click', () => {
+        sfx.click();
+        state.connProto = b.dataset.p;
+        syncAddConnUI();
+      }));
+      document.getElementById('swUseSftp').addEventListener('click', () => { sfx.click(); state.connUseSftp = !state.connUseSftp; syncAddConnUI(); });
+      document.getElementById('swUseHttps').addEventListener('click', () => { sfx.click(); state.connUseHttps = !state.connUseHttps; syncAddConnUI(); });
+
+      document.getElementById('btnSaveConn').addEventListener('click', () => {
+        const host = document.getElementById('cHost').value.trim();
+        if (!host) { showToast('Enter a server host or IP'); return; }
+        const p = state.connProto;
+        const protoLabel = p === 'FTP' ? (state.connUseSftp ? 'SFTP' : 'FTP') : p === 'WEBDAV' ? (state.connUseHttps ? 'WEBDAVS' : 'WEBDAV') : 'SMB';
+        const defPort = p === 'SMB' ? '445' : p === 'FTP' ? (state.connUseSftp ? '22' : '21') : (state.connUseHttps ? '443' : '80');
+        const name = document.getElementById('cName').value.trim() || (protoLabel + ' Server');
+        const port = document.getElementById('cPort').value.trim() || defPort;
+        const path = document.getElementById('cPath').value.trim() || '/';
+        const btn = document.getElementById('btnSaveConn');
+        sfx.click(1.1);
+        btn.textContent = 'Testing handshake...';
+        setTimeout(() => {
+          btn.textContent = 'Test & Save';
+          state.servers.push({ proto: protoLabel, name, host, port, path });
+          sfx.click(1.25);
+          renderNetworkSaved();
+          closeOverlays(true);
+          showToast('Connected (12ms) & saved "' + name + '"');
+        }, 380);
+      });
+
+      // =======================================================================
+      // 13. LAYER 3 — MORE (HIDDEN VIDEOS VAULT, PICK FILE, TRASH, HAND OF CARDS)
+      // =======================================================================
+      function openVaultFlow() {
+        sfx.click();
+        if (state.vaultOpen) {
+          renderVaultScreen();
+          openOverlay('overlay-vault');
+          return;
+        }
+        openDialog(
+          '<div style="font-size:22px;font-weight:700;margin-bottom:6px;">Unlock Vault</div>' +
+          '<div class="mono" style="font-size:11.5px;color:var(--ink-muted);margin-bottom:16px;">ENTER 4-DIGIT PIN (DEFAULT 1234)</div>' +
+          '<input id="vaultPinInp" class="studio-input" type="password" maxlength="4" placeholder="&bull; &bull; &bull; &bull;" style="text-align:center;font-size:24px;letter-spacing:.5em;" />' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;">' +
+            '<button id="btnBioUnlock" class="btn-ghost" type="button" style="height:40px;font-size:11px;">Biometric Unlock</button>' +
+            '<div style="display:flex;gap:10px;">' +
+              '<button class="btn-ghost" type="button" onclick="closeModals()">Cancel</button>' +
+              '<button id="btnDoUnlock" class="btn-accent" type="button">Unlock</button>' +
+            '</div>' +
+          '</div>'
+        );
+        const inp = document.getElementById('vaultPinInp');
+        setTimeout(() => inp.focus(), 40);
+        const completeUnlock = () => {
+          state.vaultOpen = true;
+          document.getElementById('vaultStateTxt').textContent = 'UNLOCKED';
+          document.getElementById('vaultShackle').setAttribute('d', 'M8 11V7a4 4 0 0 1 7.5-2');
+          sfx.click(1.25);
+          closeModals();
+          renderVaultScreen();
+          openOverlay('overlay-vault');
+        };
+        document.getElementById('btnBioUnlock').addEventListener('click', completeUnlock);
+        document.getElementById('btnDoUnlock').addEventListener('click', () => {
+          if (inp.value === '1234' || inp.value === '0000') completeUnlock();
+          else showToast('Incorrect PIN \u2014 try 1234');
+        });
+      }
+
+      function renderVaultScreen() {
+        const host = document.getElementById('vaultListHost');
+        const sub = document.getElementById('vaultMetaSub');
+        const n = state.hiddenVideos.length;
+        sub.textContent = 'VAULT UNLOCKED \u00B7 ' + n + (n === 1 ? ' HIDDEN VIDEO' : ' HIDDEN VIDEOS');
+
+        if (!n) {
+          host.innerHTML =
+            '<div style="height:500px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;">' +
+              '<div style="width:72px;height:72px;border-radius:18px;background:var(--surface);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;color:var(--ink-sec);">' +
+                '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>' +
+              '</div>' +
+              '<div style="font-size:24px;font-weight:700;">No hidden videos</div>' +
+              '<div style="font-size:15px;color:var(--ink-sec);max-width:440px;">Videos you hide will show up here. Long press a video and tap Hide to add it to the vault.</div>' +
+            '</div>';
+          return;
+        }
+
+        const list = state.hiddenVideos.slice();
+        const m = state.vaultSortDir === 'asc' ? 1 : -1;
+        list.sort((a, b) => {
+          if (state.vaultSortBy === 'title') return a.t.localeCompare(b.t) * m;
+          if (state.vaultSortBy === 'duration') return (b.durSec - a.durSec) * m;
+          if (state.vaultSortBy === 'date') return ((b.hiddenAt || 0) - (a.hiddenAt || 0)) * m;
+          if (state.vaultSortBy === 'size') return ((b.sizeMB || 0) - (a.sizeMB || 0)) * m;
+          return 0;
+        });
+
+        host.innerHTML = '';
+        const isGrid = state.vaultLayout === 'grid';
+        const wrap = document.createElement('div');
+        wrap.className = isGrid ? 'wall-grid' : 'home-list';
+
+        list.forEach(v => {
+          const item = document.createElement('div');
+          item.className = isGrid ? 'wall-card' : 'home-list-row';
+          item.style.cursor = 'pointer';
+          if (isGrid) {
+            item.innerHTML =
+              '<div class="wall-thumb">' + thumbImgHTML(v) +
+                '<span class="mono" style="position:absolute;right:8px;bottom:8px;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.74);font-size:12px;">' + v.dur + '</span>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">' +
+                '<div class="mono" style="font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + v.t + '</div>' +
+                '<button class="btn-ghost v-unhide" type="button" style="height:28px;padding:0 10px;font-size:10.5px;">Unhide</button>' +
+              '</div>';
+          } else {
+            item.innerHTML =
+              '<div style="width:128px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;position:relative;flex:none;">' +
+                thumbImgHTML(v) +
+                '<span class="mono" style="position:absolute;right:6px;bottom:6px;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.76);font-size:10.5px;">' + v.dur + '</span>' +
+              '</div>' +
+              '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:700;">' + v.t + '</div><div class="mono" style="font-size:11px;color:var(--ink-muted);margin-top:3px;">' + (v.folderPath || '') + '</div></div>' +
+              '<button class="btn-accent v-unhide" type="button" style="height:36px;padding:0 14px;font-size:12px;">Unhide</button>';
+          }
+          item.addEventListener('click', e => { if (!e.target.closest('button')) openCinemaPlayer(v); });
+          item.querySelector('.v-unhide').addEventListener('click', e => {
+            e.stopPropagation();
+            sfx.click(1.15);
+            state.hiddenVideos = state.hiddenVideos.filter(x => x.id !== v.id);
+            const f = FOLDERS_DATA.find(x => x.id === v.folderId);
+            if (f) { f.videos.unshift(v); f.n += 1; }
+            renderHome();
+            renderVaultScreen();
+            showToast('Unhid "' + v.t + '"');
+          });
+          wrap.appendChild(item);
+        });
+        host.appendChild(wrap);
+      }
+
+      document.getElementById('btnVaultKey').addEventListener('click', openVaultFlow);
+
+      document.getElementById('btnLockVaultNow').addEventListener('click', () => {
+        sfx.click(0.85);
+        state.vaultOpen = false;
+        document.getElementById('vaultStateTxt').textContent = 'LOCKED';
+        document.getElementById('vaultShackle').setAttribute('d', 'M8 11V8a4 4 0 0 1 8 0v3');
+        closeOverlays(true);
+        showToast('Vault locked');
+      });
+
+      document.getElementById('btnVaultSettingsGear').addEventListener('click', () => {
+        sfx.click(1.1);
+        openDialog(
+          '<div style="font-size:22px;font-weight:700;margin-bottom:16px;">Vault settings</div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-radius:14px;border:1px solid var(--border-strong);background:var(--surface);">' +
+            '<div>' +
+              '<div style="font-size:15.5px;font-weight:700;">Unlock with biometrics</div>' +
+              '<div style="font-size:12.5px;color:var(--ink-muted);margin-top:4px;line-height:1.45;">Set up a supported fingerprint or face in your device settings to enable biometric unlock.</div>' +
+            '</div>' +
+            '<button id="swVaultBio" class="toggle-sw ' + (state.vaultBiometrics ? 'on' : '') + '" type="button" aria-label="Unlock with biometrics"></button>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:flex-end;margin-top:20px;"><button class="btn-accent" type="button" onclick="closeModals()">Done</button></div>'
+        );
+        document.getElementById('swVaultBio').addEventListener('click', e => {
+          sfx.click();
+          state.vaultBiometrics = !state.vaultBiometrics;
+          e.currentTarget.classList.toggle('on', state.vaultBiometrics);
+        });
+      });
+
+      document.getElementById('btnVaultQuickSettings').addEventListener('click', () => {
+        sfx.click(1.1);
+        openDialog(
+          '<div style="font-size:22px;font-weight:700;margin-bottom:16px;">Quick Settings</div>' +
+          '<div style="margin-bottom:16px;">' +
+            '<div class="mono" style="font-size:11px;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">MEDIA LAYOUT</div>' +
+            '<div class="seg-bar" id="vqsLayoutSeg">' +
+              '<button class="seg-btn ' + (state.vaultLayout === 'list' ? 'active' : '') + '" data-v="list" type="button">LIST</button>' +
+              '<button class="seg-b
+<truncated 47557 bytes>
+
+NOTE: The output was truncated because it was too long. Use a more targeted query or a smaller range to get the information you need.

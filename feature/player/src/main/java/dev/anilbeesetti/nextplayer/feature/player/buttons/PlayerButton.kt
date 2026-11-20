@@ -30,12 +30,14 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.dp
 import dev.anilbeesetti.nextplayer.core.common.extensions.isTelevision
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateBgSurfaceKey
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.feature.player.LocalUseMaterialYouControls
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
-val PlayerButtonBlackAlpha = Color.Black.copy(alpha = 0.3f)
+val PlayerButtonBlackAlpha = CrateBgSurfaceKey.copy(alpha = 0.75f)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -81,7 +83,7 @@ fun PlayerButton(
         IconButtonDefaults.filledTonalIconButtonColors()
     } else {
         IconButtonDefaults.iconButtonColors(
-            contentColor = Color.White,
+            contentColor = CrateTheme.colors.inkPrimary,
             containerColor = containerColor,
         )
     }

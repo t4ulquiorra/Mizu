@@ -61,7 +61,13 @@ import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
 import dev.anilbeesetti.nextplayer.feature.more.components.HistoryEmptyState
+import dev.anilbeesetti.nextplayer.feature.more.components.CrateHandOfCards
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.VideoGridItem
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoLabel
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateTactileButton
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateButtonVariant
 
 @Composable
 fun MoreScreen(viewModel: MoreViewModel) {
@@ -87,82 +93,115 @@ internal fun MoreScreenContent(state: MoreUiState, onAction: (MoreAction) -> Uni
     Scaffold(
         topBar = {
             NextTopAppBar(
-                title = stringResource(R.string.more),
-                fontWeight = FontWeight.Bold,
+                title = {
+                    Column {
+                        Text(
+                            text = "MORE",
+                            style = CrateTheme.typography.titleLarge,
+                            color = CrateTheme.colors.inkPrimary,
+                        )
+                        CrateMonoBreadcrumb(
+                            section = "UTILITIES",
+                            count = "SYSTEM & TOOLS",
+                        )
+                    }
+                },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { scaffoldPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(scaffoldPadding.copy(bottom = 0.dp))
-                .clip(
-                    shape = RoundedCornerShape(
-                        topStart = 24.dp,
-                        topEnd = 24.dp,
-                    ),
-                )
-                .background(MaterialTheme.colorScheme.background),
+                .background(CrateTheme.colors.bgBase),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(state = rememberScrollState())
                     .tvListFocus()
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = 16.dp)
                     .padding(
                         top = 8.dp,
                         bottom =
                             scaffoldPadding.calculateBottomPadding() +
                                 LocalNavigationBottomPadding.current + 96.dp,
                     ),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
+                CrateMonoLabel(text = "KEYCAP UTILITIES")
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     maxItemsInEachRow = 2,
                 ) {
-                    FilledTonalButton(
+                    CrateTactileButton(
                         modifier = Modifier.weight(weight = 1f).tvFocusRing(),
+                        variant = CrateButtonVariant.SECONDARY,
                         onClick = { onAction(MoreAction.OpenVault) },
                     ) {
                         Icon(
                             imageVector = NextIcons.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
+                            contentDescription = stringResource(R.string.vault),
+                            modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text(text = stringResource(R.string.vault))
+                        Text(
+                            text = stringResource(R.string.vault),
+                            style = CrateTheme.typography.titleSmall,
+                        )
                     }
-                    FilledTonalButton(
+                    CrateTactileButton(
                         modifier = Modifier.weight(weight = 1f).tvFocusRing(),
+                        variant = CrateButtonVariant.SECONDARY,
                         onClick = { filePicker.launch(input = "video/*") },
                     ) {
                         Icon(
                             imageVector = NextIcons.FileOpen,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
+                            contentDescription = stringResource(R.string.pick_file),
+                            modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text(text = stringResource(R.string.pick_file))
+                        Text(
+                            text = stringResource(R.string.pick_file),
+                            style = CrateTheme.typography.titleSmall,
+                        )
                     }
                     if (MediaOperationsService.supportsTrash()) {
-                        FilledTonalButton(
+                        CrateTactileButton(
                             modifier = Modifier.weight(weight = 1f).tvFocusRing(),
+                            variant = CrateButtonVariant.SECONDARY,
                             onClick = { onAction(MoreAction.OpenTrash) },
                         ) {
                             Icon(
                                 imageVector = NextIcons.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
+                                contentDescription = stringResource(R.string.trash),
+                                modifier = Modifier.size(18.dp),
                             )
                             Spacer(modifier = Modifier.size(8.dp))
-                            Text(text = stringResource(R.string.trash))
+                            Text(
+                                text = stringResource(R.string.trash),
+                                style = CrateTheme.typography.titleSmall,
+                            )
                         }
-                        Spacer(modifier = Modifier.weight(weight = 1f))
+                    }
+                    CrateTactileButton(
+                        modifier = Modifier.weight(weight = 1f).tvFocusRing(),
+                        variant = CrateButtonVariant.SECONDARY,
+                        onClick = { onAction(MoreAction.OpenSettings) },
+                    ) {
+                        Icon(
+                            imageVector = NextIcons.Settings,
+                            contentDescription = stringResource(R.string.settings),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = stringResource(R.string.settings),
+                            style = CrateTheme.typography.titleSmall,
+                        )
                     }
                 }
                 HistorySection(
@@ -229,38 +268,55 @@ private fun HistorySection(
             )
 
             else -> {
-                LazyRow(
-                    // The screen owns initial focus; this region restores a video only when entered.
-                    modifier = Modifier
-                        .focusProperties {
-                            onExit = {
-                                if (isTv && requestedFocusDirection == FocusDirection.Up) {
-                                    historyButtonFocusRequester.requestFocus()
+                if (isTv) {
+                    LazyRow(
+                        modifier = Modifier
+                            .focusProperties {
+                                onExit = {
+                                    if (requestedFocusDirection == FocusDirection.Up) {
+                                        historyButtonFocusRequester.requestFocus()
+                                    }
                                 }
                             }
+                            .restorableFocusGroup(
+                                state = historyFocusState,
+                                ready = false,
+                            ),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        items(
+                            items = videos,
+                            key = { it.uriString },
+                        ) { video ->
+                            VideoGridItem(
+                                video = video,
+                                isRecentlyPlayedVideo = false,
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                preferences = preferences,
+                                modifier = Modifier
+                                    .width(140.dp)
+                                    .restorableFocusItem(
+                                        state = historyFocusState,
+                                        video.uriString,
+                                    ),
+                                onClick = { onVideoClick(video) },
+                            )
                         }
-                        .restorableFocusGroup(
-                            state = historyFocusState,
-                            ready = false,
-                        ),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    items(
-                        items = videos,
-                        key = { it.uriString },
-                    ) { video ->
-                        VideoGridItem(
-                            video = video,
-                            isRecentlyPlayedVideo = false,
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            preferences = preferences,
-                            modifier = Modifier
-                                .width(140.dp)
-                                .restorableFocusItem(
-                                    state = historyFocusState,
-                                    video.uriString,
-                                ),
-                            onClick = { onVideoClick(video) },
+                    }
+                } else {
+                    CrateHandOfCards(
+                        videos = videos,
+                        onVideoClick = onVideoClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    CrateTactileButton(
+                        onClick = onMoreClick,
+                        variant = CrateButtonVariant.SECONDARY,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "VIEW FULL HISTORY →",
+                            style = CrateTheme.typography.titleSmall,
                         )
                     }
                 }

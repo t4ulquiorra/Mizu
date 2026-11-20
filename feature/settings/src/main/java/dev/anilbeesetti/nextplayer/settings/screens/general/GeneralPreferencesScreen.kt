@@ -38,6 +38,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.rememberTvListFocusRequest
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusDown
 import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -98,7 +99,7 @@ private fun GeneralPreferencesScreenContent(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { innerPadding ->
         Column(
             modifier = Modifier

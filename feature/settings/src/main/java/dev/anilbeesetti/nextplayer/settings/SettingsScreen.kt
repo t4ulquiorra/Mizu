@@ -28,6 +28,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusGroup
 import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusItem
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusDown
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 data class SettingsOutput(val navigateUp: () -> Unit, val openSetting: (Setting) -> Unit)
 
@@ -72,7 +73,7 @@ private fun SettingsScreenContent(onAction: (SettingsAction) -> Unit) {
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { innerPadding ->
         Column(
             modifier = Modifier

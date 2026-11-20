@@ -100,6 +100,13 @@ import dev.anilbeesetti.nextplayer.core.ui.components.TopLevelFabState
 import dev.anilbeesetti.nextplayer.core.ui.components.thenIf
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateBgBase
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.feature.more.navigation.MoreRoute
 import dev.anilbeesetti.nextplayer.feature.network.navigation.NetworkRoute
 import dev.anilbeesetti.nextplayer.feature.playlist.navigation.PlaylistListRoute
@@ -138,7 +145,14 @@ enum class TopLevelDestination(
         NextIcons.More,
         R.string.more,
         TopLevelFabKey.MORE,
-    ),
+    );
+
+    fun crateMonoLabel(): String = when (this) {
+        MEDIA -> "HOME"
+        PLAYLISTS -> "LISTS"
+        NETWORK -> "NET"
+        MORE -> "MORE"
+    }
 }
 
 @Composable
@@ -283,18 +297,30 @@ internal fun TopLevelNavState.navigationTransition(
             targetState = targetState,
         )
     ) {
-        return fadeIn(
+        return (fadeIn(
             animationSpec = tween(
-                durationMillis = 200,
+                durationMillis = 300,
                 easing = LinearEasing,
             ),
-        ) togetherWith
-            fadeOut(
+        ) + scaleIn(
+            initialScale = 0.94f,
+            animationSpec = tween(
+                durationMillis = 300,
+                easing = FastOutSlowInEasing,
+            ),
+        )) togetherWith
+            (fadeOut(
                 animationSpec = tween(
                     durationMillis = 200,
                     easing = LinearEasing,
                 ),
-            )
+            ) + scaleOut(
+                targetScale = 1.04f,
+                animationSpec = tween(
+                    durationMillis = 200,
+                    easing = FastOutSlowInEasing,
+                ),
+            ))
     }
 
     val isPop = initialState.isPoppingTo(targetState)
@@ -412,7 +438,8 @@ fun NextNavigationBar(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            MaterialTheme.colorScheme.background,
+                            CrateTheme.colors.bgBase.copy(alpha = 0.95f),
+                            CrateTheme.colors.bgBase,
                         ),
                     ),
                 )
@@ -444,7 +471,7 @@ fun NextNavigationBar(
                     modifier = Modifier
                         .testTag(tag = "top_level_fab")
                         .focusRequester(focusRequester = fabFocusRequester)
-                        .tvFocusRing(shape = MaterialTheme.shapes.large)
+                        .tvFocusRing(shape = CrateTheme.shapes.keycap)
                         .focusProperties {
                             if (isTv) {
                                 up =
@@ -452,7 +479,9 @@ fun NextNavigationBar(
                                         ?: contentFocusRequester
                             }
                         },
-                    shape = MaterialTheme.shapes.large,
+                    shape = CrateTheme.shapes.keycap,
+                    containerColor = CrateTheme.colors.accent,
+                    contentColor = CrateBgBase,
                 ) {
                     AnimatedContent(
                         targetState = fab,
@@ -485,9 +514,9 @@ fun NextNavigationBar(
                                 )
                         },
                         label = "fab_icon_swap",
-                    ) { fab ->
+                    ) { fabItem ->
                         Icon(
-                            imageVector = fab.icon,
+                            imageVector = fabItem.icon,
                             contentDescription = null,
                         )
                     }
@@ -509,12 +538,9 @@ fun NavigationView(
 
     Box(
         modifier = modifier
-            .graphicsLayer(
-                shadowElevation = with(LocalDensity.current) { 6.dp.toPx() },
-                shape = CircleShape,
-            )
-            .clip(shape = CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clip(shape = CrateTheme.shapes.dock)
+            .background(CrateTheme.colors.bgSurface)
+            .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.dock)
             .padding(4.dp),
     ) {
         LookaheadScope {
@@ -528,8 +554,9 @@ fun NavigationView(
                                     lookaheadScope = this@LookaheadScope,
                                     boundsTransform = boundsTransform,
                                 )
-                                .clip(shape = CircleShape)
-                                .background(MaterialTheme.colorScheme.secondaryContainer),
+                                .clip(shape = CrateTheme.shapes.keycap)
+                                .background(CrateTheme.colors.bgSurfaceKey)
+                                .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.keycap),
                         )
                     }
                 }
@@ -537,7 +564,7 @@ fun NavigationView(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 destinations.forEach { destination ->
                     val isSelected = isSelected(destination)
@@ -550,8 +577,8 @@ fun NavigationView(
                         }
                         Column(
                             Modifier
-                                .tvFocusRing(shape = RoundedCornerShape(99.dp))
-                                .clip(shape = CircleShape)
+                                .tvFocusRing(shape = CrateTheme.shapes.keycap)
+                                .clip(shape = CrateTheme.shapes.keycap)
                                 .selectable(
                                     selected = isSelected,
                                     onClick = { onDestinationClick(destination) },
@@ -560,25 +587,28 @@ fun NavigationView(
                                     interactionSource = null,
                                 )
                                 .padding(
-                                    horizontal = 16.dp,
-                                    vertical = 12.dp,
+                                    horizontal = 14.dp,
+                                    vertical = 8.dp,
                                 ),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            CompositionLocalProvider(
-                                value = LocalContentColor provides if (isSelected) {
-                                    MaterialTheme.colorScheme.onSecondaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = stringResource(destination.labelRes),
-                                    modifier = Modifier.size(24.dp),
-                                )
+                            val contentColor = if (isSelected) {
+                                CrateTheme.colors.inkPrimary
+                            } else {
+                                CrateTheme.colors.inkMuted
                             }
+                            Icon(
+                                imageVector = destination.icon,
+                                contentDescription = stringResource(destination.labelRes),
+                                tint = contentColor,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = destination.crateMonoLabel(),
+                                style = CrateTheme.typography.labelMonoSmall,
+                                color = contentColor,
+                            )
                         }
                     }
                 }
@@ -589,53 +619,129 @@ fun NavigationView(
 
 @Composable
 fun NextNavigationRail(state: TopLevelNavState, modifier: Modifier = Modifier) {
-    NavigationRail(
-        modifier = modifier.fillMaxHeight(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    val destinations = state.destinations
+
+    Box(
+        modifier = modifier
+            .width(96.dp)
+            .fillMaxHeight()
+            .background(CrateTheme.colors.bgBase)
+            .drawBehind {
+                drawLine(
+                    color = CrateTheme.colors.border,
+                    start = Offset(size.width, 0f),
+                    end = Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            },
     ) {
         Column(
-            modifier = Modifier.fillMaxHeight(),
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(
-                8.dp,
-                Alignment.CenterVertically,
-            ),
         ) {
-            state.destinations.forEach { dest ->
-                val selected = state.topLevelRoute == dest.route
+            // Crate brand mark at top
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CrateTheme.shapes.keycap)
+                    .background(CrateTheme.colors.bgSurfaceKey)
+                    .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.keycap),
+                contentAlignment = Alignment.Center,
+            ) {
                 Box(
-                    Modifier
-                        .tvFocusRing(shape = RoundedCornerShape(99.dp))
-                        .clip(shape = CircleShape)
-                        .selectable(
-                            selected = state.topLevelRoute == dest.route,
-                            onClick = { state.switchTo(dest.route) },
-                            role = Role.Tab,
-                        )
-                        .background(
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            } else {
-                                Color.Transparent
-                            },
-                        )
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                    propagateMinConstraints = true,
-                ) {
-                    CompositionLocalProvider(
-                        value = LocalContentColor provides if (selected) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(CrateTheme.colors.accent),
+                )
+            }
+            Text(
+                text = "CRATE",
+                style = CrateTheme.typography.labelMonoSmall,
+                color = CrateTheme.colors.inkMuted,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            // Navigation Items
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                destinations.forEach { dest ->
+                    val isSelected = state.topLevelRoute == dest.route
+                    val itemBgColor = if (isSelected) CrateTheme.colors.bgSurfaceKey else Color.Transparent
+                    val itemBorderColor = if (isSelected) CrateTheme.colors.borderStrong else Color.Transparent
+                    val contentColor = if (isSelected) CrateTheme.colors.inkPrimary else CrateTheme.colors.inkMuted
+
+                    Box(
+                        modifier = Modifier
+                            .size(width = 72.dp, height = 68.dp)
+                            .clip(CrateTheme.shapes.keycap)
+                            .background(itemBgColor)
+                            .then(
+                                if (isSelected) {
+                                    Modifier.border(1.dp, itemBorderColor, CrateTheme.shapes.keycap)
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .selectable(
+                                selected = isSelected,
+                                onClick = { state.switchTo(dest.route) },
+                                role = Role.Tab,
+                            ),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = dest.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                imageVector = dest.icon,
+                                contentDescription = stringResource(dest.labelRes),
+                                tint = contentColor,
+                                modifier = Modifier.size(22.dp),
+                            )
+                            Text(
+                                text = dest.crateMonoLabel(),
+                                style = CrateTheme.typography.labelMonoSmall,
+                                color = contentColor,
+                            )
+                        }
                     }
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // Footer status chip
+            Box(
+                modifier = Modifier
+                    .clip(CrateTheme.shapes.pill)
+                    .background(CrateTheme.colors.bgSurfaceKey)
+                    .border(1.dp, CrateTheme.colors.border, CrateTheme.shapes.pill)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(CrateTheme.colors.accent),
+                    )
+                    Text(
+                        text = "60HZ",
+                        style = CrateTheme.typography.labelMonoSmall,
+                        color = CrateTheme.colors.inkMuted,
+                    )
                 }
             }
         }

@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @Composable
 internal fun SelectionAction(
@@ -31,18 +32,18 @@ internal fun SelectionAction(
     Column(
         modifier = modifier
             .defaultMinSize(
-                minWidth = 75.dp,
-                minHeight = 64.dp,
+                minWidth = 68.dp,
+                minHeight = 58.dp,
             )
             .tvFocusRing(
                 isTv = isTv,
-                shape = RoundedCornerShape(12.dp),
+                shape = CrateTheme.shapes.keycap,
             )
-            .clip(shape = RoundedCornerShape(12.dp))
+            .clip(shape = CrateTheme.shapes.keycap)
             .clickable(onClick = onClick)
             .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp,
+                horizontal = 12.dp,
+                vertical = 6.dp,
             ),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -50,14 +51,19 @@ internal fun SelectionAction(
         Icon(
             imageVector = imageVector,
             contentDescription = title,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+            tint = CrateTheme.colors.inkPrimary,
         )
-        Spacer(modifier = Modifier.size(4.dp))
+        Spacer(modifier = Modifier.size(3.dp))
         Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = title.uppercase(),
+            style = CrateTheme.typography.labelMonoSmall,
+            color = CrateTheme.colors.inkMuted,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+    }
+}
             textAlign = TextAlign.Center,
         )
     }

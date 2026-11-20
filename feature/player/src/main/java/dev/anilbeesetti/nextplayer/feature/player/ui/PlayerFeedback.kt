@@ -3,6 +3,7 @@ package dev.anilbeesetti.nextplayer.feature.player.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -33,8 +34,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.anilbeesetti.nextplayer.core.ui.R as coreUiR
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.feature.player.extensions.formatted
 import dev.anilbeesetti.nextplayer.feature.player.state.TapGestureState
 import dev.anilbeesetti.nextplayer.feature.player.state.VerticalGesture
@@ -57,7 +60,7 @@ internal fun InfoView(
         Text(
             text = info,
             style = textStyle,
-            color = Color.White,
+            color = CrateTheme.colors.inkPrimary,
             textAlign = TextAlign.Center,
         )
     }
@@ -76,8 +79,9 @@ internal fun BoxScope.DpadSeekIndicator(visible: Boolean, offsetMs: Long, positi
         exit = fadeOut(),
     ) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.Black.copy(alpha = 0.6f),
+            shape = CrateTheme.shapes.card,
+            color = CrateTheme.colors.bgSurfaceKey.copy(alpha = 0.85f),
+            border = BorderStroke(1.dp, CrateTheme.colors.borderStrong),
         ) {
             Row(
                 modifier = Modifier.padding(
@@ -90,7 +94,7 @@ internal fun BoxScope.DpadSeekIndicator(visible: Boolean, offsetMs: Long, positi
                 Icon(
                     painter = painterResource(coreUiR.drawable.ic_fast),
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = CrateTheme.colors.accent,
                     modifier = Modifier
                         .size(28.dp)
                         .rotate(degrees = if (offsetMs < 0) 180f else 0f),
@@ -100,14 +104,13 @@ internal fun BoxScope.DpadSeekIndicator(visible: Boolean, offsetMs: Long, positi
                         text = "${if (offsetMs >= 0) "+" else "-"}${abs(
                             n = offsetMs,
                         ).milliseconds.inWholeSeconds}s",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        style = CrateTheme.typography.monoBold,
+                        color = CrateTheme.colors.inkPrimary,
                     )
                     Text(
                         text = positionMs.milliseconds.formatted(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f),
+                        style = CrateTheme.typography.monoMedium.copy(fontSize = 12.sp),
+                        color = CrateTheme.colors.inkMuted,
                     )
                 }
             }

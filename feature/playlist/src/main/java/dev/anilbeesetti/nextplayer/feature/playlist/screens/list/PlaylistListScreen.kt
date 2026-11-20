@@ -58,6 +58,8 @@ import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
 import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
 
 @Composable
 fun PlaylistListScreen(
@@ -96,8 +98,20 @@ internal fun PlaylistListScreenContent(
     Scaffold(
         topBar = {
             NextTopAppBar(
-                title = stringResource(R.string.playlists),
-                fontWeight = FontWeight.Bold,
+                title = {
+                    Column {
+                        Text(
+                            text = "REELS",
+                            style = CrateTheme.typography.titleLarge,
+                            color = CrateTheme.colors.inkPrimary,
+                        )
+                        val count = (state.playlistsDataState as? DataState.Success)?.value?.size ?: 0
+                        CrateMonoBreadcrumb(
+                            section = "SHELF",
+                            count = "$count REELS",
+                        )
+                    }
+                },
                 actions = {
                     IconButton(
                         onClick = { onAction(PlaylistUiAction.OnSettingsClick) },
@@ -111,7 +125,7 @@ internal fun PlaylistListScreenContent(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { scaffoldPadding ->
         Box(
             modifier = Modifier
@@ -123,7 +137,7 @@ internal fun PlaylistListScreenContent(
                         topEnd = 24.dp,
                     ),
                 )
-                .background(MaterialTheme.colorScheme.background),
+                .background(CrateTheme.colors.bgBase),
         ) {
             when (state.playlistsDataState) {
                 is DataState.Loading -> {

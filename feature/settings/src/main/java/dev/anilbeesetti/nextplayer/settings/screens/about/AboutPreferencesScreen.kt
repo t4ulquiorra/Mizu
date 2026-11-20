@@ -62,6 +62,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.rememberTvListFocusRequest
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusDown
 import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 private const val GITHUB_URL = "https://github.com/t4ulquiorra/Mizu"
 private const val UPSTREAM_URL = "https://github.com/anilbeesetti/nextplayer"
@@ -107,7 +108,7 @@ private fun AboutPreferencesScreenContent(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = CrateTheme.colors.bgBase,
     ) { innerPadding ->
         Column(
             modifier = Modifier
