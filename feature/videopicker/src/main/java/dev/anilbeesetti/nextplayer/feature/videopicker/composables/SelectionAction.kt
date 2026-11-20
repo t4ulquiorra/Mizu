@@ -64,7 +64,3 @@ internal fun SelectionAction(
         )
     }
 }
-            textAlign = TextAlign.Center,
-        )
-    }
-}

@@ -402,7 +402,7 @@ private fun CrateFolderCard(
                         maxLines = 2,
                     )
                     Text(
-                        text = "${folder.mediaList.size} ${if (folder.mediaList.size == 1) "VIDEO" else "VIDEOS"}",
+                        text = "${folder.videosCount} ${if (folder.videosCount == 1) "VIDEO" else "VIDEOS"}",
                         style = CrateTheme.typography.labelMono,
                         color = CrateTheme.colors.inkPaper.copy(alpha = 0.85f),
                     )
@@ -420,8 +420,8 @@ private fun CrateFolderCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (folder.mediaList.isNotEmpty()) {
-                        CrateStampBadge(text = "${folder.mediaList.size} NEW")
+                    if (folder.newVideosCount > 0) {
+                        CrateStampBadge(text = "${folder.newVideosCount} NEW")
                     }
                     if (isRecentlyPlayed) {
                         Box(
@@ -441,7 +441,7 @@ private fun CrateFolderCard(
             }
 
             // Spine Bars Fan-Out Visualization
-            val spineCount = folder.mediaList.size.coerceAtMost(26)
+            val spineCount = folder.videosCount.coerceAtMost(26)
             if (spineCount > 0) {
                 Row(
                     modifier = Modifier
@@ -488,9 +488,9 @@ private fun CrateFolderCard(
                         )
                     }
 
-                    if (folder.mediaList.size > 26) {
+                    if (folder.videosCount > 26) {
                         Text(
-                            text = "+${folder.mediaList.size - 26}",
+                            text = "+${folder.videosCount - 26}",
                             style = CrateTheme.typography.labelMonoSmall,
                             color = CrateTheme.colors.inkPaper.copy(alpha = 0.7f),
                             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
