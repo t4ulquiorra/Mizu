@@ -89,6 +89,43 @@ data class CrateTypography(
         lineHeight = 12.sp,
         letterSpacing = 1.3.sp,
     ),
+    val monoSmallCaps: TextStyle = TextStyle(
+        fontFamily = JetBrainsMonoFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 1.4.sp,
+    ),
+    val monoMedium: TextStyle = TextStyle(
+        fontFamily = JetBrainsMonoFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+    ),
+    val monoBold: TextStyle = TextStyle(
+        fontFamily = JetBrainsMonoFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+    ),
+    val sansRegular: TextStyle = TextStyle(
+        fontFamily = BricolageGrotesqueFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+    ),
+    val sansMedium: TextStyle = TextStyle(
+        fontFamily = BricolageGrotesqueFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 20.sp,
+    ),
+    val sansBold: TextStyle = TextStyle(
+        fontFamily = BricolageGrotesqueFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+    ),
 )
 
 val LocalCrateTypography = staticCompositionLocalOf { CrateTypography() }

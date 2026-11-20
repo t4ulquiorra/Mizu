@@ -33,7 +33,7 @@ fun CrateCircleButton(
     icon: ImageVector,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    size: Dp = 44.dp,
+    buttonSize: Dp = 44.dp,
     iconSize: Dp = 20.dp,
     enabled: Boolean = true,
     backgroundColor: Color = CrateTheme.colors.bgSurface,
@@ -44,6 +44,7 @@ fun CrateCircleButton(
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressOffsetY = if (isPressed && enabled) 2.dp else 0.dp
     val shadowOffset = if (isPressed && enabled) 1.dp else 3.dp
+    val shadowBaseColor = CrateTheme.colors.bgBase
 
     val animatedOffsetY by animateDpAsState(
         targetValue = pressOffsetY,
@@ -58,14 +59,14 @@ fun CrateCircleButton(
 
     Box(
         modifier = modifier
-            .size(size)
+            .size(buttonSize)
             .drawBehind {
                 val shadowPx = animatedShadowOffset.toPx()
-                val radius = size.toPx() / 2f
+                val radius = this.size.minDimension / 2f
                 drawCircle(
-                    color = CrateTheme.colors.bgBase,
+                    color = shadowBaseColor,
                     radius = radius,
-                    center = Offset(size.width / 2f, (size.height / 2f) + shadowPx),
+                    center = Offset(this.size.width / 2f, (this.size.height / 2f) + shadowPx),
                 )
             }
             .offset(y = animatedOffsetY)
