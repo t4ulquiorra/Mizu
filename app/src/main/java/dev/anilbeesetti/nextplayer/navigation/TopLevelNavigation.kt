@@ -1,6 +1,5 @@
 package dev.anilbeesetti.nextplayer.navigation
 
-
 import android.os.Build
 import android.view.RoundedCorner
 import androidx.annotation.StringRes
@@ -146,7 +145,8 @@ enum class TopLevelDestination(
         NextIcons.More,
         R.string.more,
         TopLevelFabKey.MORE,
-    ),;
+    ),
+    ;
 
     fun crateMonoLabel(): String = when (this) {
         MEDIA -> "HOME"
