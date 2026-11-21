@@ -620,15 +620,17 @@ fun NavigationView(
 @Composable
 fun NextNavigationRail(state: TopLevelNavState, modifier: Modifier = Modifier) {
     val destinations = state.destinations
+    val railBorderColor = CrateTheme.colors.border
+    val railBgColor = CrateTheme.colors.bgBase
 
     Box(
         modifier = modifier
             .width(96.dp)
             .fillMaxHeight()
-            .background(CrateTheme.colors.bgBase)
+            .background(railBgColor)
             .drawBehind {
                 drawLine(
-                    color = CrateTheme.colors.border,
+                    color = railBorderColor,
                     start = Offset(size.width, 0f),
                     end = Offset(size.width, size.height),
                     strokeWidth = 1.dp.toPx(),
