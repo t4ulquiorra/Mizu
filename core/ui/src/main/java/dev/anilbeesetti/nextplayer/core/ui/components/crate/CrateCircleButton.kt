@@ -66,13 +66,20 @@ fun CrateCircleButton(
                 drawCircle(
                     color = shadowBaseColor,
                     radius = radius,
-                    center = Offset(this.size.width / 2f, (this.size.height / 2f) + shadowPx),
+                    center = Offset(
+                        x = this.size.width / 2f,
+                        y = (this.size.height / 2f) + shadowPx,
+                    ),
                 )
             }
             .offset(y = animatedOffsetY)
             .clip(CircleShape)
             .background(backgroundColor)
-            .border(1.dp, borderColor, CircleShape)
+            .border(
+                width = 1.dp,
+                color = borderColor,
+                shape = CircleShape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

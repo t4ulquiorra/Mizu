@@ -10,16 +10,37 @@ import androidx.compose.ui.unit.sp
 import dev.anilbeesetti.nextplayer.core.ui.R
 
 val BricolageGrotesqueFontFamily = FontFamily(
-    Font(R.font.bricolage_grotesque, FontWeight.Normal),
-    Font(R.font.bricolage_grotesque, FontWeight.Medium),
-    Font(R.font.bricolage_grotesque, FontWeight.Bold),
-    Font(R.font.bricolage_grotesque, FontWeight.ExtraBold),
+    Font(
+        resId = R.font.bricolage_grotesque,
+        weight = FontWeight.Normal,
+    ),
+    Font(
+        resId = R.font.bricolage_grotesque,
+        weight = FontWeight.Medium,
+    ),
+    Font(
+        resId = R.font.bricolage_grotesque,
+        weight = FontWeight.Bold,
+    ),
+    Font(
+        resId = R.font.bricolage_grotesque,
+        weight = FontWeight.ExtraBold,
+    ),
 )
 
 val JetBrainsMonoFontFamily = FontFamily(
-    Font(R.font.jetbrains_mono, FontWeight.Normal),
-    Font(R.font.jetbrains_mono, FontWeight.Medium),
-    Font(R.font.jetbrains_mono, FontWeight.Bold),
+    Font(
+        resId = R.font.jetbrains_mono,
+        weight = FontWeight.Normal,
+    ),
+    Font(
+        resId = R.font.jetbrains_mono,
+        weight = FontWeight.Medium,
+    ),
+    Font(
+        resId = R.font.jetbrains_mono,
+        weight = FontWeight.Bold,
+    ),
 )
 
 @Immutable

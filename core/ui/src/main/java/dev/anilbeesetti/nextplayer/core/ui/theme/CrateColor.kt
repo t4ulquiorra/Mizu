@@ -29,18 +29,19 @@ val CratePaper1 = Color(0xFFCDBE96)
 val CratePaper2 = Color(0xFFE2D6B8)
 val CratePaper3 = Color(0xFFC4B48A)
 
-val CratePaperColors = listOf(CratePaper0, CratePaper1, CratePaper2, CratePaper3)
+val CratePaperColors = listOf(
+    CratePaper0,
+    CratePaper1,
+    CratePaper2,
+    CratePaper3,
+)
 
 fun getCratePaperColor(index: Int): Color {
     val nonNegative = if (index < 0) -index else index
     return CratePaperColors[nonNegative % CratePaperColors.size]
 }
 
-enum class CrateAccentOption(
-    val title: String,
-    val accent: Color,
-    val shadow: Color,
-) {
+enum class CrateAccentOption(val title: String, val accent: Color, val shadow: Color) {
     ORANGE(
         title = "International Orange",
         accent = Color(0xFFFF5A2E),

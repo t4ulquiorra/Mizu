@@ -37,13 +37,19 @@ fun CrateMonoBreadcrumb(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CrateMonoLabel(text = section, color = color)
+        CrateMonoLabel(
+            text = section,
+            color = color,
+        )
         Text(
             text = " · ",
             style = CrateTheme.typography.labelMono,
             color = CrateTheme.colors.inkDim,
             modifier = Modifier.padding(horizontal = 4.dp),
         )
-        CrateMonoLabel(text = count, color = color)
+        CrateMonoLabel(
+            text = count,
+            color = color,
+        )
     }
 }

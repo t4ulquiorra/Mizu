@@ -38,7 +38,11 @@ fun <T> CrateSegmentedBar(
         modifier = modifier
             .clip(barShape)
             .background(CrateTheme.colors.bgDeep)
-            .border(1.dp, CrateTheme.colors.border, barShape)
+            .border(
+                width = 1.dp,
+                color = CrateTheme.colors.border,
+                shape = barShape,
+            )
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -48,17 +52,29 @@ fun <T> CrateSegmentedBar(
             val interactionSource = remember { MutableInteractionSource() }
 
             val itemBgColor by animateColorAsState(
-                targetValue = if (isSelected) CrateTheme.colors.bgSurfaceKey else Color.Transparent,
+                targetValue = if (isSelected) {
+                    CrateTheme.colors.bgSurfaceKey
+                } else {
+                    Color.Transparent
+                },
                 animationSpec = tween(durationMillis = 150),
                 label = "CrateSegBg",
             )
             val itemBorderColor by animateColorAsState(
-                targetValue = if (isSelected) CrateTheme.colors.borderStrong else Color.Transparent,
+                targetValue = if (isSelected) {
+                    CrateTheme.colors.borderStrong
+                } else {
+                    Color.Transparent
+                },
                 animationSpec = tween(durationMillis = 150),
                 label = "CrateSegBorder",
             )
             val textColor by animateColorAsState(
-                targetValue = if (isSelected) CrateTheme.colors.inkPrimary else CrateTheme.colors.inkMuted,
+                targetValue = if (isSelected) {
+                    CrateTheme.colors.inkPrimary
+                } else {
+                    CrateTheme.colors.inkMuted
+                },
                 animationSpec = tween(durationMillis = 150),
                 label = "CrateSegText",
             )
@@ -67,14 +83,21 @@ fun <T> CrateSegmentedBar(
                 modifier = Modifier
                     .clip(itemShape)
                     .background(itemBgColor)
-                    .border(1.dp, itemBorderColor, itemShape)
+                    .border(
+                        width = 1.dp,
+                        color = itemBorderColor,
+                        shape = itemShape,
+                    )
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
                         role = Role.Tab,
                         onClick = { onItemSelected(item) },
                     )
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                    .padding(
+                        horizontal = 14.dp,
+                        vertical = 7.dp,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

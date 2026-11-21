@@ -33,9 +33,7 @@ import dev.anilbeesetti.nextplayer.core.ui.theme.CrateAccentOption
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @Composable
-fun CrateGalleryScreen(
-    onNavigateBack: (() -> Unit)? = null,
-) {
+fun CrateGalleryScreen(onNavigateBack: (() -> Unit)? = null) {
     var selectedAccent by remember { mutableStateOf(CrateAccentOption.ORANGE) }
     var selectedSegment by remember { mutableStateOf("CRATE") }
     var toggleState by remember { mutableStateOf(true) }
@@ -89,9 +87,16 @@ fun CrateGalleryScreen(
                     CrateAccentOption.entries.forEach { option ->
                         CrateTactileButton(
                             onClick = { selectedAccent = option },
-                            variant = if (selectedAccent == option) CrateButtonVariant.ACCENT else CrateButtonVariant.SECONDARY,
+                            variant = if (selectedAccent == option) {
+                                CrateButtonVariant.ACCENT
+                            } else {
+                                CrateButtonVariant.SECONDARY
+                            },
                         ) {
-                            Text(text = option.title, style = CrateTheme.typography.bodySmall)
+                            Text(
+                                text = option.title,
+                                style = CrateTheme.typography.bodySmall,
+                            )
                         }
                     }
                 }
@@ -101,7 +106,11 @@ fun CrateGalleryScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CrateMonoLabel(text = "TACTILE SEGMENTED BAR")
                 CrateSegmentedBar(
-                    items = listOf("CRATE", "WALL", "LIST"),
+                    items = listOf(
+                        "CRATE",
+                        "WALL",
+                        "LIST",
+                    ),
                     selectedItem = selectedSegment,
                     onItemSelected = { selectedSegment = it },
                 )
@@ -188,7 +197,11 @@ fun CrateGalleryScreen(
                         )
                         CrateMonoLabel(
                             text = if (toggleState) "ACTIVE" else "MUTED",
-                            color = if (toggleState) CrateTheme.colors.accent else CrateTheme.colors.inkMuted,
+                            color = if (toggleState) {
+                                CrateTheme.colors.accent
+                            } else {
+                                CrateTheme.colors.inkMuted
+                            },
                         )
                     }
                 }

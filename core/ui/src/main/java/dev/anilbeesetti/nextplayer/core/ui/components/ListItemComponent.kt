@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.unit.sp
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.LocalMizuStyle
 import dev.anilbeesetti.nextplayer.core.ui.theme.neoShadow

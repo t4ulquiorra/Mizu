@@ -64,10 +64,17 @@ fun CrateToggle(
 
     Box(
         modifier = modifier
-            .size(width = trackWidth, height = trackHeight)
+            .size(
+                width = trackWidth,
+                height = trackHeight,
+            )
             .clip(CrateTheme.shapes.pill)
             .background(trackColor)
-            .border(1.dp, borderColor, CrateTheme.shapes.pill)
+            .border(
+                width = 1.dp,
+                color = borderColor,
+                shape = CrateTheme.shapes.pill,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

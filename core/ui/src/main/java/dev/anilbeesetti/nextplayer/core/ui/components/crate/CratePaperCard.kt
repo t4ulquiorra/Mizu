@@ -42,7 +42,9 @@ fun CratePaperCard(
             role = Role.Button,
             onClick = onClick,
         )
-    } else Modifier
+    } else {
+        Modifier
+    }
 
     Box(
         modifier = modifier

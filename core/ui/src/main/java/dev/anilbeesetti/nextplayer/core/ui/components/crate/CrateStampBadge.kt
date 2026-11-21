@@ -12,11 +12,7 @@ import androidx.compose.ui.unit.dp
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @Composable
-fun CrateStampBadge(
-    text: String,
-    modifier: Modifier = Modifier,
-    rotation: Float = -6f,
-) {
+fun CrateStampBadge(text: String, modifier: Modifier = Modifier, rotation: Float = -6f) {
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -27,7 +23,10 @@ fun CrateStampBadge(
                 color = CrateTheme.colors.stamp,
                 shape = CrateTheme.shapes.stamp,
             )
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(
+                horizontal = 8.dp,
+                vertical = 3.dp,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(

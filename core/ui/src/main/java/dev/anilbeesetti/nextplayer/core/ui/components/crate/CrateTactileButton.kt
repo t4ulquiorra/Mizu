@@ -49,7 +49,10 @@ fun CrateTactileButton(
     enabled: Boolean = true,
     variant: CrateButtonVariant = CrateButtonVariant.ACCENT,
     shape: Shape = CrateTheme.shapes.keycap,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 13.dp),
+    contentPadding: PaddingValues = PaddingValues(
+        horizontal = 20.dp,
+        vertical = 13.dp,
+    ),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -78,12 +81,14 @@ fun CrateTactileButton(
             CrateTheme.colors.accentShadow,
             Color.Transparent,
         )
+
         CrateButtonVariant.SECONDARY -> Quadruple(
             CrateTheme.colors.bgSurfaceKey,
             CrateTheme.colors.inkPrimary,
             CrateTheme.colors.borderStrong,
             CrateTheme.colors.border,
         )
+
         CrateButtonVariant.PAPER -> Quadruple(
             CrateTheme.colors.papers[0],
             CrateTheme.colors.inkPaper,
@@ -100,9 +105,18 @@ fun CrateTactileButton(
                 // Draw hard tactile bottom shadow
                 drawRoundRect(
                     color = shadowColor,
-                    topLeft = Offset(0f, shadowPx),
-                    size = Size(size.width, size.height),
-                    cornerRadius = CornerRadius(cornerPx, cornerPx),
+                    topLeft = Offset(
+                        x = 0f,
+                        y = shadowPx,
+                    ),
+                    size = Size(
+                        width = size.width,
+                        height = size.height,
+                    ),
+                    cornerRadius = CornerRadius(
+                        x = cornerPx,
+                        y = cornerPx,
+                    ),
                 )
             }
             .offset(y = animatedOffsetY)
@@ -110,8 +124,14 @@ fun CrateTactileButton(
             .background(if (enabled) bgColor else bgColor.copy(alpha = 0.5f))
             .then(
                 if (borderColor != Color.Transparent) {
-                    Modifier.border(1.dp, borderColor, shape)
-                } else Modifier,
+                    Modifier.border(
+                        width = 1.dp,
+                        color = borderColor,
+                        shape = shape,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .clickable(
                 interactionSource = interactionSource,
