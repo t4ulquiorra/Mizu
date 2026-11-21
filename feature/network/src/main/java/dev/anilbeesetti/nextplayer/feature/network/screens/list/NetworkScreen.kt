@@ -95,7 +95,7 @@ internal fun NetworkScreenContent(state: NetworkUiState, onAction: (NetworkActio
                 title = {
                     Column {
                         Text(
-                            text = "NETWORK",
+                            text = stringResource(R.string.network),
                             style = CrateTheme.typography.titleLarge,
                             color = CrateTheme.colors.inkPrimary,
                         )

@@ -101,7 +101,7 @@ internal fun PlaylistListScreenContent(
                 title = {
                     Column {
                         Text(
-                            text = "REELS",
+                            text = stringResource(R.string.playlists),
                             style = CrateTheme.typography.titleLarge,
                             color = CrateTheme.colors.inkPrimary,
                         )

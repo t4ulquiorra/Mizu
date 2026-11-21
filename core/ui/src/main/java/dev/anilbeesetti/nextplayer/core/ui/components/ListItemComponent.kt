@@ -162,7 +162,7 @@ fun ListSectionTitle(
     color: Color = CrateTheme.colors.accent,
 ) {
     Text(
-        text = text.uppercase(),
+        text = text,
         modifier = modifier.padding(paddingValues = contentPadding),
         color = color,
         style = CrateTheme.typography.monoSmallCaps,

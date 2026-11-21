@@ -96,7 +96,7 @@ internal fun MoreScreenContent(state: MoreUiState, onAction: (MoreAction) -> Uni
                 title = {
                     Column {
                         Text(
-                            text = "MORE",
+                            text = stringResource(R.string.more),
                             style = CrateTheme.typography.titleLarge,
                             color = CrateTheme.colors.inkPrimary,
                         )
