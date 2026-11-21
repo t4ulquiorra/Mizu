@@ -87,7 +87,9 @@ fun CrateFolderStack(
 
     // Haptic tick on folder index transition
     LaunchedEffect(scrollPos) {
-        snapshotFlow { scrollPos.value.roundToInt().coerceIn(0, folders.lastIndex) }
+        snapshotFlow {
+            scrollPos.value.roundToInt().coerceAtLeast(0).coerceAtMost(folders.lastIndex)
+        }
             .distinctUntilChanged()
             .collect {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -103,16 +105,18 @@ fun CrateFolderStack(
                 state = rememberDraggableState { delta ->
                     coroutineScope.launch {
                         val folderPx = with(density) { 70.dp.toPx() }
-                        val newPos = (scrollPos.value - delta / folderPx).coerceIn(
-                            -0.5f,
-                            (folders.lastIndex + 0.5f).coerceAtLeast(0f),
-                        )
+                        val maxLimit = (folders.lastIndex + 0.5f).coerceAtLeast(0f)
+                        val newPos = (scrollPos.value - delta / folderPx)
+                            .coerceAtLeast(-0.5f)
+                            .coerceAtMost(maxLimit)
                         scrollPos.snapTo(newPos)
                     }
                 },
                 onDragStopped = {
                     coroutineScope.launch {
-                        val target = scrollPos.value.roundToInt().coerceIn(0, folders.lastIndex)
+                        val target = scrollPos.value.roundToInt()
+                            .coerceAtLeast(0)
+                            .coerceAtMost(folders.lastIndex)
                         scrollPos.animateTo(
                             targetValue = target.toFloat(),
                             animationSpec = spring(
@@ -131,7 +135,9 @@ fun CrateFolderStack(
         val folderHeight = if (isPhone) 360.dp else 410.dp
 
         val currentPos = scrollPos.value
-        val currentIndex = currentPos.roundToInt().coerceIn(0, folders.lastIndex)
+        val currentIndex = currentPos.roundToInt()
+            .coerceAtLeast(0)
+            .coerceAtMost(folders.lastIndex)
 
         // Render visible sliding window [currentIndex - 1 .. currentIndex + 4]
         val minVisible = (currentIndex - 1).coerceAtLeast(0)
@@ -168,7 +174,7 @@ fun CrateFolderStack(
                     translateY = -passed * with(density) { 320.dp.toPx() }
                     scale = (1f + passed * 0.12f).coerceAtMost(1.3f)
                     rotX = -12f * passed
-                    alpha = (1f - passed * 1.2f).coerceIn(0f, 1f)
+                    alpha = (1f - passed * 1.2f).coerceAtLeast(0f).coerceAtMost(1f)
                     zIndexVal = 200f + passed
                     scatterX = 0f
                     scatterZ = 0f
@@ -177,11 +183,11 @@ fun CrateFolderStack(
                     translateY = -d * with(density) { 48.dp.toPx() }
                     scale = (1f - d * 0.045f).coerceAtLeast(0.70f)
                     rotX = (5f * d.coerceAtMost(3.5f))
-                    alpha = (1f - (d / 4.0f)).coerceIn(0f, 1f)
+                    alpha = (1f - (d / 4.0f)).coerceAtLeast(0f).coerceAtMost(1f)
                     zIndexVal = (100f - d * 10f).coerceAtLeast(0f)
 
                     // Organic scatter ease
-                    val ease = (d / 2f).coerceIn(0f, 1f)
+                    val ease = (d / 2f).coerceAtLeast(0f).coerceAtMost(1f)
                     val pseudoX = (((i * 9301 + 49297) % 233280) / 233280f - 0.5f) * 50f
                     val pseudoZ = (((i * 49297 + 9301) % 233280) / 233280f - 0.5f) * 3.5f
                     scatterX = pseudoX * ease * scatterStrength
@@ -425,7 +431,11 @@ private fun CrateFolderCard(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val folderLabelIndexStr = if (index + 1 < 10) "0${index + 1}" else "${index + 1}"
+                    val folderLabelIndexStr = if (index + 1 < 10) {
+                        "0${index + 1}"
+                    } else {
+                        "${index + 1}"
+                    }
                     CrateMonoLabel(
                         text = "FOLDER $folderLabelIndexStr",
                         color = CrateTheme.colors.inkPaper.copy(alpha = 0.6f),

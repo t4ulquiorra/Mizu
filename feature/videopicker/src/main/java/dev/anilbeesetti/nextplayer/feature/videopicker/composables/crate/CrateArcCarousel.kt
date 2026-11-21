@@ -100,7 +100,12 @@ fun CrateArcCarousel(
 
     // Haptic tick on video index change
     LaunchedEffect(scrollPos) {
-        snapshotFlow { scrollPos.value.roundToInt().coerceIn(0, videos.lastIndex) }
+        snapshotFlow {
+            scrollPos.value
+                .roundToInt()
+                .coerceAtLeast(0)
+                .coerceAtMost(videos.lastIndex)
+        }
             .distinctUntilChanged()
             .collect {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -118,7 +123,7 @@ fun CrateArcCarousel(
         val cardHeight = cardWidth * (9f / 16f)
 
         val currentPos = scrollPos.value
-        val currentIndex = currentPos.roundToInt().coerceIn(0, videos.lastIndex)
+        val currentIndex = currentPos.roundToInt().coerceAtLeast(0).coerceAtMost(videos.lastIndex)
         val activeVideo = videos[currentIndex]
 
         // Dragging gesture horizontally
@@ -127,16 +132,18 @@ fun CrateArcCarousel(
             state = rememberDraggableState { delta ->
                 coroutineScope.launch {
                     val stepPx = with(density) { (if (isPhone) 120.dp else 220.dp).toPx() }
-                    val newPos = (scrollPos.value - delta / stepPx).coerceIn(
-                        -0.5f,
-                        (videos.lastIndex + 0.5f).coerceAtLeast(0f),
-                    )
+                    val maxLimit = (videos.lastIndex + 0.5f).coerceAtLeast(0f)
+                    val newPos = (scrollPos.value - delta / stepPx)
+                        .coerceAtLeast(-0.5f)
+                        .coerceAtMost(maxLimit)
                     scrollPos.snapTo(newPos)
                 }
             },
             onDragStopped = {
                 coroutineScope.launch {
-                    val target = scrollPos.value.roundToInt().coerceIn(0, videos.lastIndex)
+                    val target = scrollPos.value.roundToInt()
+                        .coerceAtLeast(0)
+                        .coerceAtMost(videos.lastIndex)
                     scrollPos.animateTo(
                         targetValue = target.toFloat(),
                         animationSpec = spring(
@@ -175,10 +182,10 @@ fun CrateArcCarousel(
                         radius * sin(theta) * density.density * (if (isPhone) 0.55f else 0.85f)
                     val zDepth = radius * (1f - cos(theta))
                     val scale =
-                        (1f + (1f - abs(d)).coerceIn(0f, 1f) * 0.28f) *
+                        (1f + (1f - abs(d)).coerceAtLeast(0f).coerceAtMost(1f) * 0.28f) *
                             (1f - abs(d) * 0.05f).coerceAtLeast(0.6f)
                     val rotY = (theta * (180f / PI.toFloat()))
-                    val alpha = (1f - (abs(d) / 4.2f)).coerceIn(0f, 1f)
+                    val alpha = (1f - (abs(d) / 4.2f)).coerceAtLeast(0f).coerceAtMost(1f)
                     val zIndexVal = 100f - abs(d) * 10f
                     val isActive = abs(d) < 0.45f
 
@@ -338,8 +345,11 @@ fun CrateArcCarousel(
                 currentPos = currentPos,
                 onSeek = { target ->
                     coroutineScope.launch {
+                        val targetPos = target
+                            .coerceAtLeast(0f)
+                            .coerceAtMost(videos.lastIndex.toFloat())
                         scrollPos.animateTo(
-                            targetValue = target.coerceIn(0f, videos.lastIndex.toFloat()),
+                            targetValue = targetPos,
                             animationSpec = spring(
                                 stiffness = Spring.StiffnessMediumLow,
                             ),
@@ -447,7 +457,11 @@ private fun CrateArcCard(
                         vertical = 2.dp,
                     ),
             ) {
-                val indexStr = if (index + 1 < 10) "0${index + 1}" else "${index + 1}"
+                val indexStr = if (index + 1 < 10) {
+                    "0${index + 1}"
+                } else {
+                    "${index + 1}"
+                }
                 Text(
                     text = indexStr,
                     style = CrateTheme.typography.labelMonoSmall,
@@ -519,7 +533,11 @@ private fun CratePrecisionRuler(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(bgSurface)
-            .border(1.dp, borderStrongColor, RoundedCornerShape(12.dp))
+            .border(
+                width = 1.dp,
+                color = borderStrongColor,
+                shape = RoundedCornerShape(12.dp),
+            )
             .draggable(
                 orientation = Orientation.Horizontal,
                 state = rememberDraggableState { delta ->
