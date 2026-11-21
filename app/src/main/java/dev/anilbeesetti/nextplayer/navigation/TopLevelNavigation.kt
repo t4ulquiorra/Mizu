@@ -1,5 +1,6 @@
 package dev.anilbeesetti.nextplayer.navigation
 
+
 import android.os.Build
 import android.view.RoundedCorner
 import androidx.annotation.StringRes
@@ -22,6 +23,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -37,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
@@ -47,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableIntState
@@ -62,10 +66,12 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -100,11 +106,6 @@ import dev.anilbeesetti.nextplayer.core.ui.components.TopLevelFabState
 import dev.anilbeesetti.nextplayer.core.ui.components.thenIf
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateBgBase
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.feature.more.navigation.MoreRoute
@@ -145,7 +146,7 @@ enum class TopLevelDestination(
         NextIcons.More,
         R.string.more,
         TopLevelFabKey.MORE,
-    );
+    ),;
 
     fun crateMonoLabel(): String = when (this) {
         MEDIA -> "HOME"
@@ -297,7 +298,7 @@ internal fun TopLevelNavState.navigationTransition(
             targetState = targetState,
         )
     ) {
-        return (fadeIn(
+        val enter = fadeIn(
             animationSpec = tween(
                 durationMillis = 300,
                 easing = LinearEasing,
@@ -308,19 +309,20 @@ internal fun TopLevelNavState.navigationTransition(
                 durationMillis = 300,
                 easing = FastOutSlowInEasing,
             ),
-        )) togetherWith
-            (fadeOut(
-                animationSpec = tween(
-                    durationMillis = 200,
-                    easing = LinearEasing,
-                ),
-            ) + scaleOut(
-                targetScale = 1.04f,
-                animationSpec = tween(
-                    durationMillis = 200,
-                    easing = FastOutSlowInEasing,
-                ),
-            ))
+        )
+        val exit = fadeOut(
+            animationSpec = tween(
+                durationMillis = 200,
+                easing = LinearEasing,
+            ),
+        ) + scaleOut(
+            targetScale = 1.04f,
+            animationSpec = tween(
+                durationMillis = 200,
+                easing = FastOutSlowInEasing,
+            ),
+        )
+        return enter togetherWith exit
     }
 
     val isPop = initialState.isPoppingTo(targetState)
@@ -540,7 +542,11 @@ fun NavigationView(
         modifier = modifier
             .clip(shape = CrateTheme.shapes.dock)
             .background(CrateTheme.colors.bgSurface)
-            .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.dock)
+            .border(
+                width = 1.dp,
+                color = CrateTheme.colors.borderStrong,
+                shape = CrateTheme.shapes.dock,
+            )
             .padding(4.dp),
     ) {
         LookaheadScope {
@@ -556,7 +562,11 @@ fun NavigationView(
                                 )
                                 .clip(shape = CrateTheme.shapes.keycap)
                                 .background(CrateTheme.colors.bgSurfaceKey)
-                                .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.keycap),
+                                .border(
+                                    width = 1.dp,
+                                    color = CrateTheme.colors.borderStrong,
+                                    shape = CrateTheme.shapes.keycap,
+                                ),
                         )
                     }
                 }
@@ -631,8 +641,14 @@ fun NextNavigationRail(state: TopLevelNavState, modifier: Modifier = Modifier) {
             .drawBehind {
                 drawLine(
                     color = railBorderColor,
-                    start = Offset(size.width, 0f),
-                    end = Offset(size.width, size.height),
+                    start = Offset(
+                        x = size.width,
+                        y = 0f,
+                    ),
+                    end = Offset(
+                        x = size.width,
+                        y = size.height,
+                    ),
                     strokeWidth = 1.dp.toPx(),
                 )
             },
@@ -649,7 +665,11 @@ fun NextNavigationRail(state: TopLevelNavState, modifier: Modifier = Modifier) {
                     .size(44.dp)
                     .clip(CrateTheme.shapes.keycap)
                     .background(CrateTheme.colors.bgSurfaceKey)
-                    .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.keycap),
+                    .border(
+                        width = 1.dp,
+                        color = CrateTheme.colors.borderStrong,
+                        shape = CrateTheme.shapes.keycap,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
@@ -675,18 +695,37 @@ fun NextNavigationRail(state: TopLevelNavState, modifier: Modifier = Modifier) {
             ) {
                 destinations.forEach { dest ->
                     val isSelected = state.topLevelRoute == dest.route
-                    val itemBgColor = if (isSelected) CrateTheme.colors.bgSurfaceKey else Color.Transparent
-                    val itemBorderColor = if (isSelected) CrateTheme.colors.borderStrong else Color.Transparent
-                    val contentColor = if (isSelected) CrateTheme.colors.inkPrimary else CrateTheme.colors.inkMuted
+                    val itemBgColor = if (isSelected) {
+                        CrateTheme.colors.bgSurfaceKey
+                    } else {
+                        Color.Transparent
+                    }
+                    val itemBorderColor = if (isSelected) {
+                        CrateTheme.colors.borderStrong
+                    } else {
+                        Color.Transparent
+                    }
+                    val contentColor = if (isSelected) {
+                        CrateTheme.colors.inkPrimary
+                    } else {
+                        CrateTheme.colors.inkMuted
+                    }
 
                     Box(
                         modifier = Modifier
-                            .size(width = 72.dp, height = 68.dp)
+                            .size(
+                                width = 72.dp,
+                                height = 68.dp,
+                            )
                             .clip(CrateTheme.shapes.keycap)
                             .background(itemBgColor)
                             .then(
                                 if (isSelected) {
-                                    Modifier.border(1.dp, itemBorderColor, CrateTheme.shapes.keycap)
+                                    Modifier.border(
+                                        width = 1.dp,
+                                        color = itemBorderColor,
+                                        shape = CrateTheme.shapes.keycap,
+                                    )
                                 } else {
                                     Modifier
                                 },
@@ -725,8 +764,15 @@ fun NextNavigationRail(state: TopLevelNavState, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .clip(CrateTheme.shapes.pill)
                     .background(CrateTheme.colors.bgSurfaceKey)
-                    .border(1.dp, CrateTheme.colors.border, CrateTheme.shapes.pill)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .border(
+                        width = 1.dp,
+                        color = CrateTheme.colors.border,
+                        shape = CrateTheme.shapes.pill,
+                    )
+                    .padding(
+                        horizontal = 8.dp,
+                        vertical = 4.dp,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(

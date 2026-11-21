@@ -96,7 +96,10 @@ fun CrateHandOfCards(
 
                 Box(
                     modifier = Modifier
-                        .offset(x = baseOffsetX.dp, y = animatedOffsetY)
+                        .offset(
+                            x = baseOffsetX.dp,
+                            y = animatedOffsetY,
+                        )
                         .zIndex(zIndexVal)
                         .graphicsLayer {
                             rotationZ = animatedRotation
@@ -104,12 +107,19 @@ fun CrateHandOfCards(
                             scaleY = animatedScale
                             cameraDistance = 16f * density
                         }
-                        .size(width = 190.dp, height = 150.dp)
+                        .size(
+                            width = 190.dp,
+                            height = 150.dp,
+                        )
                         .clip(CrateTheme.shapes.card)
                         .background(CrateTheme.colors.bgSurfaceKey)
                         .border(
                             width = if (isRaised) 2.dp else 1.dp,
-                            color = if (isRaised) CrateTheme.colors.accent else CrateTheme.colors.borderStrong,
+                            color = if (isRaised) {
+                                CrateTheme.colors.accent
+                            } else {
+                                CrateTheme.colors.borderStrong
+                            },
                             shape = CrateTheme.shapes.card,
                         )
                         .clickable(
@@ -146,7 +156,10 @@ fun CrateHandOfCards(
                                 .padding(6.dp)
                                 .clip(CrateTheme.shapes.stamp)
                                 .background(Color.Black.copy(alpha = 0.75f))
-                                .padding(horizontal = 5.dp, vertical = 2.dp),
+                                .padding(
+                                    horizontal = 5.dp,
+                                    vertical = 2.dp,
+                                ),
                         ) {
                             Text(
                                 text = Utils.formatDurationMillis(video.duration),
@@ -162,12 +175,19 @@ fun CrateHandOfCards(
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .background(CrateTheme.colors.bgSurfaceKey)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(
+                                horizontal = 10.dp,
+                                vertical = 6.dp,
+                            ),
                     ) {
                         Text(
                             text = video.displayName,
                             style = CrateTheme.typography.titleSmall,
-                            color = if (isRaised) CrateTheme.colors.inkPrimary else CrateTheme.colors.inkSecondary,
+                            color = if (isRaised) {
+                                CrateTheme.colors.inkPrimary
+                            } else {
+                                CrateTheme.colors.inkSecondary
+                            },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -189,7 +209,10 @@ fun CrateHandOfCards(
                     color = CrateTheme.colors.accent,
                     style = CrateTheme.typography.labelMonoSmall,
                 )
-                Text(text = "·", color = CrateTheme.colors.inkDim)
+                Text(
+                    text = "·",
+                    color = CrateTheme.colors.inkDim,
+                )
                 CrateMonoLabel(
                     text = activeVideo.displayName,
                     color = CrateTheme.colors.inkMuted,
