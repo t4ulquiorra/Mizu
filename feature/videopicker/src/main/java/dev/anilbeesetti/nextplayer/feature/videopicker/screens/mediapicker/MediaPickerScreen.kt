@@ -1201,14 +1201,21 @@ private fun SelectionActionsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 12.dp,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Row(
                 modifier = Modifier
                     .clip(shape = dockShape)
                     .background(color = CrateTheme.colors.bgSurfaceKey)
-                    .border(1.dp, CrateTheme.colors.borderStrong, dockShape)
+                    .border(
+                        width = 1.dp,
+                        color = CrateTheme.colors.borderStrong,
+                        shape = dockShape,
+                    )
                     .horizontalScroll(state = rememberScrollState())
                     .thenIf(condition = isTv) {
                         focusRestorer(fallback = firstActionFocusRequester).focusGroup()

@@ -81,7 +81,10 @@ internal fun BoxScope.DpadSeekIndicator(visible: Boolean, offsetMs: Long, positi
         Surface(
             shape = CrateTheme.shapes.card,
             color = CrateTheme.colors.bgSurfaceKey.copy(alpha = 0.85f),
-            border = BorderStroke(1.dp, CrateTheme.colors.borderStrong),
+            border = BorderStroke(
+                width = 1.dp,
+                color = CrateTheme.colors.borderStrong,
+            ),
         ) {
             Row(
                 modifier = Modifier.padding(

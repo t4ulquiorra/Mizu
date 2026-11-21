@@ -140,7 +140,10 @@ fun CrateFolderStack(
         // Stack container
         Box(
             modifier = Modifier
-                .size(width = folderWidth, height = folderHeight),
+                .size(
+                    width = folderWidth,
+                    height = folderHeight,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             for (i in maxVisible downTo minVisible) {
@@ -293,8 +296,15 @@ fun CrateFolderStack(
                 .padding(bottom = 20.dp)
                 .clip(CrateTheme.shapes.pill)
                 .background(CrateTheme.colors.bgSurfaceKey)
-                .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.pill)
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+                .border(
+                    width = 1.dp,
+                    color = CrateTheme.colors.borderStrong,
+                    shape = CrateTheme.shapes.pill,
+                )
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 6.dp,
+                ),
         ) {
             Text(
                 text = "${currentIndex + 1} / ${folders.size} FOLDERS",
@@ -328,7 +338,10 @@ private fun CrateFolderCard(
 
     Box(
         modifier = modifier
-            .size(width = folderWidth, height = folderHeight),
+            .size(
+                width = folderWidth,
+                height = folderHeight,
+            ),
     ) {
         // Staggered Top Tab
         Box(
@@ -338,8 +351,16 @@ private fun CrateFolderCard(
                     x = folderWidth * tabOffsetFraction + 16.dp,
                     y = (-36).dp,
                 )
-                .size(width = tabWidth, height = 38.dp)
-                .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .size(
+                    width = tabWidth,
+                    height = 38.dp,
+                )
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 14.dp,
+                        topEnd = 14.dp,
+                    ),
+                )
                 .background(tabColor)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -347,15 +368,19 @@ private fun CrateFolderCard(
                     role = Role.Tab,
                     onClick = onTabClick,
                 )
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(
+                    horizontal = 12.dp,
+                    vertical = 6.dp,
+                ),
             contentAlignment = Alignment.CenterStart,
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                val indexStr = if (index + 1 < 10) "0${index + 1}" else "${index + 1}"
                 Text(
-                    text = String.format("%02d", index + 1),
+                    text = indexStr,
                     style = CrateTheme.typography.labelMonoSmall,
                     color = CrateTheme.colors.inkPaper.copy(alpha = 0.7f),
                 )
@@ -364,7 +389,10 @@ private fun CrateFolderCard(
                     style = CrateTheme.typography.titleSmall,
                     color = CrateTheme.colors.inkPaper,
                     maxLines = 1,
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier.weight(
+                        weight = 1f,
+                        fill = false,
+                    ),
                 )
             }
         }
@@ -397,8 +425,9 @@ private fun CrateFolderCard(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val folderLabelIndexStr = if (index + 1 < 10) "0${index + 1}" else "${index + 1}"
                     CrateMonoLabel(
-                        text = "FOLDER ${String.format("%02d", index + 1)}",
+                        text = "FOLDER $folderLabelIndexStr",
                         color = CrateTheme.colors.inkPaper.copy(alpha = 0.6f),
                         style = CrateTheme.typography.labelMonoSmall,
                     )
@@ -441,7 +470,10 @@ private fun CrateFolderCard(
                             modifier = Modifier
                                 .clip(CrateTheme.shapes.pill)
                                 .background(CrateTheme.colors.accent)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                .padding(
+                                    horizontal = 8.dp,
+                                    vertical = 4.dp,
+                                ),
                         ) {
                             Text(
                                 text = "LAST PLAYED",
@@ -493,7 +525,10 @@ private fun CrateFolderCard(
                                     translationY = animatedFanY
                                     rotationZ = animatedFanR
                                 }
-                                .size(width = 6.dp, height = baseHeight)
+                                .size(
+                                    width = 6.dp,
+                                    height = baseHeight,
+                                )
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(
                                     color = if (k < 3) {
@@ -510,7 +545,10 @@ private fun CrateFolderCard(
                             text = "+${folder.videosCount - 26}",
                             style = CrateTheme.typography.labelMonoSmall,
                             color = CrateTheme.colors.inkPaper.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+                            modifier = Modifier.padding(
+                                start = 4.dp,
+                                bottom = 4.dp,
+                            ),
                         )
                     }
                 }

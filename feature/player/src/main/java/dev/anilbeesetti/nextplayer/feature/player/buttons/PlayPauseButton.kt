@@ -33,7 +33,11 @@ fun PlayPauseButton(modifier: Modifier = Modifier, player: Player?) {
     PlayerButton(
         modifier = modifier
             .size(64.dp)
-            .border(1.5.dp, CrateTheme.colors.borderStrong, CircleShape),
+            .border(
+                width = 1.5.dp,
+                color = CrateTheme.colors.borderStrong,
+                shape = CircleShape,
+            ),
         containerColor = CrateTheme.colors.bgSurfaceKey.copy(alpha = 0.85f),
         enabled = state.isEnabled,
         onClick = state::onClick,

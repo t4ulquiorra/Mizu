@@ -297,12 +297,18 @@ fun CrateArcCarousel(
                         text = "${currentIndex + 1} OF ${videos.size}",
                         color = CrateTheme.colors.accent,
                     )
-                    Text(text = "·", color = CrateTheme.colors.inkDim)
+                    Text(
+                        text = "·",
+                        color = CrateTheme.colors.inkDim,
+                    )
                     CrateMonoLabel(
                         text = Utils.formatDurationMillis(activeVideo.duration),
                     )
                     if (activeVideo.size > 0) {
-                        Text(text = "·", color = CrateTheme.colors.inkDim)
+                        Text(
+                            text = "·",
+                            color = CrateTheme.colors.inkDim,
+                        )
                         CrateMonoLabel(text = Utils.formatFileSize(activeVideo.size))
                     }
                 }
@@ -334,14 +340,19 @@ fun CrateArcCarousel(
                     coroutineScope.launch {
                         scrollPos.animateTo(
                             targetValue = target.coerceIn(0f, videos.lastIndex.toFloat()),
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            animationSpec = spring(
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
                         )
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(68.dp)
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 4.dp,
+                    ),
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -376,10 +387,17 @@ private fun CrateArcCard(
         // Main 16:9 Thumbnail Box
         Box(
             modifier = Modifier
-                .size(width = cardWidth, height = cardHeight)
+                .size(
+                    width = cardWidth,
+                    height = cardHeight,
+                )
                 .clip(RoundedCornerShape(16.dp))
                 .background(CrateTheme.colors.bgSurfaceKey)
-                .border(if (isActive) 2.dp else 1.dp, borderColor, RoundedCornerShape(16.dp)),
+                .border(
+                    width = if (isActive) 2.dp else 1.dp,
+                    color = borderColor,
+                    shape = RoundedCornerShape(16.dp),
+                ),
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -399,7 +417,10 @@ private fun CrateArcCard(
                         .padding(8.dp)
                         .clip(CrateTheme.shapes.stamp)
                         .background(Color.Black.copy(alpha = 0.75f))
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                        .padding(
+                            horizontal = 6.dp,
+                            vertical = 3.dp,
+                        ),
                 ) {
                     Text(
                         text = Utils.formatDurationMillis(video.duration),
@@ -416,11 +437,19 @@ private fun CrateArcCard(
                     .padding(8.dp)
                     .clip(CrateTheme.shapes.stamp)
                     .background(CrateTheme.colors.bgSurfaceKey.copy(alpha = 0.85f))
-                    .border(1.dp, CrateTheme.colors.borderStrong, CrateTheme.shapes.stamp)
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                    .border(
+                        width = 1.dp,
+                        color = CrateTheme.colors.borderStrong,
+                        shape = CrateTheme.shapes.stamp,
+                    )
+                    .padding(
+                        horizontal = 6.dp,
+                        vertical = 2.dp,
+                    ),
             ) {
+                val indexStr = if (index + 1 < 10) "0${index + 1}" else "${index + 1}"
                 Text(
-                    text = String.format("%02d", index + 1),
+                    text = indexStr,
                     style = CrateTheme.typography.labelMonoSmall,
                     color = CrateTheme.colors.inkPrimary,
                 )
@@ -430,12 +459,20 @@ private fun CrateArcCard(
         // Mirrored Ground Reflection
         Box(
             modifier = Modifier
-                .size(width = cardWidth, height = cardHeight * 0.35f)
+                .size(
+                    width = cardWidth,
+                    height = cardHeight * 0.35f,
+                )
                 .graphicsLayer {
                     scaleY = -0.85f
                     alpha = 0.35f
                 }
-                .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)),
+                .clip(
+                    RoundedCornerShape(
+                        bottomStart = 16.dp,
+                        bottomEnd = 16.dp,
+                    ),
+                ),
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -509,8 +546,14 @@ private fun CratePrecisionRuler(
 
                     drawLine(
                         color = tickColor,
-                        start = Offset(tickX, canvasHeight - tickHeight - 8f),
-                        end = Offset(tickX, canvasHeight - 8f),
+                        start = Offset(
+                            x = tickX,
+                            y = canvasHeight - tickHeight - 8f,
+                        ),
+                        end = Offset(
+                            x = tickX,
+                            y = canvasHeight - 8f,
+                        ),
                         strokeWidth = if (isMajor) 2.dp.toPx() else 1.dp.toPx(),
                     )
                 }
@@ -519,14 +562,23 @@ private fun CratePrecisionRuler(
             // Draw Center Accent Needle
             drawLine(
                 color = accentColor,
-                start = Offset(centerX, 6f),
-                end = Offset(centerX, canvasHeight - 6f),
+                start = Offset(
+                    x = centerX,
+                    y = 6f,
+                ),
+                end = Offset(
+                    x = centerX,
+                    y = canvasHeight - 6f,
+                ),
                 strokeWidth = 3.dp.toPx(),
             )
             drawCircle(
                 color = accentColor,
                 radius = 3.5.dp.toPx(),
-                center = Offset(centerX, 6f),
+                center = Offset(
+                    x = centerX,
+                    y = 6f,
+                ),
             )
         }
     }
