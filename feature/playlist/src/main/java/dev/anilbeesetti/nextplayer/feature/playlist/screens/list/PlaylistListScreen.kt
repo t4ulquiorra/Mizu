@@ -54,12 +54,12 @@ import dev.anilbeesetti.nextplayer.core.ui.components.NextOutlinedTextField
 import dev.anilbeesetti.nextplayer.core.ui.components.NextSegmentedListItem
 import dev.anilbeesetti.nextplayer.core.ui.components.NextTopAppBar
 import dev.anilbeesetti.nextplayer.core.ui.components.TopLevelFabKey
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
 import dev.anilbeesetti.nextplayer.core.ui.components.tvListFocus
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
-import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
 
 @Composable
 fun PlaylistListScreen(
@@ -105,7 +105,8 @@ internal fun PlaylistListScreenContent(
                             style = CrateTheme.typography.titleLarge,
                             color = CrateTheme.colors.inkPrimary,
                         )
-                        val count = (state.playlistsDataState as? DataState.Success)?.value?.size ?: 0
+                        val count =
+                            (state.playlistsDataState as? DataState.Success)?.value?.size ?: 0
                         CrateMonoBreadcrumb(
                             section = "SHELF",
                             count = "$count REELS",

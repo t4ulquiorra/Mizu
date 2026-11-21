@@ -8,9 +8,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,6 +108,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.NextOutlinedTextField
 import dev.anilbeesetti.nextplayer.core.ui.components.NextTopAppBar
 import dev.anilbeesetti.nextplayer.core.ui.components.TextIconToggleButton
 import dev.anilbeesetti.nextplayer.core.ui.components.TopLevelFabKey
+import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
 import dev.anilbeesetti.nextplayer.core.ui.components.rememberRestorableFocusState
 import dev.anilbeesetti.nextplayer.core.ui.components.thenIf
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
@@ -118,7 +119,6 @@ import dev.anilbeesetti.nextplayer.core.ui.preview.DayNightPreview
 import dev.anilbeesetti.nextplayer.core.ui.preview.VideoPickerPreviewParameterProvider
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
-import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateMonoBreadcrumb
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.CenterCircularProgressBar
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.MediaInfoDialog
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.MediaView

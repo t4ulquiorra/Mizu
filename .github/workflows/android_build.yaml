@@ -50,23 +50,25 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
-      - name: Run Local Tests
-        run: ./gradlew test
-
-      - name: Lint Checks
-        run: ./gradlew ktlintCheck
-
       - name: Upload Release APKs
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: mizu-release-apks
           path: ./app/build/outputs/apk/release/*.apk
 
       - name: Upload Debug APKs
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: mizu-debug-apks
           path: ./app/build/outputs/apk/debug/*.apk
+
+      - name: Run Local Tests
+        run: ./gradlew test
+
+      - name: Lint Checks
+        run: ./gradlew ktlintCheck
 
       - name: Upload build reports
         if: always()

@@ -32,8 +32,8 @@ import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.components.NextSegmentedListItem
 import dev.anilbeesetti.nextplayer.core.ui.components.NextTopAppBar
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
-import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.extensions.plus
+import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 
 @Composable
 fun LibrariesScreen(viewModel: LibrariesViewModel) {

@@ -429,14 +429,23 @@ private fun CrateAccentSelector(
                 modifier = Modifier
                     .weight(1f)
                     .clip(CrateTheme.shapes.card)
-                    .background(if (isSelected) CrateTheme.colors.bgSurfaceKey else CrateTheme.colors.bgSurface)
+                    .background(
+                        color = if (isSelected) {
+                            CrateTheme.colors.bgSurfaceKey
+                        } else {
+                            CrateTheme.colors.bgSurface
+                        },
+                    )
                     .border(
                         width = if (isSelected) 2.dp else 1.dp,
                         color = if (isSelected) option.accent else CrateTheme.colors.borderStrong,
                         shape = CrateTheme.shapes.card,
                     )
                     .clickable { onAccentSelected(option) }
-                    .padding(vertical = 12.dp, horizontal = 6.dp),
+                    .padding(
+                        vertical = 12.dp,
+                        horizontal = 6.dp,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(

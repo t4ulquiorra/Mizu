@@ -63,9 +63,9 @@ import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateTactileButton
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateBgBase
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
 import dev.anilbeesetti.nextplayer.core.ui.theme.getCratePaperColor
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @Composable
 fun CrateFolderStack(
@@ -373,7 +373,14 @@ private fun CrateFolderCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomEnd = 16.dp, bottomStart = 16.dp))
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 6.dp,
+                        topEnd = 20.dp,
+                        bottomEnd = 16.dp,
+                        bottomStart = 16.dp,
+                    ),
+                )
                 .background(paperColor)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -395,14 +402,20 @@ private fun CrateFolderCard(
                         color = CrateTheme.colors.inkPaper.copy(alpha = 0.6f),
                         style = CrateTheme.typography.labelMonoSmall,
                     )
+                    val titleStyle = if (isPhone) {
+                        CrateTheme.typography.titleLarge
+                    } else {
+                        CrateTheme.typography.titleDisplay
+                    }
                     Text(
                         text = folder.name,
-                        style = if (isPhone) CrateTheme.typography.titleLarge else CrateTheme.typography.titleDisplay,
+                        style = titleStyle,
                         color = CrateTheme.colors.inkPaper,
                         maxLines = 2,
                     )
+                    val countUnit = if (folder.videosCount == 1) "VIDEO" else "VIDEOS"
                     Text(
-                        text = "${folder.videosCount} ${if (folder.videosCount == 1) "VIDEO" else "VIDEOS"}",
+                        text = "${folder.videosCount} $countUnit",
                         style = CrateTheme.typography.labelMono,
                         color = CrateTheme.colors.inkPaper.copy(alpha = 0.85f),
                     )
@@ -483,7 +496,11 @@ private fun CrateFolderCard(
                                 .size(width = 6.dp, height = baseHeight)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(
-                                    if (k < 3) CrateTheme.colors.accent else CrateTheme.colors.borderInput,
+                                    color = if (k < 3) {
+                                        CrateTheme.colors.accent
+                                    } else {
+                                        CrateTheme.colors.borderInput
+                                    },
                                 ),
                         )
                     }

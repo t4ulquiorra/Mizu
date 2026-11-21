@@ -75,13 +75,13 @@ import dev.anilbeesetti.nextplayer.core.ui.components.crate.CrateTactileButton
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateBgBase
 import dev.anilbeesetti.nextplayer.core.ui.theme.CrateTheme
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @Composable
 fun CrateArcCarousel(
@@ -171,9 +171,12 @@ fun CrateArcCarousel(
                     val video = videos[i]
                     val d = i - currentPos
                     val theta = d * 0.26f // radians
-                    val xPx = radius * sin(theta) * density.density * (if (isPhone) 0.55f else 0.85f)
+                    val xPx =
+                        radius * sin(theta) * density.density * (if (isPhone) 0.55f else 0.85f)
                     val zDepth = radius * (1f - cos(theta))
-                    val scale = (1f + (1f - abs(d)).coerceIn(0f, 1f) * 0.28f) * (1f - abs(d) * 0.05f).coerceAtLeast(0.6f)
+                    val scale =
+                        (1f + (1f - abs(d)).coerceIn(0f, 1f) * 0.28f) *
+                            (1f - abs(d) * 0.05f).coerceAtLeast(0.6f)
                     val rotY = (theta * (180f / PI.toFloat()))
                     val alpha = (1f - (abs(d) / 4.2f)).coerceIn(0f, 1f)
                     val zIndexVal = 100f - abs(d) * 10f
@@ -230,7 +233,9 @@ fun CrateArcCarousel(
                                 coroutineScope.launch {
                                     scrollPos.animateTo(
                                         (currentIndex - 1).toFloat(),
-                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                        animationSpec = spring(
+                                            stiffness = Spring.StiffnessMediumLow,
+                                        ),
                                     )
                                 }
                             }
@@ -245,7 +250,9 @@ fun CrateArcCarousel(
                                 coroutineScope.launch {
                                     scrollPos.animateTo(
                                         (currentIndex + 1).toFloat(),
-                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                        animationSpec = spring(
+                                            stiffness = Spring.StiffnessMediumLow,
+                                        ),
                                     )
                                 }
                             }
@@ -261,13 +268,21 @@ fun CrateArcCarousel(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 6.dp),
+                    .padding(
+                        horizontal = 24.dp,
+                        vertical = 6.dp,
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                val titleStyle = if (isPhone) {
+                    CrateTheme.typography.titleMedium
+                } else {
+                    CrateTheme.typography.titleLarge
+                }
                 Text(
                     text = activeVideo.displayName,
-                    style = if (isPhone) CrateTheme.typography.titleMedium else CrateTheme.typography.titleLarge,
+                    style = titleStyle,
                     color = CrateTheme.colors.inkPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
